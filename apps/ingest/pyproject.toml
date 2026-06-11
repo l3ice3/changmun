@@ -7,7 +7,9 @@ packages = [{ include = "ingest", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-# 수집/DB 의존성(httpx·psycopg 등)은 FR-001 구현 시 확정해 추가한다 — 미리 넣지 않음
+requests = "^2.32"
+psycopg = { version = "^3.2", extras = ["binary"] }
+python-dotenv = "^1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

@@ -1,0 +1,64 @@
+{
+  "currentCount": 4,
+  "data": [
+    {
+      "id": 1,
+      "pbanc_sn": 177976,
+      "biz_pbanc_nm": "2026 하반기 서울 AI 허브 입주기업 모집 공고\r\n",
+      "pbanc_ctnt": "본 사업은 혁신적인 아이디어를 보유한 예비창업자의 사업화를 지원합니다.\r\n",
+      "supt_biz_clsfc": "기술개발(R&amp;D)",
+      "supt_regin": "서울",
+      "pbanc_ntrp_nm": "서울특별시",
+      "sprv_inst": "공공기관",
+      "biz_enyy": "예비창업자,1년미만",
+      "aply_trgt": "청소년,대학생,일반인,1인 창조기업",
+      "aply_trgt_ctnt": "예비창업자(사업자등록 이력이 없는 자) 및 업력 1년 미만 기업",
+      "pbanc_rcpt_bgng_dt": "20260601",
+      "pbanc_rcpt_end_dt": "20260619",
+      "detl_pg_url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=177976",
+      "biz_aply_url": null,
+      "aply_mthd_onli_rcpt_istc": "[www.k-startup.go.kr](https://www.k-startup.go.kr/apply/177976)",
+      "biz_gdnc_url": null,
+      "aply_mthd_fax_rcpt_istc": null,
+      "rcrt_prgs_yn": "Y",
+      "biz_trgt_age": "만 20세 이상 ~ 만 39세 이하",
+      "intg_pbanc_biz_nm": "서울 AI 허브 &#40;본관&#41;"
+    },
+    {
+      "id": 2,
+      "pbanc_sn": null,
+      "biz_pbanc_nm": "pbanc_sn이 없는 비정상 레코드",
+      "detl_pg_url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=0"
+    },
+    {
+      "id": 3,
+      "pbanc_sn": 177980,
+      "biz_pbanc_nm": "   ",
+      "detl_pg_url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=177980"
+    },
+    {
+      "id": 4,
+      "pbanc_sn": "177999",
+      "biz_pbanc_nm": "2026 글로벌 수출 더부스트 프로그램 참여기업 모집",
+      "pbanc_ctnt": null,
+      "supt_biz_clsfc": "수출 지원",
+      "supt_regin": "대전광역시",
+      "pbanc_ntrp_nm": "중소벤처기업부",
+      "sprv_inst": "지자체",
+      "biz_enyy": null,
+      "aply_trgt": null,
+      "aply_trgt_ctnt": null,
+      "pbanc_rcpt_bgng_dt": "2026-06-30",
+      "pbanc_rcpt_end_dt": "",
+      "detl_pg_url": "www.k-startup.go.kr/web/contents/bizpbanc-deadline.do?schM=view&pbancSn=177999",
+      "biz_aply_url": null,
+      "aply_mthd_onli_rcpt_istc": "방문 접수 후 담당자 안내에 따름",
+      "biz_gdnc_url": null,
+      "rcrt_prgs_yn": "N"
+    }
+  ],
+  "matchCount": 4,
+  "page": 1,
+  "perPage": 10,
+  "totalCount": 4
+}
