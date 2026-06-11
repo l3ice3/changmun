@@ -39,8 +39,9 @@
 10. **PRD Out-of-Scope 구현 금지**: 로그인·추천·알림·관리자 UI·민간 수집. 요청받지 않은 기능 추가 금지.
 
 ## 코딩 규칙 — apps/api (Java) 작업 시 MUST
+> **원본은 `docs/rules/rules-core.md` — 규칙 수정은 그쪽을 먼저 고치고 이 섹션에 반영한다(이 섹션은 압축 사본).**
 > 전체 체계: `docs/rules/README.md` · 상세·이유·예시: `docs/rules/rules-full.md` (작업 종류별 해당 섹션만 발췌 참조)
-> 아래는 상시 규칙(core = `docs/rules/rules-core.md`). 커밋 전 `./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가.
+> 커밋 전 `./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가.
 
 ### 스타일
 - indent depth ≤ 2 / 메서드 ≤ 20라인 / 메서드 인자 ≤ 4
@@ -66,8 +67,10 @@
 ## 작업 흐름
 1. 작업 = FR 단위. 시작 전 해당 FR(PRD) + 연결 AC(AC.md) + 앱 규칙(.claude/rules/) 읽기.
 2. 구현 후 **AC 기준 자가 판정** — Pass 근거를 명시하고 완료 선언.
-3. 테스트: `apps/ingest` = pytest 필수 / `apps/api` = Spring 테스트 필수 / `apps/web` = AC의 수동 절차 명시 (E2E 자동화 금지 — Phase 2).
-4. 커밋 단위 = FR 또는 AC 단위로 작게.
+3. 완료 선언 시 **`AC.md` §1 매핑 테이블의 상태 칸을 같은 커밋에서 갱신** (문서 부패 방지 최소 장치).
+4. 테스트: `apps/ingest` = pytest 필수 / `apps/api` = Spring 테스트 필수 / `apps/web` = AC의 수동 절차 명시 (E2E 자동화 금지 — Phase 2).
+5. 커밋 단위 = FR 또는 AC 단위로 작게.
+6. **살아있는 계약 4개(PRD·AC·data-model·api-spec)와 코드가 어긋나면 즉시 동기화.** 그 외 문서는 갱신 의무 없음 (README 유지보수 정책).
 
 ## 명령어
 ```bash
