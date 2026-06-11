@@ -16,7 +16,7 @@
 | `docs/rules/` | 코딩 규칙 시스템 (core/full/review-bot — 체계는 `docs/rules/README.md`) |
 | `apps/api/config/` | Checkstyle·PMD 설정 — `build.gradle.kts`의 check 태스크에 연결됨 (A그룹 자동 차단) |
 | `apps/api/src/test/.../ArchitectureTest.java` | ArchUnit 계층 의존 검사 (`com.changmun` 기준) |
-| `.github/workflows/` | static-analysis(하드 게이트) + claude-review(소프트 제안) |
+| `.github/workflows/` | static-analysis(하드 게이트) + codex-review(소프트 제안) |
 
 ## 문서 유지보수 정책
 **갱신 의무가 있는 살아있는 계약은 4개뿐**: `PRD.md` · `AC.md`(매핑 테이블 상태 포함) · `data-model.md` · `api-spec.md`.
@@ -50,4 +50,4 @@ cd apps/web && pnpm install && pnpm dev
 ## 확정 / 미결정
 - 로마자 표기: **changmun 확정** (Java 패키지 `com.changmun`, DB명 `changmun`)
 - API 키 3종 발급(K-Startup/기업마당/온통청년) — FR-001 실수집 전 필요
-- GitHub: branch protection(`static-analysis` required) + Claude App + `ANTHROPIC_API_KEY` 시크릿 — 리모트 푸시 후
+- GitHub: branch protection(`static-analysis` required) + `OPENAI_API_KEY` 시크릿(codex-review용)

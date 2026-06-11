@@ -24,7 +24,7 @@ apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있
 
 .github/workflows/
   static-analysis.yml    ← A그룹 자동 차단 (실패 시 PR 머지 불가)
-  claude-review.yml      ← B/C그룹 LLM 리뷰 (코멘트만, 차단 안 함)
+  codex-review.yml       ← B/C그룹 LLM 리뷰 (Codex CLI, 코멘트만, 차단 안 함)
 ```
 
 ## 동작 흐름
@@ -32,7 +32,7 @@ apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있
 1. 개발자(또는 AI)가 `CLAUDE.md` / `rules-core.md` 를 보며 구현한다.
 2. PR을 올리면 GitHub Actions가 두 갈래로 검사한다.
    - **static-analysis.yml** → 셀 수 있는 규칙 위반 시 **빨간불 = 머지 불가**.
-   - **claude-review.yml** → 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
+   - **codex-review.yml** → 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
 3. 사람 리뷰어는 B그룹(SRP, Tell-Don't-Ask 등)에 집중한다. 셀 수 있는 건 봇이 이미 잡았다.
 
 ## 왜 이렇게 나누는가
@@ -46,7 +46,7 @@ apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있
 - [x] `build.gradle.snippet` 내용을 실제 `apps/api/build.gradle.kts` 에 병합 (snippet은 병합 후 삭제)
 - [x] `config/` 의 두 XML 배치 (`apps/api/config/`), ArchitectureTest 패키지를 `com.changmun` 으로 수정
 - [x] `./gradlew check` 가 로컬에서 도는지 확인 (PMD 7 호환: ExcessiveClassLength → NcssCount 교체)
-- [ ] 레포에 Claude GitHub App 설치 + `ANTHROPIC_API_KEY` 시크릿 등록
+- [ ] 레포 Secrets에 `OPENAI_API_KEY` 등록 (codex-review용)
 - [x] 두 워크플로우를 `.github/workflows/` 에 배치 (static-analysis는 `apps/api` 기준으로 경로 조정)
 - [ ] GitHub branch protection 에서 `static-analysis` job 을 required check 로 지정 (이래야 실제로 머지가 막힌다)
 
