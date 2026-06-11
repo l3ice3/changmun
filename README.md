@@ -22,16 +22,27 @@
 기획서 → PRD → data-model → screens → api-spec → AC
 
 ## 상태
-기획·계약·가드레일 확정. `apps/api` Spring Boot 스캐폴딩 완료 (Boot 4.1 · Java 21 · Kotlin DSL · `./gradlew check` 통과).
-다음 = db/migrations V1 + apps/ingest·web 스캐폴딩 → FR-001(수집) → FR-002(dedup) → API → 프론트.
+스캐폴딩 전부 완료 — 다음 작업 = **FR-001(수집)**.
+- `db/migrations` V1(opportunity)·V2(glossary·event_log) — 로컬 PostgreSQL에 Flyway 적용 검증 완료
+- `apps/api` Spring Boot 4.1 · Java 21 · Kotlin DSL — `./gradlew check`(checkstyle·pmd·ArchUnit) 통과
+- `apps/ingest` poetry 골격(sources/normalize/dedup/persona) — pytest 스모크 통과
+- `apps/web` Next.js 15 + TS + Tailwind 골격 — **Node 미설치라 `pnpm install` 미검증** (아래 도구 설치 후 확인)
 
 ## 로컬 실행
 ```bash
 docker compose up -d            # PostgreSQL 16 (changmun/changmun@localhost:5432/changmun)
-cd apps/api && ./gradlew bootRun
-cd apps/api && ./gradlew check  # 커밋 전 필수: checkstyle + pmd + ArchUnit/테스트
+cd apps/api && ./gradlew bootRun  # Flyway 마이그레이션 자동 적용 + 8080 기동
+cd apps/api && ./gradlew check    # 커밋 전 필수: checkstyle + pmd + ArchUnit/테스트
+cd apps/ingest && poetry install && poetry run pytest
+cd apps/web && pnpm install && pnpm dev
 ```
 
-## 미결정 (구현 안 막음)
-- 로마자 표기: **changmun으로 잠정 확정** (Java 패키지 `com.changmun` 적용됨). 도메인 구매 전 팀 최종 확인
-- API 키 3종 발급(K-Startup/기업마당/온통청년)
+## 개발 도구 설치 (1회)
+- Java 21 ✅ / Docker ✅ / Python 3.11 ✅ (이미 설치됨)
+- poetry: `pip install poetry` 또는 공식 installer
+- Node LTS + pnpm: `winget install OpenJS.NodeJS.LTS` 후 `corepack enable pnpm`
+
+## 확정 / 미결정
+- 로마자 표기: **changmun 확정** (Java 패키지 `com.changmun`, DB명 `changmun`)
+- API 키 3종 발급(K-Startup/기업마당/온통청년) — FR-001 실수집 전 필요
+- GitHub: branch protection(`static-analysis` required) + Claude App + `ANTHROPIC_API_KEY` 시크릿 — 리모트 푸시 후
