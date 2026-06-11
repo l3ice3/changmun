@@ -39,7 +39,7 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
-// ---------- Checkstyle (A그룹: 스타일/라인/분기 자동 차단) — docs/rules/rules-review-bot.md A섹션 ----------
+// ---------- Checkstyle (A그룹: 스타일/라인/분기 자동 차단) — AGENTS.md §2 리뷰 분담 A그룹 ----------
 checkstyle {
 	toolVersion = "10.20.1"
 	configFile = file("$rootDir/config/checkstyle.xml")

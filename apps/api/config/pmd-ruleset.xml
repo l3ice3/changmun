@@ -6,7 +6,7 @@
 
     <description>
         A그룹(자동 차단) 중 Checkstyle로 표현하기 어려운 항목.
-        근거: docs/rules/rules-review-bot.md A섹션
+        근거: AGENTS.md §2 리뷰 분담 A그룹
     </description>
 
     <!-- 인스턴스 변수 ≤ 5 -->

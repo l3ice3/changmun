@@ -1,7 +1,7 @@
 name: Static Analysis (Hard Gate)
 
 # A그룹 자동 차단. 실패하면 PR 머지 불가.
-# 근거: docs/rules/rules-review-bot.md A섹션
+# 근거: AGENTS.md §2 리뷰 분담 A그룹
 # 모노레포: Gradle 프로젝트는 apps/api — 해당 경로 변경 시에만 실행
 
 on:

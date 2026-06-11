@@ -8,11 +8,12 @@
 ```
 docs/rules/
   README.md              ← (이 파일) 전체 구조 안내
-  rules-core.md          ← 상시 규칙 압축본. AI 매 요청 / 사람 빠른 참조
+  rules-core.md          ← 상시 규칙 압축본(원본). AI 매 요청 / 사람 빠른 참조
   rules-full.md          ← 상세·이유·예시. 작업 종류별 발췌 참조
-  rules-review-bot.md    ← 봇 vs 사람 위임 경계 (A/B/C 분류)
 
-CLAUDE.md                ← AI 에이전트가 항상 읽는 작업 지침 (core 기반)
+CLAUDE.md                ← Claude Code가 항상 읽는 작업 지침 (core 기반)
+AGENTS.md                ← Codex가 읽는 작업·리뷰 지침 — 리뷰 분담(A/B/C 분류) 전문 포함
+                            (구 rules-review-bot.md 내용이 여기로 흡수됨)
 
 apps/api/config/
   checkstyle.xml         ← A그룹: 라인/depth/인자/else·switch·삼항/네이밍
@@ -34,8 +35,8 @@ apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있
 1. 개발자(또는 AI)가 `CLAUDE.md` / `rules-core.md` 를 보며 구현한다.
 2. PR을 올리면 GitHub Actions가 두 갈래로 검사한다.
    - **static-analysis.yml** → 셀 수 있는 규칙 위반 시 **빨간불 = 머지 불가**.
-   - **Codex 클라우드 코드 리뷰** → 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
-3. 사람 리뷰어는 B그룹(SRP, Tell-Don't-Ask 등)에 집중한다. 셀 수 있는 건 봇이 이미 잡았다.
+   - **Codex 클라우드 코드 리뷰** → `AGENTS.md`의 리뷰 분담 기준대로 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
+3. 사람 리뷰어는 B그룹(SRP, Tell-Don't-Ask 등 — AGENTS.md §2)에 집중한다. 셀 수 있는 건 봇이 이미 잡았다.
 
 ## 왜 이렇게 나누는가
 

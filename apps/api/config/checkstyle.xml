@@ -6,7 +6,7 @@
 <!--
   A그룹(자동 차단) 규칙. 셀 수 있는 것만 담는다.
   severity=error 인 항목은 위반 시 빌드 실패 → PR 반려.
-  근거: docs/rules/rules-review-bot.md A섹션
+  근거: AGENTS.md §2 리뷰 분담 A그룹
 -->
 <module name="Checker">
     <property name="severity" value="error"/>
