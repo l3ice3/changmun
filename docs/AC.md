@@ -52,10 +52,10 @@ Then:  source별('k-startup','bizinfo','ontong-youth') 레코드가 각 1건 이
 ```gherkin
 Given: 수집 1회 완료된 DB (행 수 = N)
 When:  같은 스크립트를 즉시 1회 더 실행한다
-Then:  행 수는 그대로 N이고(신규 공고 없다고 가정), 기존 행의 last_seen_at만 갱신된다
+Then:  행 수는 그대로 N이고(신규 공고 없다고 가정), 기존 행의 updated_at만 갱신된다(first_seen_at 불변)
 ```
 **검증**
-- [ ] 자동: `test_idempotency` — 2회 실행 전후 `COUNT(*)` 동일 + `last_seen_at` 변경 확인
+- [ ] 자동: `test_idempotency` — 2회 실행 전후 `COUNT(*)` 동일 + `updated_at` 변경 확인
 
 #### AC-003: 필수필드 누락 레코드는 스킵되고 파이프라인은 계속된다 (Negative / Must)
 ```gherkin

@@ -14,13 +14,13 @@ docs/rules/
 
 CLAUDE.md                ← AI 에이전트가 항상 읽는 작업 지침 (core 기반)
 
-config/
+apps/api/config/
   checkstyle.xml         ← A그룹: 라인/depth/인자/else·switch·삼항/네이밍
   pmd-ruleset.xml        ← A그룹: 필드 수/디미터 체이닝/복잡도
 
-src/test/.../ArchitectureTest.java  ← A그룹: 계층 의존 규칙 (ArchUnit)
+apps/api/src/test/.../ArchitectureTest.java  ← A그룹: 계층 의존 규칙 (ArchUnit)
 
-build.gradle.snippet     ← 위 도구들을 build.gradle 에 붙이는 설정
+apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있음 (snippet은 병합 후 삭제)
 
 .github/workflows/
   static-analysis.yml    ← A그룹 자동 차단 (실패 시 PR 머지 불가)
