@@ -26,7 +26,7 @@
 - `db/migrations` V1(opportunity)·V2(glossary·event_log) — 로컬 PostgreSQL에 Flyway 적용 검증 완료
 - `apps/api` Spring Boot 4.1 · Java 21 · Kotlin DSL — `./gradlew check`(checkstyle·pmd·ArchUnit) 통과
 - `apps/ingest` poetry 골격(sources/normalize/dedup/persona) — pytest 스모크 통과
-- `apps/web` Next.js 15 + TS + Tailwind 골격 — **Node 미설치라 `pnpm install` 미검증** (아래 도구 설치 후 확인)
+- `apps/web` Next.js 15 + TS + Tailwind 골격 — `pnpm install && pnpm build` 통과 (정적 프리렌더 확인)
 
 ## 로컬 실행
 ```bash
@@ -38,9 +38,9 @@ cd apps/web && pnpm install && pnpm dev
 ```
 
 ## 개발 도구 설치 (1회)
-- Java 21 ✅ / Docker ✅ / Python 3.11 ✅ (이미 설치됨)
+- Java 21 ✅ / Docker ✅ / Python 3.11 ✅ / Node 24 + pnpm ✅ (설치됨)
 - poetry: `pip install poetry` 또는 공식 installer
-- Node LTS + pnpm: `winget install OpenJS.NodeJS.LTS` 후 `corepack enable pnpm`
+- PowerShell에서 pnpm이 실행 정책에 막히면: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ## 확정 / 미결정
 - 로마자 표기: **changmun 확정** (Java 패키지 `com.changmun`, DB명 `changmun`)
