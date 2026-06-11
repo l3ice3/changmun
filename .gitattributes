@@ -1,0 +1,18 @@
+# 줄바꿈 정책: 레포에는 LF로 저장, 체크아웃은 OS별 자동 (Windows·Mac 혼성 팀)
+* text=auto
+
+# Windows 전용 스크립트는 CRLF 고정
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 셸 스크립트는 LF 고정 (gradlew 등 — CRLF면 Mac/Linux/CI에서 실행 깨짐)
+*.sh text eol=lf
+gradlew text eol=lf
+
+# 바이너리
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
