@@ -14,16 +14,24 @@
 | `CLAUDE.md` | Claude Code용 가드레일 + Java 코딩 규칙 core |
 | `.claude/rules/` | 앱별 상세 규칙 (ingest/api/web) |
 | `docs/rules/` | 코딩 규칙 시스템 (core/full/review-bot — 체계는 `docs/rules/README.md`) |
-| `apps/api/config/` + `apps/api/build.gradle.snippet` | Checkstyle·PMD 설정 + Gradle 연결 (A그룹 자동 차단) |
-| `apps/api/src/test/.../ArchitectureTest.java` | ArchUnit 계층 의존 검사 (패키지명 확정 후 `com.example` 수정) |
+| `apps/api/config/` | Checkstyle·PMD 설정 — `build.gradle.kts`의 check 태스크에 연결됨 (A그룹 자동 차단) |
+| `apps/api/src/test/.../ArchitectureTest.java` | ArchUnit 계층 의존 검사 (`com.changmun` 기준) |
 | `.github/workflows/` | static-analysis(하드 게이트) + claude-review(소프트 제안) |
 
 ## 읽는 순서 (처음 보는 사람)
 기획서 → PRD → data-model → screens → api-spec → AC
 
 ## 상태
-기획·계약·가드레일 전부 확정. 다음 = 레포 스캐폴딩 → FR-001(수집) → FR-002(dedup) → API → 프론트.
+기획·계약·가드레일 확정. `apps/api` Spring Boot 스캐폴딩 완료 (Boot 4.1 · Java 21 · Kotlin DSL · `./gradlew check` 통과).
+다음 = db/migrations V1 + apps/ingest·web 스캐폴딩 → FR-001(수집) → FR-002(dedup) → API → 프론트.
+
+## 로컬 실행
+```bash
+docker compose up -d            # PostgreSQL 16 (changmun/changmun@localhost:5432/changmun)
+cd apps/api && ./gradlew bootRun
+cd apps/api && ./gradlew check  # 커밋 전 필수: checkstyle + pmd + ArchUnit/테스트
+```
 
 ## 미결정 (구현 안 막음)
-- 로마자 표기: changmoon vs changmun (팀 협의 후 패키지·DB·도메인 고정)
+- 로마자 표기: **changmun으로 잠정 확정** (Java 패키지 `com.changmun` 적용됨). 도메인 구매 전 팀 최종 확인
 - API 키 3종 발급(K-Startup/기업마당/온통청년)

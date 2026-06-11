@@ -1,4 +1,4 @@
-package com.example.architecture;
+package com.changmun.architecture;
 
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -14,10 +14,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *
  * 패키지 구조 전제:
  *   ..controller.. / ..service.. / ..domain.. / ..repository..
- * 프로젝트 실제 패키지명에 맞게 패키지 경로만 바꿔 쓴다.
  */
 @AnalyzeClasses(
-        packages = "com.example",
+        packages = "com.changmun",
         importOptions = ImportOption.DoNotIncludeTests.class
 )
 public class ArchitectureTest {

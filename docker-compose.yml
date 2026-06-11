@@ -1,0 +1,23 @@
+# 로컬 개발용 PostgreSQL (CLAUDE.md 환경: JSONB·pg_trgm 필수)
+# 실행: docker compose up -d
+# pg_trgm 확장은 Flyway 마이그레이션(/db/migrations)에서 활성화한다 — 스키마의 단일 진실 원칙.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: changmun-postgres
+    environment:
+      POSTGRES_DB: changmun
+      POSTGRES_USER: changmun
+      POSTGRES_PASSWORD: changmun
+    ports:
+      - "5432:5432"
+    volumes:
+      - changmun-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U changmun -d changmun"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  changmun-pgdata:

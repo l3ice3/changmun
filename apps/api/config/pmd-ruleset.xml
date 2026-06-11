@@ -22,10 +22,12 @@
     <!-- 배열 대신 컬렉션: 명시적 룰은 없어 UseVarargs 등 대신 사용자 정의 권장.
          여기선 클래스 크기/복잡도 보조 룰만 둔다. -->
 
-    <!-- 엔티티를 작게: 클래스 길이 가드 (과하지 않게 높은 값) -->
-    <rule ref="category/java/design.xml/ExcessiveClassLength">
+    <!-- 엔티티를 작게: 클래스 크기 가드 (과하지 않게 높은 값).
+         ExcessiveClassLength는 PMD 7에서 제거됨 → 후속 룰 NcssCount로 대체 (NCSS = 실행문 수 기준) -->
+    <rule ref="category/java/design.xml/NcssCount">
         <properties>
-            <property name="minimum" value="200"/>
+            <property name="classReportLevel" value="200"/>
+            <property name="methodReportLevel" value="30"/>
         </properties>
     </rule>
 

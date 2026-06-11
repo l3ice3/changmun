@@ -43,11 +43,11 @@ build.gradle.snippet     ← 위 도구들을 build.gradle 에 붙이는 설정
 
 ## 도입 순서 (체크리스트)
 
-- [ ] `build.gradle.snippet` 내용을 실제 `build.gradle` 에 병합
-- [ ] `config/` 의 두 XML 배치, ArchitectureTest 패키지 경로를 실제 패키지로 수정
-- [ ] `./gradlew check` 가 로컬에서 도는지 확인
+- [x] `build.gradle.snippet` 내용을 실제 `apps/api/build.gradle.kts` 에 병합 (snippet은 병합 후 삭제)
+- [x] `config/` 의 두 XML 배치 (`apps/api/config/`), ArchitectureTest 패키지를 `com.changmun` 으로 수정
+- [x] `./gradlew check` 가 로컬에서 도는지 확인 (PMD 7 호환: ExcessiveClassLength → NcssCount 교체)
 - [ ] 레포에 Claude GitHub App 설치 + `ANTHROPIC_API_KEY` 시크릿 등록
-- [ ] 두 워크플로우를 `.github/workflows/` 에 배치
+- [x] 두 워크플로우를 `.github/workflows/` 에 배치 (static-analysis는 `apps/api` 기준으로 경로 조정)
 - [ ] GitHub branch protection 에서 `static-analysis` job 을 required check 로 지정 (이래야 실제로 머지가 막힌다)
 
 ## 토큰/컨텍스트 관리

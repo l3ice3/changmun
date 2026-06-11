@@ -1,0 +1,23 @@
+# 절대 규칙 (CLAUDE.md):
+# - ddl-auto=validate 고정 — ORM이 스키마를 만들지 않는다. 스키마 변경은 /db/migrations Flyway SQL로만.
+# - DB 접속 정보는 환경변수 우선 (기본값은 로컬 docker compose 기준).
+spring:
+  application:
+    name: changmun-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/changmun}
+    username: ${DB_USERNAME:changmun}
+    password: ${DB_PASSWORD:changmun}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    # 스키마의 단일 진실 = 레포 루트 /db/migrations (apps/api 기준 상대경로, 배포 시 env로 교체)
+    locations: filesystem:${DB_MIGRATIONS_DIR:../../db/migrations}
+
+server:
+  port: 8080
