@@ -1,0 +1,53 @@
+name: Static Analysis (Hard Gate)
+
+# A그룹 자동 차단. 실패하면 PR 머지 불가.
+# 근거: docs/rules/rules-review-bot.md A섹션
+# 모노레포: Gradle 프로젝트는 apps/api — 해당 경로 변경 시에만 실행
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/static-analysis.yml'
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # Checkstyle + PMD + ArchUnit(test 안의 ArchitectureTest) 한 번에 실행
+      # 위반/실패 시 0이 아닌 종료코드 → 이 job 실패 → PR 빨간불
+      - name: Run Checkstyle
+        run: ./gradlew checkstyleMain --no-daemon
+
+      - name: Run PMD
+        run: ./gradlew pmdMain --no-daemon
+
+      - name: Run Architecture & Unit Tests
+        run: ./gradlew test --no-daemon
+
+      # 리포트를 아티팩트로 업로드 (실패해도 결과 확인 가능)
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-reports
+          path: |
+            apps/api/build/reports/checkstyle/
+            apps/api/build/reports/pmd/
+            apps/api/build/reports/tests/
+          retention-days: 7

@@ -1,0 +1,29 @@
+# rules/web.md — apps/web (Next.js + TypeScript)
+
+> SSG/ISR 프론트 — SEO가 핵심 획득 엔진. 근거: `docs/screens.md`, `docs/api-spec.md`, PRD FR-003~007.
+
+## 구조
+```
+src/
+  app/                 # App Router
+    page.tsx           # S1 메인(페르소나 탭 + 리스트) — ?page=N URL 유지
+    opportunities/[id]/page.tsx   # S2 상세 — SSG/ISR (revalidate = 수집 주기와 동기, 일 1회)
+    search/            # S3
+    bookmarks/         # S4 (클라이언트 전용)
+  components/          # OpportunityCard, PersonaTabs, Badge, GlossaryTerm, EmptyState
+  lib/
+    api.ts             # api-spec.md 타입 그대로 (응답 타입 수동 정의, 필드명 일치)
+    bookmarks.ts       # localStorage (시크릿 모드 폴백 — AC-022)
+    events.ts          # fire-and-forget 로깅 (실패 무시 — AC-026)
+```
+
+## 규칙
+1. **서버 계산값 렌더만**: status·dDay·closingSoon·badges를 클라이언트에서 재계산 금지 (AC-013 코드리뷰 항목). 날짜 연산 코드가 프론트에 있으면 안 됨.
+2. **배지 라벨 매핑은 한 곳에**: `NO_BIZ_REQUIRED→사업자 불필요`, `CLOSING_SOON→마감임박`, `ALWAYS_OPEN→상시모집`, `CONDITION_UNKNOWN→조건 미상`.
+3. **페이지네이션은 페이지 번호 + URL 반영**(`?page=N`) — SEO 색인용. 무한스크롤 금지 (CC-07).
+4. **SEO 필수**: 상세 페이지 title/description 메타, sitemap.xml, 시맨틱 마크업. 마감 공고도 200 렌더 + "마감" 표기 (AC-018).
+5. **카피 가드레일**: "신청 자격이 됩니다 / 합격 여부는 별개". 금지 문구 "받을 수 있" (AC-015 grep 검증 대상).
+6. 빈 상태 UI 필수: S1·S3·S4 각각 정의된 문구 + 다음 행동 유도 (CC-02).
+7. 로깅은 절대 UX를 막지 않음 — await 금지, 에러 무시 (AC-026).
+8. 데스크톱 우선 + 반응형. 다크모드·다국어 만들지 않음(Out-of-Scope).
+9. 이벤트 payload에 개인 식별 정보 넣지 않음 — 허용 키만 (api-spec §4).

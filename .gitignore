@@ -1,0 +1,33 @@
+# 환경변수 / 시크릿 (API 키 커밋 절대 금지)
+.env
+.env.*
+!.env.example
+
+# Java / Gradle (apps/api)
+apps/api/build/
+apps/api/.gradle/
+apps/api/out/
+*.class
+
+# Python (apps/ingest)
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+apps/ingest/dist/
+
+# Node / Next.js (apps/web)
+node_modules/
+apps/web/.next/
+apps/web/out/
+*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log

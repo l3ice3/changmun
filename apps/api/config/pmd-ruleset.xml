@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<ruleset name="ProjectRules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        A그룹(자동 차단) 중 Checkstyle로 표현하기 어려운 항목.
+        근거: docs/rules/rules-review-bot.md A섹션
+    </description>
+
+    <!-- 인스턴스 변수 ≤ 5 -->
+    <rule ref="category/java/design.xml/TooManyFields">
+        <properties>
+            <property name="maxfields" value="5"/>
+        </properties>
+    </rule>
+
+    <!-- 디미터 법칙: 메서드 체이닝(a.getB().getC()) 탐지 -->
+    <rule ref="category/java/design.xml/LawOfDemeter"/>
+
+    <!-- 배열 대신 컬렉션: 명시적 룰은 없어 UseVarargs 등 대신 사용자 정의 권장.
+         여기선 클래스 크기/복잡도 보조 룰만 둔다. -->
+
+    <!-- 엔티티를 작게: 클래스 길이 가드 (과하지 않게 높은 값) -->
+    <rule ref="category/java/design.xml/ExcessiveClassLength">
+        <properties>
+            <property name="minimum" value="200"/>
+        </properties>
+    </rule>
+
+    <!-- 메서드 복잡도 보조 가드 -->
+    <rule ref="category/java/design.xml/CyclomaticComplexity">
+        <properties>
+            <property name="methodReportLevel" value="8"/>
+        </properties>
+    </rule>
+
+</ruleset>
