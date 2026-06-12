@@ -2,6 +2,7 @@ plugins {
 	java
 	checkstyle
 	pmd
+	id("com.diffplug.spotless") version "6.25.0"
 	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -54,4 +55,15 @@ pmd {
 	ruleSetFiles = files("$rootDir/config/pmd-ruleset.xml")
 	ruleSets = listOf() // 기본 룰셋 비활성, 커스텀만 사용
 	isIgnoreFailures = false
+}
+
+// ---------- Spotless (자동 포맷 — Google Java Format, 100 wrap < checkstyle 120) ----------
+// spotlessApply: 자동 정렬 / spotlessCheck: 검사(check 태스크에 자동 연결, 실패 시 머지 불가)
+spotless {
+	java {
+		googleJavaFormat()
+		removeUnusedImports()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
 }

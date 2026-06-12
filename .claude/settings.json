@@ -1,0 +1,28 @@
+{
+  "//": "팀 공유 설정(커밋됨). 개인 권한은 settings.local.json(gitignore). hook 설명은 .claude/hooks/README.md.",
+  "//layers": "지향=docs/rules · 셀 수 있는 강제=CI(static-analysis.yml) · 로컬 에이전트 강제=아래 hook.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-protected-branch.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guardrail-lint.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

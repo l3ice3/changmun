@@ -47,24 +47,24 @@ MVP 화면 명세. 각 화면이 `opportunity`의 **어떤 컬럼을 노출하�
   - **공고 카드 리스트** (정렬: 마감임박순).
 - **카드 표시 컬럼:** `title` · `organization` · `category`(배지) · `region` · D-day(배지) · 사업자불필요(배지) · `eligibility_detail`(1줄 요약) · `source`(배지).
 - **인터랙션:** 탭 전환 → 필터 → 카드 탭 → S2. (찜 버튼 → S4)
-- **도출 API:** `GET /api/opportunities?persona=&region=&category=&status=&sort=&page=&size=`
+- **도출 API:** `GET /api/v1/opportunities?persona=&region=&category=&status=&sort=&page=&size=`
 
 ### S2. 공고 상세
 - **목적:** 자격이 되는지 / 어떻게 신청하는지를 한 화면에. (진입장벽 제거)
 - **표시 컬럼:** `title` · `organization`·`organization_type` · `category` · `region` · 기간(`application_start_date`~`application_deadline`, D-day) · `summary` · `eligibility_detail`(자격) · `target_startup_stage`/`target_audience_type`(누가 되는지 배지) · 지원 형태(`raw`의 지원내용) · **원문 링크**(`detail_url`) · **신청 링크**(`apply_url`).
 - **용어풀이:** `summary`/`eligibility_detail` 내 어려운 용어 하이라이트 → 탭 시 뜻 표시(§4).
 - **카피 규칙:** "신청 자격이 됩니다 / 합격은 별개"(가드레일 1). "받을 수 있어요" 금지.
-- **도출 API:** `GET /api/opportunities/{id}` · `GET /api/glossary?terms=...`(또는 상세 응답에 용어 포함)
+- **도출 API:** `GET /api/v1/opportunities/{id}` · `GET /api/v1/glossary?terms=...`(또는 상세 응답에 용어 포함)
 
 ### S3. 검색 결과
 - **목적:** 키워드로 찾기.
 - **동작:** `title`(+`summary`) 부분일치(pg_trgm). 결과는 S1 카드와 동일 형식 + 필터 병행.
-- **도출 API:** `GET /api/opportunities?q=...`(S1과 동일 엔드포인트에 `q` 추가)
+- **도출 API:** `GET /api/v1/opportunities?q=...`(S1과 동일 엔드포인트에 `q` 추가)
 
 ### S4. 찜 목록 (익명)
 - **목적:** 관심 공고 모아보기. **무가입** — 기기 로컬(또는 익명 ID)에 저장.
 - **표시:** S1 카드 형식.
-- **도출 API:** MVP는 **클라이언트 로컬 저장**(API 없음). 찜한 id로 `GET /api/opportunities?ids=...` 조회. (로그인·서버 동기화는 후반 — "아하 직후" 로그인 트리거와 함께)
+- **도출 API:** MVP는 **클라이언트 로컬 저장**(API 없음). 찜한 id로 `GET /api/v1/opportunities?ids=...` 조회. (로그인·서버 동기화는 후반 — "아하 직후" 로그인 트리거와 함께)
 
 ---
 
@@ -90,7 +90,7 @@ MVP 화면 명세. 각 화면이 `opportunity`의 **어떤 컬럼을 노출하�
 - **동작:** 공고 텍스트 내 사전 등재 용어를 하이라이트 → 탭 시 쉬운 설명 표시(툴팁/확장).
 - **데이터:** `glossary`(term, description) 테이블(data-model). 용어 매칭은 단순 문자열 매칭부터.
 - **MVP 범위:** 핵심 용어 수십 개 수기 사전부터. 자동 생성·문맥 해석은 후반.
-- **도출 API:** `GET /api/glossary`(전체 사전 캐싱) 또는 상세 응답에 `matched_terms` 포함.
+- **도출 API:** `GET /api/v1/glossary`(전체 사전 캐싱) 또는 상세 응답에 `matched_terms` 포함.
 
 ---
 
@@ -103,10 +103,10 @@ MVP 화면 명세. 각 화면이 `opportunity`의 **어떤 컬럼을 노출하�
 ## 6. 도출된 API 표면 (→ `api-spec.md` 예고)
 
 ```
-GET /api/opportunities      # 리스트 (persona, region, category, status, q, sort, page, size)
-GET /api/opportunities/{id} # 상세
-GET /api/opportunities?ids= # 찜 조회 (id 다건)
-GET /api/glossary           # 용어 사전
+GET /api/v1/opportunities      # 리스트 (persona, region, category, status, q, sort, page, size)
+GET /api/v1/opportunities/{id} # 상세
+GET /api/v1/opportunities?ids= # 찜 조회 (id 다건)
+GET /api/v1/glossary           # 용어 사전
 ```
 - 모든 리스트/상세는 **공개**(비로그인) → SEO(SSG/ISR) 대상.
 - status·D-day·배지 플래그는 **서버가 계산해 응답에 포함**(프론트가 재계산 안 하게).

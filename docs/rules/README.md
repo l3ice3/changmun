@@ -10,6 +10,10 @@ docs/rules/
   README.md              ← (이 파일) 전체 구조 안내
   rules-core.md          ← 상시 규칙 압축본(원본). AI 매 요청 / 사람 빠른 참조
   rules-full.md          ← 상세·이유·예시. 작업 종류별 발췌 참조
+  testing.md             ← 테스트 규칙: 실DB/Fake/Mock 결정·안 하는 것·명세 준수 (검증전략 SSOT는 AC.md)
+  persistence.md         ← 저장·트랜잭션·멱등성: 작업단위 경계·UPSERT·부수효과 분리 (스키마 진실은 data-model)
+  git.md                 ← 브랜치·커밋·PR·머지 + 이슈·라벨·AI 산출물 표기 + Flyway 타임스탬프 버전명
+  glossary-dev.md        ← 개발자용 표준 용어(동의어 금지). 값의 진실은 data-model·api-spec
 
 CLAUDE.md                ← Claude Code가 항상 읽는 작업 지침 (core 기반)
 AGENTS.md                ← Codex가 읽는 작업·리뷰 지침 — 리뷰 분담(A/B/C 분류) 전문 포함
@@ -21,7 +25,13 @@ apps/api/config/
 
 apps/api/src/test/.../ArchitectureTest.java  ← A그룹: 계층 의존 규칙 (ArchUnit)
 
-apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있음 (snippet은 병합 후 삭제)
+apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Java Format)가 check 태스크에 연결됨
+                            (Checkstyle·PMD=린트 / Spotless=포맷 자동수정. spotlessApply로 정렬, spotlessCheck로 CI 차단)
+
+.claude/
+  settings.json          ← 팀 공유 hook 설정(커밋됨). 로컬 에이전트 강제선
+  hooks/                 ← guard-protected-branch.sh(보호 브랜치 commit/push 차단) · guardrail-lint.sh(절대규칙 위반 피드백)
+  hooks/README.md        ← hook 설명 + 강제 3계층(지향 / CI / 로컬 hook)
 
 .github/workflows/
   static-analysis.yml    ← A그룹 자동 차단 (실패 시 PR 머지 불가)
@@ -32,15 +42,25 @@ apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있
 
 ## 동작 흐름
 
-1. 개발자(또는 AI)가 `CLAUDE.md` / `rules-core.md` 를 보며 구현한다.
+0. 작업 중 **로컬 hook**(`.claude/`)이 즉시 작동한다 — 보호 브랜치 commit/push 차단, 절대규칙 위반 피드백. CI를 대체하지 않는 보조선이다.
+1. 개발자(또는 AI)가 `CLAUDE.md` / `rules-core.md` 를 보며 구현한다(작업 종류에 따라 `testing.md`·`persistence.md` 발췌).
 2. PR을 올리면 GitHub Actions가 두 갈래로 검사한다.
    - **static-analysis.yml** → 셀 수 있는 규칙 위반 시 **빨간불 = 머지 불가**.
    - **Codex 클라우드 코드 리뷰** → `AGENTS.md`의 리뷰 분담 기준대로 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
 3. 사람 리뷰어는 B그룹(SRP, Tell-Don't-Ask 등 — AGENTS.md §2)에 집중한다. 셀 수 있는 건 봇이 이미 잡았다.
 
+## 강제의 3계층
+
+| 계층 | 무엇 | 막는가? |
+|---|---|---|
+| **지향**(판단용) | `docs/rules/` · `CLAUDE.md` · `AGENTS.md` | 아니오 — 사람·AI가 읽고 판단 |
+| **로컬 hook**(보조선) | `.claude/hooks/` | 에이전트 작업 중 즉시(로컬만) |
+| **CI 정적분석**(본 게이트) | `static-analysis.yml` | 예 — 원격 PR 빨간불=머지 불가 |
+
 ## 왜 이렇게 나누는가
 
-- `.md` 만으로는 PR을 자동 반려할 수 없다. 기계는 글을 강제하지 못한다.
+- `.md` 만으로는 PR을 자동 반려할 수 없다. 기계는 글을 강제하지 못한다 → hook·CI가 강제.
+- 로컬 hook은 **로컬만** 막는다. 원격 머지는 CI + branch protection이 막는다(이중). hook이 CI를 대체하지 않는다.
 - 의미 판단을 정적 분석에 넣으면 오탐이 쏟아져 신뢰를 잃는다 → LLM 리뷰는 "제안만".
 - 자동 차단(하드 게이트)과 제안(소프트)을 **물리적으로 분리**해야 둘 다 무뎌지지 않는다.
 

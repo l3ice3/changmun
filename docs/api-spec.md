@@ -9,12 +9,12 @@
 
 | 항목 | 규칙 |
 |---|---|
-| Base | `/api` · JSON · UTF-8 · 모든 엔드포인트 **비인증(공개)** |
+| Base | `/api/v1` · JSON · UTF-8 · 모든 엔드포인트 **비인증(공개)** |
 | 네이밍 | **camelCase** (예: `applicationDeadline`, `dDay`) |
 | 날짜 | `YYYY-MM-DD` (date) / `ISO 8601` (datetime) |
 | 계산 필드 | `status`·`dDay`·`closingSoon`·`badges`는 **서버가 계산해 포함** — 프론트 재계산 금지 (AC-013) |
 | 노출 범위 | 리스트·검색은 `is_canonical=true`만. **단 `ids=` 조회는 canonical 여부 무관**(찜한 공고가 강등돼도 사라지면 안 됨 — AC-024) |
-| 에러 바디 | `{ "error": { "code": "...", "message": "..." } }` — 코드: `INVALID_PARAM`(400) / `NOT_FOUND`(404) / `INTERNAL`(500) |
+| 에러 바디 | **RFC7807 `ProblemDetail`**(Spring Boot 내장): `{ type, title, status, detail, instance }` + 확장 필드 `code` 보존 — `INVALID_PARAM`(400) / `NOT_FOUND`(404) / `INTERNAL`(500). 프론트는 `code`로 분기 |
 | 캐싱 | 리스트·상세·glossary는 public cache 허용(데이터 갱신=일 1회). 상세 페이지는 ISR과 동기 |
 
 ### status 계산 규칙 (단일 정의 — 서버만 구현)
@@ -46,7 +46,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 1. GET /api/opportunities — 리스트/검색/찜 조회
+## 1. GET /api/v1/opportunities — 리스트/검색/찜 조회
 
 ### 요청 파라미터
 | 파라미터 | 타입 | 기본 | 설명 |
@@ -96,7 +96,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 2. GET /api/opportunities/{id} — 상세
+## 2. GET /api/v1/opportunities/{id} — 상세
 
 ### 응답 200 (리스트 항목 필드 **전부** + 아래 추가)
 ```json
@@ -121,7 +121,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 3. GET /api/glossary — 용어 사전
+## 3. GET /api/v1/glossary — 용어 사전
 
 ### 응답 200
 ```json
@@ -131,7 +131,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 4. POST /api/events — 행동 로그
+## 4. POST /api/v1/events — 행동 로그
 
 ### 요청
 ```json

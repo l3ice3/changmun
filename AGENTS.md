@@ -11,8 +11,11 @@
 2. **Java(apps/api) 코딩 규칙은 구현 전에 반드시 참조한다**:
    - 상시 규칙(원본): `docs/rules/rules-core.md`
    - 상세·이유·예시: `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조
+   - 테스트 작성: `docs/rules/testing.md` · 저장/트랜잭션/멱등: `docs/rules/persistence.md`
    - 커밋 전 `cd apps/api && ./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가
 3. **앱별 상세 규칙**: `.claude/rules/ingest.md` · `.claude/rules/api.md` · `.claude/rules/web.md` (해당 앱 작업 시 필독)
+   - 협업 흐름: `docs/rules/git.md` (브랜치·커밋·PR·머지·이슈·라벨·AI 표기·Flyway 타임스탬프) · 식별자 표준어: `docs/rules/glossary-dev.md`
+   - 로컬 강제 hook: `.claude/hooks/README.md` (보호 브랜치 commit/push 차단 · 절대규칙 위반 피드백)
 4. 계약 문서가 단일 진실이다: 스키마=`docs/data-model.md`(LOCKED), API=`docs/api-spec.md`, 요구사항=`docs/PRD.md`, 완료 판정=`docs/AC.md`.
 
 ---
