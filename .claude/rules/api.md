@@ -9,7 +9,7 @@ src/main/java/.../
   service/      # 조회 로직, status/dDay/badges 계산 (api-spec §0 산식 그대로)
   repository/   # Spring Data JPA + 네이티브 쿼리(배열 contains, pg_trgm)
   domain/       # 엔티티 (스키마와 1:1 — Flyway가 만든 걸 매핑만)
-  config/       # CORS, Jackson(camelCase), 에러 핸들러({error:{code,message}})
+  config/       # CORS, Jackson(camelCase), 전역 에러 핸들러(RFC7807 ProblemDetail + code 확장)
 src/test/java/  # 슬라이스 테스트 — AC-011~021, 023 대응
 ```
 
@@ -20,8 +20,9 @@ src/test/java/  # 슬라이스 테스트 — AC-011~021, 023 대응
 4. 페르소나 매핑은 api-spec enum 그대로: `PRE_STARTUP` / `UNIV_STUDENT` / `EARLY_STAGE`(={LT_1Y,LT_2Y,LT_3Y}).
 5. **모든 사용자 입력은 파라미터 바인딩** — 문자열 조립 쿼리 절대 금지 (AC-021). `q`는 최소 2글자 검증(400).
 6. 잘못된 enum 파라미터 → 400 `INVALID_PARAM` / 범위 초과 page → 200 + 빈 items (AC-014).
-7. `/api/events`: payload 키 화이트리스트 검증, 그 외 키 400. 202 응답. PII 필드 자체가 스키마에 없어야 함 (AC-027).
+7. `/api/v1/events`: payload 키 화이트리스트 검증, 그 외 키 400. 202 응답. PII 필드 자체가 스키마에 없어야 함 (AC-027).
 8. 쓰기 엔드포인트는 events뿐 — 그 외 POST/PUT/DELETE 추가 금지(Out-of-Scope).
+9. **에러 응답은 RFC7807 `ProblemDetail`로 통일**(전역 `@RestControllerAdvice` 한 곳). 직접 에러 JSON 조립 금지. `code`(`INVALID_PARAM`/`NOT_FOUND`/`INTERNAL`)는 ProblemDetail 확장 필드로 실어 프론트 분기를 유지 (api-spec §0). 요청 검증은 `@Valid` + 전역 핸들러 — 수동 검증 분기 금지.
 
 ## Spring / JPA 세부
 - **생성자 주입 + `final`.** `@Autowired` 필드 주입 금지. Lombok은 **제한적 허용**: `@RequiredArgsConstructor`·`@Slf4j`·`@Getter`만. `@Data`·엔티티 전체 `@Setter` 금지(무분별 setter·getter 노출은 Tell-Don't-Ask 위배 — `rules-core.md`).

@@ -23,7 +23,8 @@ apps/api/config/
 
 apps/api/src/test/.../ArchitectureTest.java  ← A그룹: 계층 의존 규칙 (ArchUnit)
 
-apps/api/build.gradle.kts  ← 위 도구들이 check 태스크에 연결돼 있음 (snippet은 병합 후 삭제)
+apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Java Format)가 check 태스크에 연결됨
+                            (Checkstyle·PMD=린트 / Spotless=포맷 자동수정. spotlessApply로 정렬, spotlessCheck로 CI 차단)
 
 .github/workflows/
   static-analysis.yml    ← A그룹 자동 차단 (실패 시 PR 머지 불가)

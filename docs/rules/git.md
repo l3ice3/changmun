@@ -8,7 +8,8 @@
 ## 🚫 절대 규칙
 1. **`main`에 직접 커밋/푸시 금지.** 모든 변경은 브랜치 → PR.
 2. **사람 리뷰 승인 없이 머지 금지.** (Codex 클라우드 리뷰는 제안만 — 머지 못 막음)
-3. **CI 빨간불로 머지 금지.** = `static-analysis`(Checkstyle+PMD+ArchUnit) + 빌드·테스트 초록이어야 함.
+3. **CI 빨간불로 머지 금지.** = `static-analysis`(Checkstyle+PMD+Spotless+ArchUnit) + 빌드·테스트 초록이어야 함.
+   - 커밋 전 `./gradlew spotlessApply`로 자동 포맷(또는 pre-commit 훅). 포맷은 손으로 맞추지 않는다.
    - "배포 가능"의 정의 = 빌드 + `apps/api: ./gradlew check` + `apps/ingest: pytest` 통과. (커버리지 % 게이트는 두지 않는다)
 4. **며칠짜리 거대 브랜치 금지.** 잘게 못 쪼갰다는 신호.
 5. **한 PR에 여러 앱/남의 영역을 섞지 않는다.** PR은 본인 작업 단위(FR/AC)로 작게.

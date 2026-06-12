@@ -147,13 +147,13 @@ Then:  진행 중인 bizinfo 레코드가 is_canonical=true가 되고, 마감 �
 #### AC-011: 페르소나 탭이 정확한 쿼리 결과를 반환한다 (Happy / Must)
 ```gherkin
 Given: target_startup_stage에 PRE_STARTUP 포함 공고 3건 + 미포함 공고 3건 + 비-canonical 1건 (전부 진행 중)
-When:  GET /api/opportunities?persona=PRE_STARTUP 을 호출한다
+When:  GET /api/v1/opportunities?persona=PRE_STARTUP 을 호출한다
 Then:  200 응답, 항목은 정확히 3건(PRE_STARTUP 포함 + canonical만),
        정렬은 application_deadline ASC, 상시(deadline NULL)는 맨 뒤다
 ```
 **검증**
 - [ ] 자동: Spring `OpportunityControllerTest#personaFilter` — 건수·정렬 assert
-- [ ] API: `curl '/api/opportunities?persona=PRE_STARTUP'` → SQL 결과와 교차 대조
+- [ ] API: `curl '/api/v1/opportunities?persona=PRE_STARTUP'` → SQL 결과와 교차 대조
 
 #### AC-012: 결과 0건이면 빈 배열 + 빈 상태 UI다 (Edge / Must)
 ```gherkin
@@ -179,7 +179,7 @@ Then:  응답 JSON에 status="OPEN", dDay=3, closingSoon=true(≤7),
 #### AC-014: 잘못된 파라미터는 400, 범위 초과 페이지는 빈 배열이다 (Negative / Must)
 ```gherkin
 Given: 서비스 정상 동작 중
-When:  GET /api/opportunities?persona=INVALID_VALUE 를 호출한다
+When:  GET /api/v1/opportunities?persona=INVALID_VALUE 를 호출한다
 Then:  400 + 에러 코드/메시지 JSON. (단, page=9999는 200 + items=[] — 에러 아님)
 ```
 **검증**
@@ -198,7 +198,7 @@ Then:  제목·기관·기간(D-day)·자격·지원내용·원문 링크가 표
        자격 영역 카피는 "신청 자격이 됩니다"형이다("받을 수 있어요" 문구 부재)
 ```
 **검증**
-- [ ] API: `GET /api/opportunities/{id}` → 필드 + matchedTerms 포함 assert
+- [ ] API: `GET /api/v1/opportunities/{id}` → 필드 + matchedTerms 포함 assert
 - [ ] 수동: 브라우저에서 1) 상세 진입 2) 용어 탭 3) 카피 문구 확인 (금지 문구 grep: 프론트 코드에서 "받을 수 있")
 
 #### AC-016: 존재하지 않는 id는 404 전용 페이지다 (Negative / Must)
@@ -235,7 +235,7 @@ Then:  404가 아니라 정상 렌더링되며, "마감된 공고" 표기가 본
 #### AC-019: 부분일치 검색이 동작한다 (Happy / Should)
 ```gherkin
 Given: title에 "청년창업사관학교"가 포함된 공고 존재
-When:  GET /api/opportunities?q=창업사관 을 호출한다
+When:  GET /api/v1/opportunities?q=창업사관 을 호출한다
 Then:  해당 공고가 결과에 포함된다(pg_trgm 부분일치)
 ```
 **검증**
@@ -275,7 +275,7 @@ Then:  localStorage에 A의 id가 저장돼 있고, 찜 목록에 A 카드가 �
 #### AC-023: ids에 없는 id가 섞여도 있는 것만 반환된다 (Edge / Should)
 ```gherkin
 Given: 유효 id 2개 + DB에 없는 id 1개
-When:  GET /api/opportunities?ids=a,b,없는것 을 호출한다
+When:  GET /api/v1/opportunities?ids=a,b,없는것 을 호출한다
 Then:  200 + 유효 2건만 반환(에러·NULL 항목 없음)
 ```
 **검증**
@@ -306,12 +306,12 @@ Then:  event_log에 list_view·detail_view·outbound_click 3행이 같은 client
 
 #### AC-026: 로깅 실패가 사용자 행동을 막지 않는다 (Negative / Must)
 ```gherkin
-Given: /api/events 엔드포인트가 차단된 상태(네트워크 블록)
+Given: /api/v1/events 엔드포인트가 차단된 상태(네트워크 블록)
 When:  사용자가 원문 링크를 클릭한다
 Then:  원문 페이지로 정상 이동하며, 에러 토스트·지연·차단이 없다(fire-and-forget)
 ```
 **검증**
-- [ ] 수동: devtools에서 /api/events 차단 → 클릭 동작 확인
+- [ ] 수동: devtools에서 /api/v1/events 차단 → 클릭 동작 확인
 
 #### AC-027: 개인정보가 저장되지 않는다 (Negative / Must)
 ```gherkin

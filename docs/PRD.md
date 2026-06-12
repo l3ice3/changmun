@@ -171,7 +171,7 @@
 > 초보자로서, 공고를 읽다 모르는 용어가 나오면 떠나지 않고 그 자리에서 이해하고 싶다.
 
 **상세 동작**
-1. `GET /api/opportunities/{id}` → 상세 표시(자격·기간·지원내용·원문/신청 링크)
+1. `GET /api/v1/opportunities/{id}` → 상세 표시(자격·기간·지원내용·원문/신청 링크)
 2. summary·eligibility_detail 내 `glossary` 등재 용어 하이라이트 → 탭 시 쉬운 설명
 3. 카피 규칙: "신청 자격이 됩니다 / 합격은 별개" (가드레일 1 — "받을 수 있어요" 금지)
 
@@ -224,7 +224,7 @@
 
 **상세 동작**
 1. 카드/상세의 찜 버튼 → 기기 로컬(localStorage)에 opportunity id 저장
-2. 찜 목록 화면: 저장된 ids로 `GET /api/opportunities?ids=` 조회
+2. 찜 목록 화면: 저장된 ids로 `GET /api/v1/opportunities?ids=` 조회
 
 **엣지 케이스 ⚠️**
 
@@ -303,10 +303,10 @@
 
 | 메서드 | 경로 | 설명 | 인증 |
 |---|---|---|---|
-| GET | /api/opportunities | 리스트 (persona, region, category, status, q, ids, sort, page, size) | N |
-| GET | /api/opportunities/{id} | 상세 | N |
-| GET | /api/glossary | 용어 사전 전체 | N |
-| POST | /api/events | 행동 로그 적재 | N(익명 ID) |
+| GET | /api/v1/opportunities | 리스트 (persona, region, category, status, q, ids, sort, page, size) | N |
+| GET | /api/v1/opportunities/{id} | 상세 | N |
+| GET | /api/v1/glossary | 용어 사전 전체 | N |
+| POST | /api/v1/events | 행동 로그 적재 | N(익명 ID) |
 
 status·D-day·배지 플래그는 **서버가 계산해 응답에 포함**(프론트 재계산 금지).
 
