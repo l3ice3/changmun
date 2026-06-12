@@ -69,7 +69,7 @@
 2. 구현 후 **AC 기준 자가 판정** — Pass 근거를 명시하고 완료 선언.
 3. 완료 선언 시 **`AC.md` §1 매핑 테이블의 상태 칸을 같은 커밋에서 갱신** (문서 부패 방지 최소 장치).
 4. 테스트: `apps/ingest` = pytest 필수 / `apps/api` = Spring 테스트 필수 / `apps/web` = AC의 수동 절차 명시 (E2E 자동화 금지 — Phase 2).
-5. 커밋 단위 = FR 또는 AC 단위로 작게.
+5. 커밋 단위 = FR 또는 AC 단위로 작게. 브랜치·커밋·PR·머지 흐름은 `docs/rules/git.md` (Flyway 타임스탬프 버전명 포함). 코드 식별자 표준어는 `docs/rules/glossary-dev.md`.
 6. **살아있는 계약 4개(PRD·AC·data-model·api-spec)와 코드가 어긋나면 즉시 동기화.** 그 외 문서는 갱신 의무 없음 (README 유지보수 정책).
 
 ## 명령어

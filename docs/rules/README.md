@@ -10,6 +10,8 @@ docs/rules/
   README.md              ← (이 파일) 전체 구조 안내
   rules-core.md          ← 상시 규칙 압축본(원본). AI 매 요청 / 사람 빠른 참조
   rules-full.md          ← 상세·이유·예시. 작업 종류별 발췌 참조
+  git.md                 ← 브랜치·커밋·PR·머지 흐름 (3인 협업) + Flyway 타임스탬프 버전명
+  glossary-dev.md        ← 개발자용 표준 용어(동의어 금지). 값의 진실은 data-model·api-spec
 
 CLAUDE.md                ← Claude Code가 항상 읽는 작업 지침 (core 기반)
 AGENTS.md                ← Codex가 읽는 작업·리뷰 지침 — 리뷰 분담(A/B/C 분류) 전문 포함
