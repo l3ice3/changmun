@@ -22,10 +22,32 @@ class SourceReport:
         )
 
 
-def format_report(reports: list[SourceReport]) -> str:
+@dataclass
+class EnrichmentReport:
+    """수집 후처리(dedup·persona) 결과 — 단계별 건수 리포트 (DoD 항목)."""
+
+    name: str
+    metrics: dict[str, int] = field(default_factory=dict)
+    failed: bool = False
+    error: str | None = None
+
+    def summary_line(self) -> str:
+        if self.failed:
+            return f"[{self.name}] 실패 — {self.error}"
+        joined = " ".join(f"{key}={value}" for key, value in self.metrics.items())
+        return f"[{self.name}] {joined}"
+
+
+def format_report(
+    source_reports: list[SourceReport],
+    enrichment_reports: list[EnrichmentReport] | None = None,
+) -> str:
     lines = ["=== 수집 리포트 ==="]
-    lines.extend(report.summary_line() for report in reports)
-    unknown = [value for report in reports for value in report.unknown_values]
+    lines.extend(report.summary_line() for report in source_reports)
+    if enrichment_reports:
+        lines.append("--- 후처리 (dedup·persona) ---")
+        lines.extend(report.summary_line() for report in enrichment_reports)
+    unknown = [value for report in source_reports for value in report.unknown_values]
     if unknown:
         lines.append(f"--- 미지값 상세 (총 {len(unknown)}건, 최대 20건 표시) ---")
         lines.extend(unknown[:20])

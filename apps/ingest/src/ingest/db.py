@@ -47,8 +47,85 @@ RETURNING (xmax = 0) AS inserted
 """
 
 
+# dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5)
+_DEDUP_ROWS_SQL = """
+SELECT id, source, title, organization, application_start_date, application_deadline, is_always_open,
+       num_nonnulls(summary, category, region, organization, organization_type, support_amount,
+                    target_startup_stage, target_audience_type, eligibility_detail,
+                    application_start_date, application_deadline, apply_url) AS info_count,
+       dedup_group_id
+FROM opportunity
+"""
+
+_APPLY_DEDUP_SQL = "UPDATE opportunity SET dedup_group_id = %s, is_canonical = %s WHERE id = %s"
+
+# 페르소나 2단계(상속): 그룹 내 K-Startup 신호를 타 출처의 NULL 컬럼에만 채운다 (§6-D — 직접 신호 우선)
+_INHERIT_TARGETS_SQL = """
+WITH donor AS (
+    SELECT DISTINCT ON (dedup_group_id)
+           dedup_group_id, target_startup_stage, target_audience_type
+    FROM opportunity
+    WHERE source = 'k-startup'
+      AND dedup_group_id IS NOT NULL
+      AND (target_startup_stage IS NOT NULL OR target_audience_type IS NOT NULL)
+    ORDER BY dedup_group_id, is_canonical DESC, id
+)
+UPDATE opportunity AS member
+SET target_startup_stage = COALESCE(member.target_startup_stage, donor.target_startup_stage),
+    target_audience_type = COALESCE(member.target_audience_type, donor.target_audience_type)
+FROM donor
+WHERE member.dedup_group_id = donor.dedup_group_id
+  AND member.source <> 'k-startup'
+  AND (member.target_startup_stage IS NULL OR member.target_audience_type IS NULL)
+"""
+
+_PERSONA_CANDIDATES_SQL = """
+SELECT id, title, summary, eligibility_detail
+FROM opportunity
+WHERE target_startup_stage IS NULL AND target_audience_type IS NULL
+"""
+
+_UPDATE_TARGETS_SQL = """
+UPDATE opportunity
+SET target_startup_stage = COALESCE(target_startup_stage, %s),
+    target_audience_type = COALESCE(target_audience_type, %s)
+WHERE id = %s
+"""
+
+
 def connect(dsn: str) -> psycopg.Connection:
     return psycopg.connect(dsn)
+
+
+def fetch_dedup_rows(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_DEDUP_ROWS_SQL)
+        return cursor.fetchall()
+
+
+def apply_dedup(conn, assignments) -> None:
+    if not assignments:
+        return
+    rows = [(item.group_id, item.canonical, item.record_id) for item in assignments]
+    with conn.cursor() as cursor:
+        cursor.executemany(_APPLY_DEDUP_SQL, rows)
+
+
+def inherit_group_targets(conn) -> int:
+    with conn.cursor() as cursor:
+        cursor.execute(_INHERIT_TARGETS_SQL)
+        return cursor.rowcount
+
+
+def fetch_persona_candidates(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_PERSONA_CANDIDATES_SQL)
+        return cursor.fetchall()
+
+
+def update_targets(conn, record_id: int, stages: list[str] | None, audiences: list[str] | None) -> None:
+    with conn.cursor() as cursor:
+        cursor.execute(_UPDATE_TARGETS_SQL, (stages, audiences, record_id))
 
 
 def upsert_records(conn, records: list[OpportunityRecord]) -> tuple[int, int]:
