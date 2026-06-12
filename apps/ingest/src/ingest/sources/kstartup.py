@@ -11,6 +11,7 @@ import requests
 from ingest import db
 from ingest.config import Settings
 from ingest.errors import SourceError
+from ingest.sources.http_client import request_json
 from ingest.normalize import (
     clean_text,
     clean_url,
@@ -31,8 +32,6 @@ BASE_URL = (
     "https://apis.data.go.kr/B552735/kisedKstartupService01/getAnnouncementInformation01"
 )
 PER_PAGE = 100
-MAX_RETRIES = 3
-TIMEOUT_SECONDS = 10
 
 # apply_url 폴백 체인 (§6 규칙 12). clean_url이 "URL일 때" 판정을 겸한다(비URL 텍스트 → None)
 _APPLY_URL_FIELDS = ("biz_aply_url", "aply_mthd_onli_rcpt_istc", "biz_gdnc_url")
@@ -85,31 +84,14 @@ def fetch_pages(
 
 
 def _fetch_page(api_key, page, per_page, http_get, sleep) -> dict:
-    """재시도 N회 + timeout (ingest.md 규칙 8). 소진 시 SourceError → 소스 단위 격리."""
+    """재시도·timeout은 공통 클라이언트 담당. 소진 시 SourceError → 소스 단위 격리."""
     params = {
         "serviceKey": api_key,  # data.go.kr 표준 파라미터 (디코딩된 키 사용)
         "returnType": "json",
         "page": page,
         "perPage": per_page,
     }
-    last_error = "원인 미상"
-    for attempt in range(MAX_RETRIES):
-        if attempt > 0:
-            sleep(2**attempt)
-        try:
-            response = http_get(BASE_URL, params=params, timeout=TIMEOUT_SECONDS)
-        except requests.RequestException as exc:
-            last_error = f"요청 실패: {exc}"
-            continue
-        if response.status_code != 200:
-            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
-            continue
-        try:
-            return response.json()
-        except ValueError:
-            # 인증 오류 등은 200 + XML 에러 봉투로 옴 → 본문 앞부분을 남겨 원인 추적
-            last_error = f"JSON 파싱 실패: {response.text[:200]}"
-    raise SourceError(f"[{SOURCE}] page={page} 수집 실패 ({MAX_RETRIES}회 재시도): {last_error}")
+    return request_json(http_get, BASE_URL, params, sleep=sleep, context=f"[{SOURCE}] page={page}")
 
 
 def map_record(raw: dict) -> MappingResult:

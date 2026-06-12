@@ -31,6 +31,17 @@ def parse_yyyymmdd(value: str | int | None) -> date | None:
         return None
 
 
+def split_date_range(value: str | None) -> tuple[date | None, date | None]:
+    """"YYYYMMDD ~ YYYYMMDD" 단일 필드 → (시작, 종료). 형식 이탈은 (None, None) + raw 보존.
+
+    온통청년 aplyYmd(§6-C 규칙 3)·기업마당 reqstBeginEndDe(§6-B 규칙 2) 공통 형식.
+    """
+    if value is None or "~" not in str(value):
+        return None, None
+    begin_text, _, end_text = str(value).partition("~")
+    return parse_yyyymmdd(begin_text), parse_yyyymmdd(end_text)
+
+
 def clean_url(value: str | None) -> str | None:
     """URL 정제 (§6 규칙 11): 마크다운 래핑 해제 → 엔티티 디코딩 → 스킴 보정.
 

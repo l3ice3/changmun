@@ -6,10 +6,13 @@ from ingest.normalize import (
     clean_url,
     normalize_audiences,
     normalize_category,
+    normalize_ontong_category,
     normalize_organization_type,
     normalize_region,
     normalize_stages,
     parse_yyyymmdd,
+    sido_from_zip_codes,
+    split_date_range,
 )
 
 
@@ -109,3 +112,42 @@ class TestOrganizationType:
         unknown = []
         assert normalize_organization_type("지자체", unknown) is None
         assert unknown == ["organization_type:지자체"]
+
+
+class TestSplitDateRange:
+    def test_live_format(self):
+        assert split_date_range("20260518 ~ 20260616") == (date(2026, 5, 18), date(2026, 6, 16))
+
+    def test_malformed_or_blank(self):
+        assert split_date_range("") == (None, None)
+        assert split_date_range(None) == (None, None)
+        assert split_date_range("20260518") == (None, None)  # "~" 누락 방어 (§6-B 규칙 2 준용)
+
+    def test_one_side_invalid_kept_partial(self):
+        assert split_date_range(" ~ 20261231") == (None, date(2026, 12, 31))
+
+
+class TestSidoFromZipCodes:
+    def test_single_sigungu_code(self):
+        assert sido_from_zip_codes("47830", []) == "경북"
+
+    def test_multiple_codes_same_sido(self):
+        assert sido_from_zip_codes("47830,47840", []) == "경북"
+
+    def test_multiple_sido_deferred(self):
+        assert sido_from_zip_codes("11000,26000", []) is None  # 단일 컬럼 — 보류, raw 보존
+
+    def test_unknown_prefix_logged(self):
+        unknown = []
+        assert sido_from_zip_codes("99999", unknown) is None
+        assert unknown == ["region_zip:99999"]
+
+
+class TestOntongCategory:
+    def test_startup_maps_to_commercialization(self):
+        assert normalize_ontong_category("창업", []) == "사업화"
+
+    def test_unknown_maps_to_gita_and_logs(self):
+        unknown = []
+        assert normalize_ontong_category("주거", unknown) == "기타"
+        assert unknown == ["category:주거"]

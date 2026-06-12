@@ -64,6 +64,19 @@ _REGION_FULL_NAME = {
     "제주특별자치도": "제주",
 }
 
+# 온통청년 mclsfNm → 표준 category 느슨 매핑 (§7). 비창업 슬라이스는 애초 수집하지 않는다(§6-C).
+ONTONG_CATEGORY_MAP = {
+    "창업": "사업화",
+}
+
+# 법정동 코드 앞 2자리 → 시도 (행정표준코드. 강원 42→51, 전북 45→52 개편 코드 병기)
+_ZIP_SIDO_PREFIX = {
+    "11": "서울", "26": "부산", "27": "대구", "28": "인천", "29": "광주",
+    "30": "대전", "31": "울산", "36": "세종", "41": "경기",
+    "42": "강원", "51": "강원", "43": "충북", "44": "충남",
+    "45": "전북", "52": "전북", "46": "전남", "47": "경북", "48": "경남", "50": "제주",
+}
+
 _SPACES = re.compile(r"\s+")
 
 
@@ -126,6 +139,43 @@ def _normalize_tokens(
         if code not in codes:
             codes.append(code)
     return codes or None
+
+
+def normalize_ontong_category(value: str | None, unknown: list[str]) -> str | None:
+    if value is None or not str(value).strip():
+        return None
+    mapped = ONTONG_CATEGORY_MAP.get(str(value).strip())
+    if mapped:
+        return mapped
+    unknown.append(f"category:{value}")
+    return UNKNOWN_CATEGORY
+
+
+def sido_from_zip_codes(value: str | None, unknown: list[str]) -> str | None:
+    """법정동 5자리 코드(콤마 복수) → 시도. 단일 시도일 때만 채운다 — 복수는 보류(NULL, raw 보존).
+
+    단일 region 컬럼이라 best-effort (§6-C 규칙 2). 억지 채움 금지 원칙 준용.
+    """
+    if value is None or not str(value).strip():
+        return None
+    matched = _distinct_sido_of(str(value), unknown)
+    if len(matched) == 1:
+        return next(iter(matched))
+    return None
+
+
+def _distinct_sido_of(joined: str, unknown: list[str]) -> set[str]:
+    matched: set[str] = set()
+    for code in joined.split(","):
+        trimmed = code.strip()
+        if not trimmed:
+            continue
+        sido = _ZIP_SIDO_PREFIX.get(trimmed[:2])
+        if sido is None:
+            unknown.append(f"region_zip:{trimmed}")
+            continue
+        matched.add(sido)
+    return matched
 
 
 def normalize_stages(value: str | None, unknown: list[str]) -> list[str] | None:
