@@ -51,3 +51,28 @@ jobs:
             apps/api/build/reports/pmd/
             apps/api/build/reports/tests/
           retention-days: 7
+
+      - name: Discord 알림
+        if: always()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="✅ 성공"; COLOR=3066993
+          else
+            STATUS="❌ 실패"; COLOR=15158332
+          fi
+          curl -s -H "Content-Type: application/json" -X POST "$WEBHOOK" -d @- <<EOF
+          {
+            "username": "배포지기",
+            "embeds": [{
+              "title": "정적분석 $STATUS",
+              "color": $COLOR,
+              "fields": [
+                { "name": "워크플로", "value": "${{ github.workflow }}", "inline": true },
+                { "name": "브랜치", "value": "${{ github.ref_name }}", "inline": true }
+              ],
+              "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }]
+          }
+          EOF
