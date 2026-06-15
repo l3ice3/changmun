@@ -3,16 +3,17 @@ name: codex-auto-request
 # PR이 열리면 자동으로 "@codex review" 코멘트를 달아 Codex 리뷰를 요청한다.
 # Codex의 "모든 PR 자동 전체리뷰"는 Pro 전용이라, 멘션 트리거를 자동화해 같은 효과를 낸다.
 #
-# 1차(현재): GITHUB_TOKEN으로 코멘트 → 작성자는 github-actions[bot].
-#   → Codex가 "봇 멘션"에 반응하는지 테스트하는 단계.
-#   반응하지 않으면 사람 PAT(secrets.CODEX_TRIGGER_PAT)로 교체한다(작성자가 사람으로 보이게).
+# Codex는 "멘션을 단 사람의 연결된 Codex 계정"으로 리뷰한다.
+#   → github-actions[bot] 멘션은 "계정 연결하라"며 거절됨(테스트로 확인, PR #7).
+#   따라서 Codex 계정이 연결된 사람의 PAT로 코멘트해 작성자를 그 사람으로 만든다.
+#   secrets.CODEX_TRIGGER_PAT = 그 사람(현재 동료)의 fine-grained PAT
+#     (repo: changmun / 권한: Pull requests = Read and write).
 # 쿼터 보호: opened/reopened만 트리거(매 push 제외). 재리뷰는 사람이 직접 "@codex review".
 on:
   pull_request:
     types: [opened, reopened]
 
-permissions:
-  pull-requests: write   # PR에 코멘트 달기용 (GITHUB_TOKEN)
+permissions: {}   # GITHUB_TOKEN 미사용 — 코멘트는 PAT로 단다
 
 jobs:
   request-review:
@@ -21,6 +22,11 @@ jobs:
     steps:
       - name: Request Codex review
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CODEX_TRIGGER_PAT }}   # Codex 연결된 사람의 PAT
           PR: ${{ github.event.pull_request.number }}
-        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "@codex review"
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "CODEX_TRIGGER_PAT 시크릿 없음 — 스킵. (Codex 연결 계정의 PAT 등록 필요)"
+            exit 0
+          fi
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "@codex review"
