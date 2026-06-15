@@ -1,0 +1,26 @@
+name: codex-auto-request
+
+# PR이 열리면 자동으로 "@codex review" 코멘트를 달아 Codex 리뷰를 요청한다.
+# Codex의 "모든 PR 자동 전체리뷰"는 Pro 전용이라, 멘션 트리거를 자동화해 같은 효과를 낸다.
+#
+# 1차(현재): GITHUB_TOKEN으로 코멘트 → 작성자는 github-actions[bot].
+#   → Codex가 "봇 멘션"에 반응하는지 테스트하는 단계.
+#   반응하지 않으면 사람 PAT(secrets.CODEX_TRIGGER_PAT)로 교체한다(작성자가 사람으로 보이게).
+# 쿼터 보호: opened/reopened만 트리거(매 push 제외). 재리뷰는 사람이 직접 "@codex review".
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write   # PR에 코멘트 달기용 (GITHUB_TOKEN)
+
+jobs:
+  request-review:
+    if: ${{ !github.event.pull_request.draft }}   # 드래프트는 제외(쿼터 절약)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Codex review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "@codex review"
