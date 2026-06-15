@@ -1,3 +1,8 @@
+---
+paths:
+  - "apps/web/**"
+---
+
 # rules/web.md — apps/web (Next.js + TypeScript)
 
 > SSG/ISR 프론트 — SEO가 핵심 획득 엔진. 근거: `docs/screens.md`, `docs/api-spec.md`, PRD FR-003~007.

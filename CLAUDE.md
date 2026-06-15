@@ -38,32 +38,11 @@
 9. **UI 카피에 "받을 수 있어요"류 합격 보장 표현 금지** — "신청 자격이 됩니다 / 합격 여부는 별개"가 기준 (가드레일 1).
 10. **PRD Out-of-Scope 구현 금지**: 로그인·추천·알림·관리자 UI·민간 수집. 요청받지 않은 기능 추가 금지.
 
-## 코딩 규칙 — apps/api (Java) 작업 시 MUST
-> **원본은 `docs/rules/rules-core.md` — 규칙 수정은 그쪽을 먼저 고치고 이 섹션에 반영한다(이 섹션은 압축 사본).**
-> 전체 체계: `docs/rules/README.md` · 상세·이유·예시: `docs/rules/rules-full.md` (작업 종류별 해당 섹션만 발췌 참조)
-> 테스트 작성 시 `docs/rules/testing.md` · 저장/트랜잭션/멱등 설계 시 `docs/rules/persistence.md` 발췌 참조.
-> 커밋 전 `./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가. 로컬 hook은 `.claude/hooks/README.md`.
-
-### 스타일
-- indent depth ≤ 2 / 메서드 ≤ 20라인 / 메서드 인자 ≤ 4
-- `else`·`switch`-`case`·삼항 연산자 금지 → early return으로 평탄화
-- 축약·약어 금지. 이름은 의도를 드러낸다(길어지면 책임 과다 신호)
-
-### 객체지향
-- Tell, Don't Ask — 데이터를 꺼내 판단하지 말고 객체에 묻는다
-- 디미터 법칙 — `a.getB().getC()` 체이닝 금지
-- 배열 대신 컬렉션 / 일급 컬렉션 / 변경 여지 없는 상태는 불변
-- "없음"을 null로 표현하지 않고 별도 객체로
-- 인스턴스 변수 ≤ 5, 변경 이유가 다르면 클래스 분리
-
-### 리팩터링 트리거 (이 3개만 기억)
-- 인자 3개↑ → 객체로 묶기 / 같은 타입 분기 2곳↑ → 다형성 전환 / 한 변경이 3곳↑ 전파 → 책임 재분배
-
-### 계층 (ArchUnit이 자동 검사 — `apps/api/src/test/.../ArchitectureTest.java`)
-- 도메인은 Repository 인터페이스 너머만 의존 / Service 외 객체는 Repository를 모른다 / Controller는 위임만
-
-### 테스트
-- TDD. 도메인=단위 / Service·Repo=통합 / Controller=E2E. 단순 위임 Controller·이미 검증된 메서드는 재검증 안 함. mock/fake 남발 금지
+## 코딩 규칙 (앱별 — path-scoped 자동 로드)
+> 앱 규칙은 해당 앱 파일을 만질 때만 자동 로드된다(중복 기재·항상 주입 안 함):
+> - **apps/api(Java)**: `.claude/rules/rules-core.md`(상시 코딩 압축본) + `.claude/rules/api.md`(구조·정답 코드 예시) → 깊은 참조 라우팅은 `rules-core.md` 상단을 따른다. 커밋 전 `cd apps/api && ./gradlew check` 통과 필수.
+> - **apps/ingest(Python)**: `.claude/rules/ingest.md` · **apps/web(TS)**: `.claude/rules/web.md`
+> 전체 규칙 체계·강제 3계층: `docs/rules/README.md`. 로컬 hook: `.claude/hooks/README.md`.
 
 ## 작업 흐름
 1. 작업 = FR 단위. 시작 전 해당 FR(PRD) + 연결 AC(AC.md) + 앱 규칙(.claude/rules/) 읽기.

@@ -9,8 +9,8 @@
 1. **프로젝트 가드레일은 `CLAUDE.md`를 따른다** — 파일명과 무관하게 모든 AI·사람 공통 규칙이다.
    제1원칙(스펙이 모호하면 멈추고 질문, 추측 구현 금지) · 절대 규칙 10개 · 문서 맵 · 작업 흐름(FR 단위, AC 자가 판정).
 2. **Java(apps/api) 코딩 규칙은 구현 전에 반드시 참조한다**:
-   - 상시 규칙(원본): `docs/rules/rules-core.md`
-   - 상세·이유·예시: `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조
+   - 상시 규칙(원본): `.claude/rules/rules-core.md` (apps/api 작업 시 자동 로드 — Codex는 직접 열어 읽어라)
+   - 상세·이유(원칙): `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조 · 구체 코드 예시: `.claude/rules/api.md §코드 예시`
    - 테스트 작성: `docs/rules/testing.md` · 저장/트랜잭션/멱등: `docs/rules/persistence.md`
    - 커밋 전 `cd apps/api && ./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가
 3. **앱별 상세 규칙**: `.claude/rules/ingest.md` · `.claude/rules/api.md` · `.claude/rules/web.md` (해당 앱 작업 시 필독)

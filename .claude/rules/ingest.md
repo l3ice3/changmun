@@ -1,3 +1,8 @@
+---
+paths:
+  - "apps/ingest/**"
+---
+
 # rules/ingest.md — apps/ingest (Python, poetry)
 
 > 수집·정규화·dedup·페르소나 부여 배치. 근거: `docs/data-model.md` §6/6-B/6-C/6-D, PRD FR-001·002.
