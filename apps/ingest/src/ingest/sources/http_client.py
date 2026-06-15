@@ -1,6 +1,8 @@
 """소스 공통 HTTP 호출 — timeout + 재시도 N회 (ingest.md 규칙 8). 소진 시 SourceError."""
+import re
 import time
 from collections.abc import Callable
+from urllib.parse import quote
 
 import requests
 
@@ -11,6 +13,10 @@ TIMEOUT_SECONDS = 10
 
 # API 키가 실리는 쿼리 파라미터명 — 예외·응답 메시지에서 값을 가린다 (절대규칙 6: 시크릿 로그 금지)
 _SECRET_PARAM_NAMES = ("serviceKey", "apiKeyNm", "crtfcKey")
+# 쿼리스트링의 키 파라미터를 값 인코딩(raw·percent-encoded)과 무관하게 통째로 마스킹
+_SECRET_QUERY_PATTERN = re.compile(
+    "(" + "|".join(_SECRET_PARAM_NAMES) + r")=[^&\s\"']+", re.IGNORECASE
+)
 
 
 def request_json(
@@ -43,9 +49,12 @@ def request_json(
 
 
 def _redact_secrets(message: str, params: dict) -> str:
-    redacted = message
+    # 1차: 쿼리스트링의 키 파라미터를 통째로 마스킹 (requests가 키를 percent-encode해도 잡힘)
+    redacted = _SECRET_QUERY_PATTERN.sub(r"\1=***", message)
+    # 2차: 쿼리 밖에 값만 노출된 경우 대비 — 실제 키 값을 raw·encoded 양쪽으로 치환
     for name in _SECRET_PARAM_NAMES:
         secret = params.get(name)
         if secret:
-            redacted = redacted.replace(str(secret), "***")
+            secret = str(secret)
+            redacted = redacted.replace(secret, "***").replace(quote(secret, safe=""), "***")
     return redacted

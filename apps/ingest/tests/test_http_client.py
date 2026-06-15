@@ -36,3 +36,16 @@ class TestSecretRedaction:
             http_client.request_json(
                 err_get, "http://x", {"apiKeyNm": "KEY999"}, sleep=lambda _: None)
         assert "KEY999" not in str(exc_info.value)
+
+    def test_url_encoded_key_redacted(self):
+        # requests는 디코딩 키의 특수문자를 percent-encode해 URL에 담는다 (serviceKey의 '/'→'%2F')
+        def raising_get(url, params, timeout):
+            raise requests.ConnectionError("Max retries with url: /api?serviceKey=abc%2Fdef%3D&page=1")
+
+        with pytest.raises(SourceError) as exc_info:
+            http_client.request_json(
+                raising_get, "http://x", {"serviceKey": "abc/def="}, sleep=lambda _: None)
+        message = str(exc_info.value)
+        assert "abc%2Fdef" not in message  # 인코딩 형태도 가려져야 함
+        assert "abc/def" not in message
+        assert "***" in message

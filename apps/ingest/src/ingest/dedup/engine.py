@@ -30,6 +30,7 @@ class DedupRecord:
     norm_title: str
     veto_tokens: frozenset[str]
     norm_org: str | None
+    region: str | None
     start_date: date | None
     deadline: date | None
     always_open: bool
@@ -46,7 +47,7 @@ class Assignment:
 
 def record_of(row: tuple) -> DedupRecord:
     """db.fetch_dedup_rows 행 → DedupRecord (정규화 키 계산 포함)."""
-    (record_id, source, title, organization, start_date, deadline,
+    (record_id, source, title, organization, region, start_date, deadline,
      always_open, info_count, group_id) = row
     return DedupRecord(
         record_id=record_id,
@@ -54,6 +55,7 @@ def record_of(row: tuple) -> DedupRecord:
         norm_title=norm_title(title),
         veto_tokens=veto_tokens(title),
         norm_org=norm_org(organization),
+        region=region,
         start_date=start_date,
         deadline=deadline,
         always_open=always_open,
@@ -124,9 +126,20 @@ def _union_similar_pairs(block: list[DedupRecord], parent: dict[int, int]) -> No
 
 
 def _is_same_announcement(left: DedupRecord, right: DedupRecord) -> bool:
+    if _region_conflict(left, right):
+        return False
     if has_substantive_difference(left.veto_tokens, right.veto_tokens):
         return False
     return pair_score(left, right) >= SIMILARITY_THRESHOLD
+
+
+def _region_conflict(left: DedupRecord, right: DedupRecord) -> bool:
+    """둘 다 지역이 있고 서로 다르면 다른 공고 — '[서울] OO'/'[부산] OO' 오합치 방지 (Codex 재리뷰).
+
+    norm_title이 [지역] 접두를 제거하고 score가 region을 보지 않으므로, 지역만 다른 변형이
+    같은 기관·기간으로 묶일 수 있다. 한쪽 region이 NULL(온통청년 복수지역 등)이면 비교하지 않는다.
+    """
+    return left.region is not None and right.region is not None and left.region != right.region
 
 
 def has_substantive_difference(left_tokens: frozenset[str], right_tokens: frozenset[str]) -> bool:
