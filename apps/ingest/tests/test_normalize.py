@@ -4,12 +4,16 @@ from datetime import date
 from ingest.normalize import (
     clean_text,
     clean_url,
+    mentions_always_open,
     normalize_audiences,
     normalize_category,
+    normalize_ontong_category,
     normalize_organization_type,
     normalize_region,
     normalize_stages,
     parse_yyyymmdd,
+    sido_from_zip_codes,
+    split_date_range,
 )
 
 
@@ -109,3 +113,70 @@ class TestOrganizationType:
         unknown = []
         assert normalize_organization_type("지자체", unknown) is None
         assert unknown == ["organization_type:지자체"]
+
+
+class TestSplitDateRange:
+    def test_live_format(self):
+        assert split_date_range("20260518 ~ 20260616") == (date(2026, 5, 18), date(2026, 6, 16))
+
+    def test_malformed_or_blank(self):
+        assert split_date_range("") == (None, None)
+        assert split_date_range(None) == (None, None)
+        assert split_date_range("20260518") == (None, None)  # "~" 누락 방어 (§6-B 규칙 2 준용)
+
+    def test_one_side_invalid_kept_partial(self):
+        assert split_date_range(" ~ 20261231") == (None, date(2026, 12, 31))
+
+
+class TestMentionsAlwaysOpen:
+    def test_recurring_keywords(self):
+        assert mentions_always_open("연중") is True
+        assert mentions_always_open("계속사업") is True
+        assert mentions_always_open("매년 연말 연초 정기 모집") is True
+        assert mentions_always_open("연례반복") is True
+
+    def test_non_recurring_or_blank(self):
+        assert mentions_always_open("미정") is False
+        assert mentions_always_open("2025.1.~12.") is False
+        assert mentions_always_open("협약시작일로부터 10개월 내외") is False
+        assert mentions_always_open(None) is False
+
+
+class TestSidoFromZipCodes:
+    def test_single_sigungu_code(self):
+        assert sido_from_zip_codes("47830", []) == "경북"
+
+    def test_multiple_codes_same_sido(self):
+        assert sido_from_zip_codes("47830,47840", []) == "경북"
+
+    def test_multiple_sido_deferred(self):
+        assert sido_from_zip_codes("11000,26000", []) is None  # 단일 컬럼 — 보류, raw 보존
+
+    def test_unknown_prefix_logged(self):
+        unknown = []
+        assert sido_from_zip_codes("99999", unknown) is None
+        assert unknown == ["region_zip:99999"]
+
+    def test_partial_unknown_forces_null(self):
+        # 인식+미분류 혼재 → 단일 지역으로 단정하지 않음 (Codex J)
+        unknown = []
+        assert sido_from_zip_codes("47830,99999", unknown) is None
+        assert "region_zip:99999" in unknown
+
+
+class TestOntongCategory:
+    def test_startup_maps_to_commercialization(self):
+        assert normalize_ontong_category("창업", "청년창업 지원사업", []) == "사업화"
+
+    def test_facility_keyword_in_title_overrides(self):
+        assert normalize_ontong_category("창업", "창업보육센터 입주기업 모집", []) == "시설ㆍ공간ㆍ보육"
+        assert normalize_ontong_category("창업", "청년 창업공간 무상 제공", []) == "시설ㆍ공간ㆍ보육"
+
+    def test_loan_subsidy_title_not_facility(self):
+        # "임차료 지원"은 자금 지원이지 공간 대여가 아니다 — 오분류 방지 (정밀도 우선)
+        assert normalize_ontong_category("창업", "청년창업자 임차료 지원사업", []) == "사업화"
+
+    def test_unknown_maps_to_gita_and_logs(self):
+        unknown = []
+        assert normalize_ontong_category("주거", "일반 정책", unknown) == "기타"
+        assert unknown == ["category:주거"]

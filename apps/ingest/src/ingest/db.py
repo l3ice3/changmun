@@ -47,8 +47,107 @@ RETURNING (xmax = 0) AS inserted
 """
 
 
+# dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5)
+_DEDUP_ROWS_SQL = """
+SELECT id, source, title, organization, region,
+       application_start_date, application_deadline, is_always_open,
+       num_nonnulls(summary, category, region, organization, organization_type, support_amount,
+                    target_startup_stage, target_audience_type, eligibility_detail,
+                    application_start_date, application_deadline, apply_url) AS info_count,
+       dedup_group_id
+FROM opportunity
+"""
+
+_APPLY_DEDUP_SQL = "UPDATE opportunity SET dedup_group_id = %s, is_canonical = %s WHERE id = %s"
+
+# 페르소나 2단계(상속): 그룹 내 K-Startup 타깃을 타 출처와 '합집합'으로 공유한다 (§6-D: 그룹 전체가 공유).
+# COALESCE(NULL 컬럼만 채움)는 멤버가 부분 신호(예: 온통 ['YOUTH'])를 가지면 donor의 더 풍부한 값을
+# 버려, AC-010 승격 시 대학생 탭에서 누락된다 → 멤버 직접 신호를 보존하며 배열을 union (중복 제거).
+_INHERIT_TARGETS_SQL = """
+WITH donor AS (
+    SELECT DISTINCT ON (dedup_group_id)
+           dedup_group_id, target_startup_stage, target_audience_type
+    FROM opportunity
+    WHERE source = 'k-startup'
+      AND dedup_group_id IS NOT NULL
+      AND (target_startup_stage IS NOT NULL OR target_audience_type IS NOT NULL)
+    ORDER BY dedup_group_id, is_canonical DESC, id
+)
+UPDATE opportunity AS member
+SET target_startup_stage = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(member.target_startup_stage, '{}'::text[])
+                    || COALESCE(donor.target_startup_stage, '{}'::text[])) AS code
+    ),
+    target_audience_type = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(member.target_audience_type, '{}'::text[])
+                    || COALESCE(donor.target_audience_type, '{}'::text[])) AS code
+    )
+FROM donor
+WHERE member.dedup_group_id = donor.dedup_group_id
+  AND member.source <> 'k-startup'
+"""
+
+# 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.
+# update_targets가 COALESCE라 이미 있는 값은 안 덮으므로 OR 조건이 안전하다.
+_PERSONA_CANDIDATES_SQL = """
+SELECT id, title, summary, eligibility_detail
+FROM opportunity
+WHERE target_startup_stage IS NULL OR target_audience_type IS NULL
+"""
+
+# 키워드 추출 결과도 기존 배열에 union — 멤버가 부분 신호(['YOUTH'])를 가져도 추출 코드(UNIV_STUDENT)를
+# 추가해 대학생 탭 누락을 막는다 (상속과 같은 이유 — Codex). 직접 신호는 보존, 중복 제거.
+_UPDATE_TARGETS_SQL = """
+UPDATE opportunity
+SET target_startup_stage = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(target_startup_stage, '{}'::text[])
+                    || COALESCE(%s::text[], '{}'::text[])) AS code
+    ),
+    target_audience_type = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(target_audience_type, '{}'::text[])
+                    || COALESCE(%s::text[], '{}'::text[])) AS code
+    )
+WHERE id = %s
+"""
+
+
 def connect(dsn: str) -> psycopg.Connection:
     return psycopg.connect(dsn)
+
+
+def fetch_dedup_rows(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_DEDUP_ROWS_SQL)
+        return cursor.fetchall()
+
+
+def apply_dedup(conn, assignments) -> None:
+    if not assignments:
+        return
+    rows = [(item.group_id, item.canonical, item.record_id) for item in assignments]
+    with conn.cursor() as cursor:
+        cursor.executemany(_APPLY_DEDUP_SQL, rows)
+
+
+def inherit_group_targets(conn) -> int:
+    with conn.cursor() as cursor:
+        cursor.execute(_INHERIT_TARGETS_SQL)
+        return cursor.rowcount
+
+
+def fetch_persona_candidates(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_PERSONA_CANDIDATES_SQL)
+        return cursor.fetchall()
+
+
+def update_targets(conn, record_id: int, stages: list[str] | None, audiences: list[str] | None) -> None:
+    with conn.cursor() as cursor:
+        cursor.execute(_UPDATE_TARGETS_SQL, (stages, audiences, record_id))
 
 
 def upsert_records(conn, records: list[OpportunityRecord]) -> tuple[int, int]:

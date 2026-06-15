@@ -258,8 +258,8 @@ END                                   AS status,
 | `region` | **`zipCd` 파싱** | 법정동 5자리 다수 → 시도 매핑(복수, best-effort) |
 | `organization` | `sprvsnInstCdNm` / `operInstCdNm` | |
 | `eligibility_detail` | `addAplyQlfcCndCn`(+`plcySprtCn`) | 자유텍스트 |
-| `application_start/deadline` | `aplyYmd` 분리 | "20260622 ~ 20261231" → ` ~ ` split |
-| `is_always_open` | `aplyPrdSeCd`(상시) / `aplyYmd` 빈값 | 상시 정책 다수 |
+| `application_start/deadline` | `aplyYmd` 분리 → 폴백 `bizPrdEndYmd` | 규칙 3 폴백 체인 |
+| `is_always_open` | `bizPrdEtcCn` 상시 키워드 | 규칙 3 (라이브 검증: `aplyPrdSeCd` 단독 판정은 부정확) |
 | `apply_url` | `aplyUrlAddr` → `refUrlAddr1` | |
 | `detail_url` | **`plcyNo`로 생성** | 응답에 상세 URL 없음 → youthcenter 상세 URL 구성 |
 | `target_audience_type[]` | **`schoolCd`+연령에서 파생** | 대학생/청년 유추(아래) |
@@ -267,10 +267,10 @@ END                                   AS status,
 
 ### 온통청년 전용 규칙
 
-1. **`target_audience_type` 파생:** K-Startup처럼 직접 주는 필드가 없음 → `schoolCd`(대학)·`sprtTrgtMaxAge`(≤34 등)에서 `UNIV_STUDENT`/`YOUTH`를 **유추**해 채운다. (= "출처마다 다른 원천을 같은 컬럼으로 정규화"의 사례. 새 컬럼 불필요)
-2. **`zipCd` 법정동 코드 → 시도 매핑** (다수, best-effort).
-3. **`aplyYmd` 분리 + 상시 → `is_always_open`.**
-4. **`detail_url` 직접 생성** (응답에 없음).
+1. **`target_audience_type` 파생(보수적):** 직접 주는 필드가 없어 유추한다. **`YOUTH`는 `sprtTrgtAgeLmtYn=Y` + `sprtTrgtMaxAge ≤ 39`일 때만** 채운다(무제한 표기 0·99 제외). **`schoolCd`→`UNIV_STUDENT` 유추는 보류** — 라이브 322건 중 311건이 동일 코드(`0049010`=제한없음)이고 공식 코드표 미확보라 신호가 약하다. 코드표 확보 시 raw에서 소급. (페르소나 탭은 `PRE_STARTUP`/`UNIV_STUDENT`/`EARLY_STAGE`뿐 → `YOUTH` 단독은 탭 필터에 쓰이지 않음. 분석·향후용으로만 보존)
+2. **`zipCd` 법정동 코드 → 시도 매핑** (다수면 보류 = NULL, best-effort).
+3. **기간 폴백 체인** (라이브 분포 검증 — `aplyYmd` 빈 126건이 상시36/마감204/진행31/미상51로 분리): (1) `aplyYmd` 신청기간 → ` ~ ` split (2) `bizPrdEtcCn`에 상시 키워드(연중·계속·상시·연례·반복·매년·수시) → `is_always_open=true` (3) `bizPrdEndYmd`(사업종료일, YYYYMMDD) → `application_deadline`(과거면 status 산식이 CLOSED로 계산) (4) 그 외(미정·"협약시작일로부터 N개월"·빈값) → NULL(UNDATED). **`aplyPrdSeCd` 코드 단독 판정은 부정확해 폐기.** `bizPrdEtcCn`은 자유텍스트라 날짜 파싱 대상이 아니라 상시 키워드 탐지용.
+4. **`detail_url` 직접 생성** (응답에 없음 → `plcyNo`로 `…/ythPlcyTotalSearch/ythPlcyDetail/{plcyNo}`).
 5. 연령·소득·결혼·요건코드는 **raw 보존**(컬럼 추가 금지).
 
 ---

@@ -64,6 +64,22 @@ _REGION_FULL_NAME = {
     "제주특별자치도": "제주",
 }
 
+# 온통청년 mclsfNm → 표준 category 느슨 매핑 (§7). 비창업 슬라이스는 애초 수집하지 않는다(§6-C).
+ONTONG_CATEGORY_MAP = {
+    "창업": "사업화",
+}
+FACILITY_CATEGORY = "시설ㆍ공간ㆍ보육"  # STANDARD_CATEGORIES와 동일 라벨(ㆍ=U+318D)
+# 공간·시설 대여 신호(§7 예외). "임차"는 '임차료 지원'(자금)과 구분 안 돼 제외 — 정밀도 우선(오분류>놓침).
+_ONTONG_FACILITY_KEYWORDS = ("입주", "오피스", "창업공간", "거주지원")
+
+# 법정동 코드 앞 2자리 → 시도 (행정표준코드. 강원 42→51, 전북 45→52 개편 코드 병기)
+_ZIP_SIDO_PREFIX = {
+    "11": "서울", "26": "부산", "27": "대구", "28": "인천", "29": "광주",
+    "30": "대전", "31": "울산", "36": "세종", "41": "경기",
+    "42": "강원", "51": "강원", "43": "충북", "44": "충남",
+    "45": "전북", "52": "전북", "46": "전남", "47": "경북", "48": "경남", "50": "제주",
+}
+
 _SPACES = re.compile(r"\s+")
 
 
@@ -126,6 +142,50 @@ def _normalize_tokens(
         if code not in codes:
             codes.append(code)
     return codes or None
+
+
+def normalize_ontong_category(value: str | None, title: str | None, unknown: list[str]) -> str | None:
+    # 제목에 공간 대여 신호가 있으면 우선 매핑 (§7: 공간/오피스 대여 → 시설ㆍ공간ㆍ보육)
+    if title and any(keyword in title for keyword in _ONTONG_FACILITY_KEYWORDS):
+        return FACILITY_CATEGORY
+    if value is None or not str(value).strip():
+        return None
+    mapped = ONTONG_CATEGORY_MAP.get(str(value).strip())
+    if mapped:
+        return mapped
+    unknown.append(f"category:{value}")
+    return UNKNOWN_CATEGORY
+
+
+def sido_from_zip_codes(value: str | None, unknown: list[str]) -> str | None:
+    """법정동 5자리 코드(콤마 복수) → 시도. 단일 시도일 때만 채운다 — 복수는 보류(NULL, raw 보존).
+
+    단일 region 컬럼이라 best-effort (§6-C 규칙 2). 억지 채움 금지 원칙 준용.
+    """
+    if value is None or not str(value).strip():
+        return None
+    matched, has_unknown = _scan_sido(str(value), unknown)
+    # 미분류 코드가 하나라도 있으면 단일 지역으로 단정하지 않는다 — 미지/복수 정책을 한 지역으로
+    # 오도하지 않게 (§6-C best-effort, Codex). 인식 지역이 정확히 1개일 때만 채운다.
+    if has_unknown or len(matched) != 1:
+        return None
+    return next(iter(matched))
+
+
+def _scan_sido(joined: str, unknown: list[str]) -> tuple[set[str], bool]:
+    matched: set[str] = set()
+    has_unknown = False
+    for code in joined.split(","):
+        trimmed = code.strip()
+        if not trimmed:
+            continue
+        sido = _ZIP_SIDO_PREFIX.get(trimmed[:2])
+        if sido is None:
+            unknown.append(f"region_zip:{trimmed}")
+            has_unknown = True
+            continue
+        matched.add(sido)
+    return matched, has_unknown
 
 
 def normalize_stages(value: str | None, unknown: list[str]) -> list[str] | None:

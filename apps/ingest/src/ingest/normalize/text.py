@@ -31,6 +31,28 @@ def parse_yyyymmdd(value: str | int | None) -> date | None:
         return None
 
 
+def split_date_range(value: str | None) -> tuple[date | None, date | None]:
+    """"YYYYMMDD ~ YYYYMMDD" 단일 필드 → (시작, 종료). 형식 이탈은 (None, None) + raw 보존.
+
+    온통청년 aplyYmd(§6-C 규칙 3)·기업마당 reqstBeginEndDe(§6-B 규칙 2) 공통 형식.
+    """
+    if value is None or "~" not in str(value):
+        return None, None
+    begin_text, _, end_text = str(value).partition("~")
+    return parse_yyyymmdd(begin_text), parse_yyyymmdd(end_text)
+
+
+# 상시·반복 사업 신호 — bizPrdEtcCn 등 자유텍스트에서 "끝나지 않는 사업"을 식별 (data-model §6-C 보강)
+_ALWAYS_OPEN_KEYWORDS = ("연중", "상시", "계속", "연례", "반복", "매년", "수시")
+
+
+def mentions_always_open(value: str | None) -> bool:
+    """텍스트에 상시·반복 모집 신호가 있으면 True. 정확한 날짜 파싱 대상이 아님 — 키워드 탐지만."""
+    if value is None:
+        return False
+    return any(keyword in value for keyword in _ALWAYS_OPEN_KEYWORDS)
+
+
 def clean_url(value: str | None) -> str | None:
     """URL 정제 (§6 규칙 11): 마크다운 래핑 해제 → 엔티티 디코딩 → 스킴 보정.
 
