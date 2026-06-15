@@ -164,14 +164,17 @@ def sido_from_zip_codes(value: str | None, unknown: list[str]) -> str | None:
     """
     if value is None or not str(value).strip():
         return None
-    matched = _distinct_sido_of(str(value), unknown)
-    if len(matched) == 1:
-        return next(iter(matched))
-    return None
+    matched, has_unknown = _scan_sido(str(value), unknown)
+    # 미분류 코드가 하나라도 있으면 단일 지역으로 단정하지 않는다 — 미지/복수 정책을 한 지역으로
+    # 오도하지 않게 (§6-C best-effort, Codex). 인식 지역이 정확히 1개일 때만 채운다.
+    if has_unknown or len(matched) != 1:
+        return None
+    return next(iter(matched))
 
 
-def _distinct_sido_of(joined: str, unknown: list[str]) -> set[str]:
+def _scan_sido(joined: str, unknown: list[str]) -> tuple[set[str], bool]:
     matched: set[str] = set()
+    has_unknown = False
     for code in joined.split(","):
         trimmed = code.strip()
         if not trimmed:
@@ -179,9 +182,10 @@ def _distinct_sido_of(joined: str, unknown: list[str]) -> set[str]:
         sido = _ZIP_SIDO_PREFIX.get(trimmed[:2])
         if sido is None:
             unknown.append(f"region_zip:{trimmed}")
+            has_unknown = True
             continue
         matched.add(sido)
-    return matched
+    return matched, has_unknown
 
 
 def normalize_stages(value: str | None, unknown: list[str]) -> list[str] | None:

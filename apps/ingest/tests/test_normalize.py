@@ -157,6 +157,12 @@ class TestSidoFromZipCodes:
         assert sido_from_zip_codes("99999", unknown) is None
         assert unknown == ["region_zip:99999"]
 
+    def test_partial_unknown_forces_null(self):
+        # 인식+미분류 혼재 → 단일 지역으로 단정하지 않음 (Codex J)
+        unknown = []
+        assert sido_from_zip_codes("47830,99999", unknown) is None
+        assert "region_zip:99999" in unknown
+
 
 class TestOntongCategory:
     def test_startup_maps_to_commercialization(self):

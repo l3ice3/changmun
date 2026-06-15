@@ -32,6 +32,16 @@ class TestExtractTargets:
         assert stages is None
         assert audiences is None
 
+    def test_exclusion_clause_not_matched(self):
+        # 키워드 직후 제외/부정 표현이면 채우지 않는다 (Codex K)
+        assert extract_targets("예비창업자 제외 대상")[0] is None
+        assert extract_targets("업력 3년 미만 기업 제외")[0] is None
+        assert extract_targets("대학생 지원 불가")[1] is None
+
+    def test_positive_still_matched_with_guard(self):
+        assert extract_targets("예비창업자 모집")[0] == ["PRE_STARTUP"]
+        assert extract_targets("대학생 대상 창업 프로그램")[1] == ["UNIV_STUDENT"]
+
     def test_weak_signal_not_stretched(self):
         # "대학" 단독·"창업" 단독은 신호로 보지 않는다 — 억지 채움 금지
         stages, audiences = extract_targets("대학 연계 창업 인프라 구축")
