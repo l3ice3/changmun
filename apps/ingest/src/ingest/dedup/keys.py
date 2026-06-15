@@ -5,8 +5,15 @@ norm_org   = 기관명 약어사전 정규화 + 공백 제거.
 """
 import re
 
-_BRACKET_PREFIX = re.compile(r"^\s*[\[(][^\])]{1,20}[\])]\s*")
-_YEAR = re.compile(r"(19|20)\d{2}\s*년?")
+from ingest.normalize.taxonomy import REGIONS
+
+# §6-D는 '[지역]' 접두만 제거하라고 한다 — [소셜벤처]·[KOTRA] 등 비-지역 접두를 지우면
+# 서로 다른 트랙이 오합치된다(Codex). 괄호 안이 지역명일 때만 접두를 제거한다.
+_REGION_BRACKET = re.compile(
+    r"^\s*[\[(](?:" + "|".join(sorted(REGIONS, key=len, reverse=True)) + r")[\])]\s*"
+)
+# '2026년도'/'2026년' 혼용 대응 — '년' 뒤 '도'까지 연도 noise로 제거 (Codex)
+_YEAR = re.compile(r"(19|20)\d{2}\s*년?도?")
 _ROUND = re.compile(r"\d+\s*차")
 _SEPARATORS = re.compile(r"[\[\]()<>「」『』·ㆍ\-–—_/,.:;'\"~!?]")
 _SPACES = re.compile(r"\s+")
@@ -40,7 +47,7 @@ def veto_tokens(title: str) -> frozenset[str]:
 
 
 def _strip_noise(title: str) -> str:
-    text = _BRACKET_PREFIX.sub("", title)
+    text = _REGION_BRACKET.sub("", title)
     text = _YEAR.sub(" ", text)
     for phrase in _BOILERPLATE_PHRASES:
         text = text.replace(phrase, " ")

@@ -44,6 +44,15 @@ class TestNormKeys:
         assert norm_org("중소벤처기업부") == "중소벤처기업부"
         assert norm_org("  ") is None
 
+    def test_keeps_non_region_bracket(self):
+        # [지역]만 제거, [기관/분야] 접두는 토큰으로 남는다 (Codex E)
+        assert "kotra" in norm_title("[KOTRA] 글로벌 지원사업")
+        assert norm_title("[서울] 창업 지원") == norm_title("창업 지원")
+
+    def test_strips_year_with_do_suffix(self):
+        # "2026년도"와 "2026년" 모두 연도 noise로 제거 (Codex G)
+        assert norm_title("2026년도 창업 지원") == norm_title("2026년 창업 지원")
+
 
 class TestSimilarity:
     def test_identical_is_one(self):
@@ -95,6 +104,21 @@ class TestGrouping:
         """한쪽 지역이 NULL이면 region 비교를 건너뛰고 기존 판정으로 같은 공고를 묶는다."""
         left = record(1, "k-startup", "청년창업 공간 지원사업", region=None)
         right = record(2, "ontong-youth", "청년창업 공간 지원사업", region="서울")
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id == assignments[2].group_id == 1
+
+    def test_non_region_bracket_not_merged(self):
+        """비-지역 접두([소셜벤처]/[청년])가 다르면 별개 공고 — 접두 보존 veto (Codex E)."""
+        left = record(1, "k-startup", "[소셜벤처] 창업기업 모집 공고")
+        right = record(2, "k-startup", "[청년] 창업기업 모집 공고")
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id is None
+        assert assignments[2].group_id is None
+
+    def test_year_form_variants_merge(self):
+        """'2026년도'와 '2026년'은 같은 공고로 병합된다 — 연도 noise 정규화 (Codex G)."""
+        left = record(1, "k-startup", "2026년도 창업기업 모집 공고")
+        right = record(2, "ontong-youth", "2026년 창업기업 모집 공고")
         assignments = by_id(engine.build_assignments([left, right], TODAY))
         assert assignments[1].group_id == assignments[2].group_id == 1
 
