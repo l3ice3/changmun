@@ -60,7 +60,9 @@ FROM opportunity
 
 _APPLY_DEDUP_SQL = "UPDATE opportunity SET dedup_group_id = %s, is_canonical = %s WHERE id = %s"
 
-# 페르소나 2단계(상속): 그룹 내 K-Startup 신호를 타 출처의 NULL 컬럼에만 채운다 (§6-D — 직접 신호 우선)
+# 페르소나 2단계(상속): 그룹 내 K-Startup 타깃을 타 출처와 '합집합'으로 공유한다 (§6-D: 그룹 전체가 공유).
+# COALESCE(NULL 컬럼만 채움)는 멤버가 부분 신호(예: 온통 ['YOUTH'])를 가지면 donor의 더 풍부한 값을
+# 버려, AC-010 승격 시 대학생 탭에서 누락된다 → 멤버 직접 신호를 보존하며 배열을 union (중복 제거).
 _INHERIT_TARGETS_SQL = """
 WITH donor AS (
     SELECT DISTINCT ON (dedup_group_id)
@@ -72,12 +74,19 @@ WITH donor AS (
     ORDER BY dedup_group_id, is_canonical DESC, id
 )
 UPDATE opportunity AS member
-SET target_startup_stage = COALESCE(member.target_startup_stage, donor.target_startup_stage),
-    target_audience_type = COALESCE(member.target_audience_type, donor.target_audience_type)
+SET target_startup_stage = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(member.target_startup_stage, '{}'::text[])
+                    || COALESCE(donor.target_startup_stage, '{}'::text[])) AS code
+    ),
+    target_audience_type = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(member.target_audience_type, '{}'::text[])
+                    || COALESCE(donor.target_audience_type, '{}'::text[])) AS code
+    )
 FROM donor
 WHERE member.dedup_group_id = donor.dedup_group_id
   AND member.source <> 'k-startup'
-  AND (member.target_startup_stage IS NULL OR member.target_audience_type IS NULL)
 """
 
 # 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.

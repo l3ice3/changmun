@@ -80,6 +80,26 @@ class TestDedupAndPersonaFlow:
         assert lone_state[0] is None
         assert lone_state[2] is None
 
+    def test_inherit_unions_audience_arrays(self, conn):
+        """멤버가 부분 신호(['YOUTH'])를 가져도 donor 값을 합집합으로 받는다 — COALESCE 아닌 union (Codex C)."""
+        kstartup_id = insert_row(conn, "k-startup", "h",
+                                 "2099년 예비창업 창업기업 모집 공고", stages=["PRE_STARTUP"])
+        ontong_id = insert_row(conn, "ontong-youth", "i", "예비창업 창업기업 모집 공고")
+        with conn.cursor() as cursor:
+            cursor.execute("UPDATE opportunity SET target_audience_type=ARRAY['UNIV_STUDENT','GENERAL'] WHERE id=%s",
+                           (kstartup_id,))
+            cursor.execute("UPDATE opportunity SET target_audience_type=ARRAY['YOUTH'] WHERE id=%s", (ontong_id,))
+
+        dedup.run(conn)
+        persona.apply(conn)
+
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT target_audience_type, target_startup_stage FROM opportunity WHERE id=%s",
+                           (ontong_id,))
+            audience, stage = cursor.fetchone()
+        assert set(audience) == {"YOUTH", "UNIV_STUDENT", "GENERAL"}  # 멤버 직접신호 YOUTH 보존 + donor union
+        assert stage == ["PRE_STARTUP"]  # 멤버 stage 없으니 donor 상속
+
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""
         kstartup_id = insert_row(conn, "k-startup", "d",
