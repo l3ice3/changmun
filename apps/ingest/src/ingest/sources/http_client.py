@@ -9,6 +9,9 @@ from ingest.errors import SourceError
 MAX_RETRIES = 3
 TIMEOUT_SECONDS = 10
 
+# API 키가 실리는 쿼리 파라미터명 — 예외·응답 메시지에서 값을 가린다 (절대규칙 6: 시크릿 로그 금지)
+_SECRET_PARAM_NAMES = ("serviceKey", "apiKeyNm", "crtfcKey")
+
 
 def request_json(
     http_get: Callable,
@@ -25,14 +28,24 @@ def request_json(
         try:
             response = http_get(url, params=params, timeout=TIMEOUT_SECONDS)
         except requests.RequestException as exc:
-            last_error = f"요청 실패: {exc}"
+            # 예외 문자열에 요청 URL(=키 포함 쿼리)이 섞일 수 있어 마스킹 후 저장
+            last_error = _redact_secrets(f"요청 실패: {exc}", params)
             continue
         if response.status_code != 200:
-            last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+            last_error = _redact_secrets(f"HTTP {response.status_code}: {response.text[:200]}", params)
             continue
         try:
             return response.json()
         except ValueError:
             # 인증 오류 등은 200 + XML 에러 봉투로 옴 → 본문 앞부분을 남겨 원인 추적
-            last_error = f"JSON 파싱 실패: {response.text[:200]}"
+            last_error = _redact_secrets(f"JSON 파싱 실패: {response.text[:200]}", params)
     raise SourceError(f"{context} 수집 실패 ({MAX_RETRIES}회 재시도): {last_error}")
+
+
+def _redact_secrets(message: str, params: dict) -> str:
+    redacted = message
+    for name in _SECRET_PARAM_NAMES:
+        secret = params.get(name)
+        if secret:
+            redacted = redacted.replace(str(secret), "***")
+    return redacted

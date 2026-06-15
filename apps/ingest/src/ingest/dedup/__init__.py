@@ -14,8 +14,7 @@ def run(conn, today: date | None = None) -> EnrichmentReport:
     effective_today = today or date.today()
     records = [engine.record_of(row) for row in db.fetch_dedup_rows(conn)]
     assignments = engine.build_assignments(records, effective_today)
-    db.apply_dedup(conn, assignments)
-    conn.commit()
+    db.apply_dedup(conn, assignments)  # commit은 호출자(main._enrich_isolated) 책임
     grouped = [assignment for assignment in assignments if assignment.group_id is not None]
     group_count = len({assignment.group_id for assignment in grouped})
     non_canonical = sum(1 for assignment in grouped if not assignment.canonical)

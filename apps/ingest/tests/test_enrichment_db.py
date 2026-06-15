@@ -22,6 +22,9 @@ RETURNING id
 
 @pytest.fixture
 def conn():
+    # 절대 commit하지 않는다 — dedup.run은 전체 테이블을 재평가/UPDATE하므로,
+    # commit하면 개발 DB의 실데이터 dedup_group_id·is_canonical까지 덮어쓴다.
+    # 모든 변경을 한 트랜잭션에 쌓고 끝에 rollback해 실데이터를 보존한다 (테스트 격리).
     try:
         connection = db.connect(DSN)
     except Exception:
@@ -29,9 +32,7 @@ def conn():
     try:
         yield connection
     finally:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM opportunity WHERE external_id LIKE %s", (PREFIX + "%",))
-        connection.commit()
+        connection.rollback()
         connection.close()
 
 
@@ -43,8 +44,7 @@ def insert_row(conn, source, suffix, title, **fields):
     with conn.cursor() as cursor:
         cursor.execute(INSERT_SQL, (source, PREFIX + suffix, title, organization, stages, start_date, deadline))
         row_id = cursor.fetchone()[0]
-    conn.commit()
-    return row_id
+    return row_id  # commit 안 함 — fixture가 끝에 rollback
 
 
 def fetch_state(conn, row_id):
@@ -92,7 +92,6 @@ class TestDedupAndPersonaFlow:
                 "UPDATE opportunity SET application_deadline = %s WHERE id = %s",
                 (date(2026, 1, 1), kstartup_id),
             )
-        conn.commit()
         dedup.run(conn)
 
         assert fetch_state(conn, kstartup_id)[1] is False

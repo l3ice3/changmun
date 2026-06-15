@@ -1,8 +1,8 @@
 """온통청년 청년정책 수집 — data-model.md §6-C (실데이터 확정 명세).
 
 수집 범위: mclsfNm=창업 슬라이스만, JSON (ingest.md 규칙 1).
-라이브 검증(2026-06-12, 322건): mclsfNm 서버 필터 동작, 봉투 = result.pagging/result.youthPolicyList,
-aplyPrdSeCd 0057001=기간지정(aplyYmd 존재)·0057002=상시(연중)·0057003=날짜 없음(기간 미상으로 서빙).
+라이브 검증(2026-06-12, 322건): mclsfNm 서버 필터 동작, 봉투 = result.pagging/result.youthPolicyList.
+기간은 aplyPrdSeCd 코드 단독이 부정확해 폴백 체인으로 판정한다(_resolve_period 참조).
 """
 import logging
 import time
@@ -115,14 +115,14 @@ def map_record(raw: dict) -> MappingResult:
         external_id=external_id,
         title=title,
         summary=_joined_text(raw.get("plcyExplnCn"), raw.get("plcySprtCn")),
-        category=normalize_ontong_category(raw.get("mclsfNm"), unknown),
+        category=normalize_ontong_category(raw.get("mclsfNm"), title, unknown),
         region=sido_from_zip_codes(raw.get("zipCd"), unknown),
         organization=_organization_of(raw),
         organization_type=None,  # 온통청년엔 기관 유형 필드 없음 (§6-C)
         support_amount=None,
         target_startup_stage=None,  # 업력 신호 없음 → NULL (억지 채움 금지)
         target_audience_type=_derived_audiences(raw),
-        eligibility_detail=clean_text(raw.get("addAplyQlfcCndCn")),
+        eligibility_detail=_resolve_eligibility(raw),
         application_start_date=start_date,
         application_deadline=deadline,
         is_always_open=always_open,
@@ -148,6 +148,17 @@ def _organization_of(raw: dict) -> str | None:
     if organization:
         return organization
     return clean_text(raw.get("operInstCdNm"))
+
+
+def _resolve_eligibility(raw: dict) -> str | None:
+    """자격 텍스트 우선, 없으면 지원내용으로 폴백 (§6-C: eligibility_detail = addAplyQlfcCndCn(+plcySprtCn)).
+
+    라이브 322건 중 222건이 addAplyQlfcCndCn 빈값 → 폴백 없으면 카드/상세 자격 영역이 통째로 빈다.
+    """
+    qualification = clean_text(raw.get("addAplyQlfcCndCn"))
+    if qualification:
+        return qualification
+    return clean_text(raw.get("plcySprtCn"))
 
 
 def _resolve_period(raw: dict) -> tuple[date | None, date | None, bool]:

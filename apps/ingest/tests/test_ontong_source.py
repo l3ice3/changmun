@@ -54,6 +54,20 @@ class TestMapRecordHappy:
         assert record.raw == original
 
 
+class TestEligibilityFallback:
+    def test_falls_back_to_support_content_when_qualification_blank(self):
+        # real_item: addAplyQlfcCndCn 빈값 → plcySprtCn으로 폴백 (§6-C)
+        record = ontong_youth.map_record(real_item()).record
+        assert record.eligibility_detail is not None
+        assert "(목적)" in record.eligibility_detail
+
+    def test_prefers_qualification_when_present(self):
+        item = real_item()
+        item["addAplyQlfcCndCn"] = "만 19~39세 미취업 청년"
+        record = ontong_youth.map_record(item).record
+        assert record.eligibility_detail == "만 19~39세 미취업 청년"
+
+
 class TestPeriodResolution:
     """기간 폴백 체인 (data-model §6-C 보강): aplyYmd → 상시키워드 → 사업종료일 → 미상."""
 

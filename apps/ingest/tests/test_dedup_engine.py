@@ -132,6 +132,15 @@ class TestCanonical:
         assert assignments[1].canonical is False
         assert assignments[2].canonical is True
 
+    def test_stale_group_released_when_content_diverges(self):
+        """기존 그룹(group_id 동일)이라도 제목·기관이 실제로 달라지면 재검증에서 해제된다 (Codex ⑤)."""
+        left = record(1, "k-startup", "예비창업패키지 모집", group_id=7)
+        right = record(2, "k-startup", "전혀 다른 수출바우처 참여기업", group_id=7,
+                       organization="다른기관", deadline=date(2026, 7, 15))
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id is None
+        assert assignments[2].group_id is None
+
     def test_no_kstartup_group_prefers_info_count(self):
         """§6-D: 그룹에 K-Startup이 없으면 정보량 많은 쪽이 canonical."""
         rich = record(1, "ontong-youth", "창업 공간 입주 모집", info_count=12)

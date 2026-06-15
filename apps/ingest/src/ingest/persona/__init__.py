@@ -17,8 +17,7 @@ _STAGE_BY_YEARS = {"1": "LT_1Y", "2": "LT_2Y", "3": "LT_3Y", "5": "LT_5Y", "7": 
 
 def apply(conn) -> EnrichmentReport:
     inherited = db.inherit_group_targets(conn)
-    keyword_filled = _fill_by_keywords(conn)
-    conn.commit()
+    keyword_filled = _fill_by_keywords(conn)  # commit은 호출자(main._enrich_isolated) 책임
     return EnrichmentReport(name="persona", metrics={"상속": inherited, "키워드": keyword_filled})
 
 

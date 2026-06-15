@@ -86,13 +86,25 @@ def build_assignments(records: list[DedupRecord], today: date) -> list[Assignmen
 
 
 def _seed_existing_groups(records: list[DedupRecord], parent: dict[int, int]) -> None:
-    members_by_group: dict[int, list[int]] = defaultdict(list)
+    """기존 그룹을 '재검증 후' 유지한다 — 무조건 보존하지 않는다.
+
+    마감일이 갱신돼 블로킹(마감일 기준)이 갈라놓은 같은 공고는 다시 묶어 AC-010 승격을 살리되,
+    제목·기관이 실제로 달라져 더는 같은 공고가 아니게 된 stale 그룹은 자연히 해제한다.
+    (블로킹을 건너뛰고 직접 동일성 판정 — 기존 멤버 쌍은 수가 적어 비용도 작다.)
+    """
+    members_by_group: dict[int, list[DedupRecord]] = defaultdict(list)
     for record in records:
         if record.group_id is not None:
-            members_by_group[record.group_id].append(record.record_id)
-    for member_ids in members_by_group.values():
-        for member_id in member_ids[1:]:
-            _union(parent, member_ids[0], member_id)
+            members_by_group[record.group_id].append(record)
+    for members in members_by_group.values():
+        _reunion_still_similar(members, parent)
+
+
+def _reunion_still_similar(members: list[DedupRecord], parent: dict[int, int]) -> None:
+    for index, left in enumerate(members):
+        for right in members[index + 1:]:
+            if _is_same_announcement(left, right):
+                _union(parent, left.record_id, right.record_id)
 
 
 def _blocks_by_deadline(records: list[DedupRecord]) -> dict[date, list[DedupRecord]]:

@@ -41,14 +41,30 @@ def run(
     if enrichers is None:
         enrichers = default_enrichers()
     source_reports = []
-    enrichment_reports = []
     with connect(settings.database_dsn) as conn:
         for name, collect in collectors.items():
             source_reports.append(_collect_isolated(name, collect, settings, conn))
-        for name, enrich in enrichers.items():
-            enrichment_reports.append(_enrich_isolated(name, enrich, conn))
+        enrichment_reports = _run_enrichers(enrichers, conn)
     print(format_report(source_reports, enrichment_reports))
     return _exit_code(source_reports, enrichment_reports)
+
+
+def _run_enrichers(enrichers: dict[str, Enricher], conn) -> list[EnrichmentReport]:
+    """후처리는 의존 파이프라인(dedup → persona) — 선행 단계가 실패하면 후속 단계를 건너뛴다.
+
+    persona 상속은 dedup_group_id를 읽으므로, dedup 실패 후 persona를 돌리면
+    stale·누락 그룹으로 잘못된 값을 커밋한다. 그래서 의존 단계는 스킵한다.
+    """
+    reports: list[EnrichmentReport] = []
+    upstream_failed = False
+    for name, enrich in enrichers.items():
+        if upstream_failed:
+            reports.append(EnrichmentReport(name=name, failed=True, error="선행 단계 실패로 건너뜀"))
+            continue
+        report = _enrich_isolated(name, enrich, conn)
+        upstream_failed = report.failed
+        reports.append(report)
+    return reports
 
 
 def _collect_isolated(name: str, collect: Collector, settings: Settings, conn) -> SourceReport:
@@ -62,9 +78,15 @@ def _collect_isolated(name: str, collect: Collector, settings: Settings, conn) -
 
 
 def _enrich_isolated(name: str, enrich: Enricher, conn) -> EnrichmentReport:
-    """후처리 실패가 수집 결과를 무효화하지 않는다 — 다음 배치에서 재평가 가능(전체 재계산)."""
+    """후처리 실패가 수집 결과를 무효화하지 않는다 — 다음 배치에서 재평가 가능(전체 재계산).
+
+    commit은 여기(호출자)서 한다 — dedup·persona는 쓰기만 하고 트랜잭션 경계를 모른다.
+    덕분에 통합 테스트는 commit 없이 호출 후 rollback해 실데이터를 보존할 수 있다.
+    """
     try:
-        return enrich(conn)
+        report = enrich(conn)
+        conn.commit()
+        return report
     except Exception as exc:  # noqa: BLE001 — 단계 격리가 목적
         conn.rollback()
         logger.error("[%s] 후처리 실패: %s", name, exc)

@@ -68,6 +68,9 @@ _REGION_FULL_NAME = {
 ONTONG_CATEGORY_MAP = {
     "창업": "사업화",
 }
+FACILITY_CATEGORY = "시설ㆍ공간ㆍ보육"  # STANDARD_CATEGORIES와 동일 라벨(ㆍ=U+318D)
+# 공간·시설 대여 신호(§7 예외). "임차"는 '임차료 지원'(자금)과 구분 안 돼 제외 — 정밀도 우선(오분류>놓침).
+_ONTONG_FACILITY_KEYWORDS = ("입주", "오피스", "창업공간", "거주지원")
 
 # 법정동 코드 앞 2자리 → 시도 (행정표준코드. 강원 42→51, 전북 45→52 개편 코드 병기)
 _ZIP_SIDO_PREFIX = {
@@ -141,7 +144,10 @@ def _normalize_tokens(
     return codes or None
 
 
-def normalize_ontong_category(value: str | None, unknown: list[str]) -> str | None:
+def normalize_ontong_category(value: str | None, title: str | None, unknown: list[str]) -> str | None:
+    # 제목에 공간 대여 신호가 있으면 우선 매핑 (§7: 공간/오피스 대여 → 시설ㆍ공간ㆍ보육)
+    if title and any(keyword in title for keyword in _ONTONG_FACILITY_KEYWORDS):
+        return FACILITY_CATEGORY
     if value is None or not str(value).strip():
         return None
     mapped = ONTONG_CATEGORY_MAP.get(str(value).strip())

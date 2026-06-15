@@ -11,9 +11,13 @@ SETTINGS = Settings(kstartup_api_key="KEY", ontong_api_key="KEY", database_dsn="
 class FakeConnection:
     def __init__(self):
         self.rollbacks = 0
+        self.commits = 0
 
     def rollback(self):
         self.rollbacks += 1
+
+    def commit(self):
+        self.commits += 1
 
 
 def fake_connect_factory(conn):
@@ -61,13 +65,15 @@ class TestSourceIsolation:
 
 
 class TestEnrichmentIsolation:
-    def test_enricher_failure_sets_exit_code_and_rolls_back(self, capsys):
+    def test_dedup_failure_skips_dependent_persona(self, capsys):
         conn = FakeConnection()
+        persona_calls = []
 
         def broken_dedup(connection):
             raise RuntimeError("dedup 오류")
 
         def ok_persona(connection):
+            persona_calls.append("called")
             return EnrichmentReport(name="persona", metrics={"상속": 2})
 
         exit_code = run(
@@ -77,7 +83,23 @@ class TestEnrichmentIsolation:
             enrichers={"dedup": broken_dedup, "persona": ok_persona},
         )
         assert exit_code == 1
+        assert persona_calls == []  # dedup 실패 → 의존 단계 persona 스킵
         assert conn.rollbacks == 1
         out = capsys.readouterr().out
         assert "[dedup] 실패" in out
-        assert "[persona] 상속=2" in out  # 실패한 단계 뒤에도 다음 단계가 실행됨
+        assert "건너뜀" in out
+
+    def test_all_enrichers_ok_commit_each_step(self, capsys):
+        conn = FakeConnection()
+
+        exit_code = run(
+            settings=SETTINGS,
+            collectors={"ok": ok_report("ok")},
+            connect=fake_connect_factory(conn),
+            enrichers={
+                "dedup": lambda c: EnrichmentReport(name="dedup", metrics={"그룹": 1}),
+                "persona": lambda c: EnrichmentReport(name="persona", metrics={"상속": 2}),
+            },
+        )
+        assert exit_code == 0
+        assert conn.commits == 2  # 후처리 각 단계 성공 시 호출자가 commit (③ 트랜잭션 경계)

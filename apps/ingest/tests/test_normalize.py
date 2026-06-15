@@ -160,9 +160,17 @@ class TestSidoFromZipCodes:
 
 class TestOntongCategory:
     def test_startup_maps_to_commercialization(self):
-        assert normalize_ontong_category("창업", []) == "사업화"
+        assert normalize_ontong_category("창업", "청년창업 지원사업", []) == "사업화"
+
+    def test_facility_keyword_in_title_overrides(self):
+        assert normalize_ontong_category("창업", "창업보육센터 입주기업 모집", []) == "시설ㆍ공간ㆍ보육"
+        assert normalize_ontong_category("창업", "청년 창업공간 무상 제공", []) == "시설ㆍ공간ㆍ보육"
+
+    def test_loan_subsidy_title_not_facility(self):
+        # "임차료 지원"은 자금 지원이지 공간 대여가 아니다 — 오분류 방지 (정밀도 우선)
+        assert normalize_ontong_category("창업", "청년창업자 임차료 지원사업", []) == "사업화"
 
     def test_unknown_maps_to_gita_and_logs(self):
         unknown = []
-        assert normalize_ontong_category("주거", unknown) == "기타"
+        assert normalize_ontong_category("주거", "일반 정책", unknown) == "기타"
         assert unknown == ["category:주거"]
