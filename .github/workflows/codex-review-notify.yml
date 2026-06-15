@@ -1,0 +1,51 @@
+name: codex-review-notify
+
+# 리뷰 봇(Codex 등)이 PR 리뷰를 "제출"하면 Discord로 알린다.
+# 자동 수정·머지는 하지 않는다 — 사람에게 "리뷰 들어왔다"를 알리는 용도뿐.
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}   # GITHUB_TOKEN 권한 불필요(이벤트 데이터 + Discord 시크릿만 사용)
+
+jobs:
+  notify:
+    # 봇이 제출한 리뷰만 알린다(사람 리뷰는 제외). 현재 레포의 리뷰 봇 = Codex.
+    # 특정 봇으로 좁히려면 == 'Bot' 대신 user.login(예: chatgpt-codex-connector[bot])으로 교체.
+    if: ${{ github.event.review.user.type == 'Bot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discord 알림
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          # 값은 env로 받아 스크립트 인젝션을 막고, JSON은 jq로 안전하게 조립(PR 제목 특수문자 대응)
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.review.html_url }}
+          REVIEWER: ${{ github.event.review.user.login }}
+          STATE: ${{ github.event.review.state }}
+        run: |
+          case "$STATE" in
+            approved)          STATUS="✅ 승인";      COLOR=3066993 ;;
+            changes_requested) STATUS="🔧 변경 요청"; COLOR=15158332 ;;
+            *)                 STATUS="💬 코멘트";    COLOR=3447003 ;;
+          esac
+          jq -n \
+            --arg title "🤖 리뷰 봇 리뷰 완료 · $STATUS" \
+            --arg pr "#${PR_NUMBER} ${PR_TITLE}" \
+            --arg reviewer "$REVIEWER" \
+            --arg url "$PR_URL" \
+            --argjson color "$COLOR" \
+            '{
+              username: "리뷰지기",
+              embeds: [{
+                title: $title,
+                color: $color,
+                url: $url,
+                fields: [
+                  { name: "PR", value: $pr, inline: false },
+                  { name: "리뷰어", value: $reviewer, inline: true }
+                ]
+              }]
+            }' \
+          | curl -s -H "Content-Type: application/json" -X POST "$WEBHOOK" -d @-
