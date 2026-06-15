@@ -79,10 +79,12 @@ WHERE member.dedup_group_id = donor.dedup_group_id
   AND (member.target_startup_stage IS NULL OR member.target_audience_type IS NULL)
 """
 
+# 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.
+# update_targets가 COALESCE라 이미 있는 값은 안 덮으므로 OR 조건이 안전하다.
 _PERSONA_CANDIDATES_SQL = """
 SELECT id, title, summary, eligibility_detail
 FROM opportunity
-WHERE target_startup_stage IS NULL AND target_audience_type IS NULL
+WHERE target_startup_stage IS NULL OR target_audience_type IS NULL
 """
 
 _UPDATE_TARGETS_SQL = """

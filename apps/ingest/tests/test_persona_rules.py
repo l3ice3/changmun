@@ -8,6 +8,12 @@ class TestExtractTargets:
         assert stages == ["PRE_STARTUP"]
         assert audiences is None
 
+    def test_pre_startup_variants(self):
+        # "창업 예정/준비"도 예비창업 신호로 본다 (보강) — 단 "청년창업" 단독은 제외
+        assert extract_targets("창업 예정자 모집")[0] == ["PRE_STARTUP"]
+        assert extract_targets("창업 준비 단계 청년 지원")[0] == ["PRE_STARTUP"]
+        assert extract_targets("청년창업 재정지원 사업")[0] is None
+
     def test_years_under_pattern(self):
         stages, _ = extract_targets("업력 3년 미만 기업 대상")
         assert stages == ["LT_3Y"]

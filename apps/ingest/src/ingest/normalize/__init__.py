@@ -11,11 +11,18 @@ from ingest.normalize.taxonomy import (
     normalize_stages,
     sido_from_zip_codes,
 )
-from ingest.normalize.text import clean_text, clean_url, parse_yyyymmdd, split_date_range
+from ingest.normalize.text import (
+    clean_text,
+    clean_url,
+    mentions_always_open,
+    parse_yyyymmdd,
+    split_date_range,
+)
 
 __all__ = [
     "clean_text",
     "clean_url",
+    "mentions_always_open",
     "parse_yyyymmdd",
     "split_date_range",
     "normalize_audiences",

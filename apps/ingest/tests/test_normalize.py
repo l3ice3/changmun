@@ -4,6 +4,7 @@ from datetime import date
 from ingest.normalize import (
     clean_text,
     clean_url,
+    mentions_always_open,
     normalize_audiences,
     normalize_category,
     normalize_ontong_category,
@@ -125,6 +126,20 @@ class TestSplitDateRange:
 
     def test_one_side_invalid_kept_partial(self):
         assert split_date_range(" ~ 20261231") == (None, date(2026, 12, 31))
+
+
+class TestMentionsAlwaysOpen:
+    def test_recurring_keywords(self):
+        assert mentions_always_open("연중") is True
+        assert mentions_always_open("계속사업") is True
+        assert mentions_always_open("매년 연말 연초 정기 모집") is True
+        assert mentions_always_open("연례반복") is True
+
+    def test_non_recurring_or_blank(self):
+        assert mentions_always_open("미정") is False
+        assert mentions_always_open("2025.1.~12.") is False
+        assert mentions_always_open("협약시작일로부터 10개월 내외") is False
+        assert mentions_always_open(None) is False
 
 
 class TestSidoFromZipCodes:

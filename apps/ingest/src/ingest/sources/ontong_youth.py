@@ -7,6 +7,7 @@ aplyPrdSeCd 0057001=기간지정(aplyYmd 존재)·0057002=상시(연중)·005700
 import logging
 import time
 from collections.abc import Callable, Iterator
+from datetime import date
 
 import requests
 
@@ -16,7 +17,9 @@ from ingest.errors import SourceError
 from ingest.normalize import (
     clean_text,
     clean_url,
+    mentions_always_open,
     normalize_ontong_category,
+    parse_yyyymmdd,
     sido_from_zip_codes,
     split_date_range,
 )
@@ -32,7 +35,6 @@ BASE_URL = "https://www.youthcenter.go.kr/go/ythip/getPlcy"
 DETAIL_URL_TEMPLATE = "https://www.youthcenter.go.kr/youthPolicy/ythPlcyTotalSearch/ythPlcyDetail/{plcyNo}"
 CATEGORY_SLICE = "창업"
 PER_PAGE = 100
-ALWAYS_OPEN_PERIOD_CODE = "0057002"  # 라이브 분포: 이 코드만 '상시(연중)'와 일치, aplyYmd 전부 빈값
 
 # YOUTH 유추(보수적): 연령 제한이 명시되고 상한이 청년 범위(≤39)일 때만 (§6-C 규칙 1 + AC-009)
 YOUTH_MAX_AGE = 39
@@ -107,7 +109,7 @@ def map_record(raw: dict) -> MappingResult:
     if clean_text(raw.get("mclsfNm")) != CATEGORY_SLICE:
         # 서버 필터 이중 방어 — 수집 범위 밖 슬라이스는 적재하지 않는다
         return MappingResult(None, f"창업 슬라이스 아님(mclsfNm={raw.get('mclsfNm')})", unknown)
-    start_date, deadline = split_date_range(raw.get("aplyYmd"))
+    start_date, deadline, always_open = _resolve_period(raw)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=external_id,
@@ -123,7 +125,7 @@ def map_record(raw: dict) -> MappingResult:
         eligibility_detail=clean_text(raw.get("addAplyQlfcCndCn")),
         application_start_date=start_date,
         application_deadline=deadline,
-        is_always_open=clean_text(raw.get("aplyPrdSeCd")) == ALWAYS_OPEN_PERIOD_CODE,
+        is_always_open=always_open,
         detail_url=DETAIL_URL_TEMPLATE.format(plcyNo=external_id),
         apply_url=_resolve_apply_url(raw),
         source_status=clean_text(raw.get("aplyPrdSeCd")),
@@ -146,6 +148,25 @@ def _organization_of(raw: dict) -> str | None:
     if organization:
         return organization
     return clean_text(raw.get("operInstCdNm"))
+
+
+def _resolve_period(raw: dict) -> tuple[date | None, date | None, bool]:
+    """신청 기간 결정 폴백 체인 (data-model §6-C 보강 — 라이브 분포 검증).
+
+    1. aplyYmd 신청기간 있음        → 그대로 (가장 신뢰)
+    2. bizPrdEtcCn에 상시 키워드     → is_always_open (연중·계속·상시·연례·반복…)
+    3. bizPrdEndYmd(사업종료일) 유효 → 마감일로 (과거면 status 산식이 CLOSED로 계산 — 저장 안 함)
+    4. 그 외(미정·협약기반·빈값)     → 기간 미상 (NULL)
+    """
+    start_date, deadline = split_date_range(raw.get("aplyYmd"))
+    if deadline is not None:
+        return start_date, deadline, False
+    if mentions_always_open(clean_text(raw.get("bizPrdEtcCn"))):
+        return None, None, True
+    business_end = parse_yyyymmdd(raw.get("bizPrdEndYmd"))
+    if business_end is not None:
+        return None, business_end, False
+    return start_date, None, False
 
 
 def _derived_audiences(raw: dict) -> list[str] | None:

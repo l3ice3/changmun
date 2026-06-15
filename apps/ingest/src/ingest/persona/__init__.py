@@ -8,7 +8,7 @@ import re
 from ingest import db
 from ingest.report import EnrichmentReport
 
-_PRE_STARTUP = re.compile(r"예비\s*창업")
+_PRE_STARTUP = re.compile(r"예비\s*창업|창업\s*예정|창업\s*준비")
 _UNIV_STUDENT = re.compile(r"대학생")
 _YEARS_UNDER = re.compile(r"(\d{1,2})\s*년\s*미만")
 

@@ -54,19 +54,37 @@ class TestMapRecordHappy:
         assert record.raw == original
 
 
-class TestAlwaysOpenAndDates:
-    def test_always_open_code_without_dates(self):
+class TestPeriodResolution:
+    """기간 폴백 체인 (data-model §6-C 보강): aplyYmd → 상시키워드 → 사업종료일 → 미상."""
+
+    def test_apply_period_takes_priority(self):
+        # aplyYmd 있으면 그대로 — bizPrd 신호보다 우선 (real_item: 20260518 ~ 20260616)
+        record = ontong_youth.map_record(real_item()).record
+        assert record.application_deadline == date(2026, 6, 16)
+        assert record.is_always_open is False
+
+    def test_recurring_keyword_marks_always_open(self):
         item = real_item()
-        item["aplyPrdSeCd"] = "0057002"  # 라이브 분포상 상시(연중) 코드
         item["aplyYmd"] = ""
+        item["bizPrdEtcCn"] = "연중"
         record = ontong_youth.map_record(item).record
         assert record.is_always_open is True
         assert record.application_deadline is None
 
-    def test_dateless_non_always_code_stays_undated(self):
+    def test_business_end_date_fallback(self):
         item = real_item()
-        item["aplyPrdSeCd"] = "0057003"  # 날짜 없음 — 상시로 단정하지 않음(기간 미상으로 서빙)
         item["aplyYmd"] = ""
+        item["bizPrdEtcCn"] = ""
+        item["bizPrdEndYmd"] = "20251231"  # 과거 → 조회 시 status 산식이 CLOSED로 계산
+        record = ontong_youth.map_record(item).record
+        assert record.is_always_open is False
+        assert record.application_deadline == date(2025, 12, 31)
+
+    def test_no_signal_stays_undated(self):
+        item = real_item()
+        item["aplyYmd"] = ""
+        item["bizPrdEtcCn"] = "미정"  # 협약기반·미정·빈값은 추측하지 않음
+        item["bizPrdEndYmd"] = ""
         record = ontong_youth.map_record(item).record
         assert record.is_always_open is False
         assert record.application_deadline is None
