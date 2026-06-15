@@ -100,6 +100,20 @@ class TestDedupAndPersonaFlow:
         assert set(audience) == {"YOUTH", "UNIV_STUDENT", "GENERAL"}  # 멤버 직접신호 YOUTH 보존 + donor union
         assert stage == ["PRE_STARTUP"]  # 멤버 stage 없으니 donor 상속
 
+    def test_keyword_fill_merges_into_existing_audience(self, conn):
+        """이미 ['YOUTH']인 행에 '대학생' 텍스트가 있으면 UNIV_STUDENT를 추가(union) — COALESCE 아님 (Codex H)."""
+        rid = insert_row(conn, "ontong-youth", "k", "대학생 예비창업자 모집")
+        with conn.cursor() as cursor:
+            cursor.execute("UPDATE opportunity SET target_audience_type=ARRAY['YOUTH'] WHERE id=%s", (rid,))
+
+        persona.apply(conn)
+
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT target_audience_type, target_startup_stage FROM opportunity WHERE id=%s", (rid,))
+            audience, stage = cursor.fetchone()
+        assert set(audience) == {"YOUTH", "UNIV_STUDENT"}  # 직접신호 YOUTH 보존 + 키워드 UNIV_STUDENT 추가
+        assert stage == ["PRE_STARTUP"]  # 예비창업 키워드
+
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""
         kstartup_id = insert_row(conn, "k-startup", "d",

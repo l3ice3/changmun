@@ -97,10 +97,20 @@ FROM opportunity
 WHERE target_startup_stage IS NULL OR target_audience_type IS NULL
 """
 
+# 키워드 추출 결과도 기존 배열에 union — 멤버가 부분 신호(['YOUTH'])를 가져도 추출 코드(UNIV_STUDENT)를
+# 추가해 대학생 탭 누락을 막는다 (상속과 같은 이유 — Codex). 직접 신호는 보존, 중복 제거.
 _UPDATE_TARGETS_SQL = """
 UPDATE opportunity
-SET target_startup_stage = COALESCE(target_startup_stage, %s),
-    target_audience_type = COALESCE(target_audience_type, %s)
+SET target_startup_stage = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(target_startup_stage, '{}'::text[])
+                    || COALESCE(%s::text[], '{}'::text[])) AS code
+    ),
+    target_audience_type = (
+        SELECT array_agg(DISTINCT code ORDER BY code)
+        FROM unnest(COALESCE(target_audience_type, '{}'::text[])
+                    || COALESCE(%s::text[], '{}'::text[])) AS code
+    )
 WHERE id = %s
 """
 
