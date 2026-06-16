@@ -165,14 +165,17 @@ LIMIT :size OFFSET :offset;
 ## 4. status·D-day는 저장하지 않고 계산
 
 ```sql
+-- status·dDay 산식의 유일한 정의는 api-spec §0. 이 예시는 그것을 SQL로 옮긴 것일 뿐(드리프트 금지).
 CASE
-  WHEN is_always_open                       THEN 'ongoing'
-  WHEN application_deadline >= CURRENT_DATE  THEN 'open'
-  WHEN application_deadline <  CURRENT_DATE  THEN 'closed'
-  WHEN source_status = 'Y'                   THEN 'open'   -- 마감일 없을 때 폴백
-  ELSE 'unknown'
-END                                   AS status,
-(application_deadline - CURRENT_DATE) AS d_day
+  WHEN is_always_open                       THEN 'ALWAYS_OPEN'
+  WHEN application_deadline IS NULL          THEN 'UNDATED'      -- 마감일 없음(상시 아님) = 기간 미상
+  WHEN application_deadline >= CURRENT_DATE  THEN 'OPEN'
+  ELSE                                           'CLOSED'       -- application_deadline < CURRENT_DATE
+END AS status,
+-- dDay는 OPEN일 때만(ALWAYS_OPEN·CLOSED·UNDATED는 null)
+CASE WHEN NOT is_always_open AND application_deadline >= CURRENT_DATE
+     THEN (application_deadline - CURRENT_DATE)
+END AS d_day
 ```
 
 (라이브 검증: 마감 지난 공고는 `rcrt_prgs_yn=N` + URL이 `bizpbanc-deadline.do`, 진행 중은 `bizpbanc-ongoing.do`로 일관됨.)
