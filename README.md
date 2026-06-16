@@ -21,7 +21,7 @@
 ## 문서 유지보수 정책
 **갱신 의무가 있는 살아있는 계약은 4개뿐**: `PRD.md` · `AC.md`(매핑 테이블 상태 포함) · `data-model.md` · `api-spec.md`.
 코드와 이 4개가 어긋나면 즉시 고친다(스키마·API 변경 시 같은 커밋에서). 나머지 문서(기획서·screens·rules-full 등)는
-참고용 — 틀려도 구현을 막지 않으며 갱신 의무 없음. 코딩 규칙의 원본은 `docs/rules/rules-core.md`(CLAUDE.md는 사본).
+참고용 — 틀려도 구현을 막지 않으며 갱신 의무 없음. 코딩 규칙은 `.claude/rules/*`(앱별 path-scoped 자동 로드) + `docs/rules/`(참조 라이브러리).
 
 ## 읽는 순서 (처음 보는 사람)
 기획서 → PRD → data-model → screens → api-spec → AC

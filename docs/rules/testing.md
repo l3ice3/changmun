@@ -1,6 +1,6 @@
 # testing.md — 테스트 규칙 (무엇을·어디까지·어떻게)
 
-> **무엇을, 어디까지, 어떻게 테스트할지**에 대한 약속. 설계(`rules-core.md`·`rules-full.md` §9)·저장 경계(`persistence.md`)·계약(`docs/api-spec.md`·`docs/data-model.md`)과 함께 읽는다.
+> **무엇을, 어디까지, 어떻게 테스트할지**에 대한 약속. 설계(`.claude/rules/rules-core.md`·`rules-full.md` §9)·저장 경계(`persistence.md`)·계약(`docs/api-spec.md`·`docs/data-model.md`)과 함께 읽는다.
 > 검증 전략의 **단일 진실은 `docs/AC.md`**다(자동 vs 수동, 앱별 범위). 이 문서는 그 위에 "어떻게 좋은 테스트를 쓰는가"를 얹는다.
 > "지향"은 이 문서가, "강제"는 `.claude/hooks/`와 CI(`static-analysis.yml`)가 맡는다.
 
@@ -57,7 +57,7 @@
 - **자체 로직이 없는 것** — getter/setter·생성자·`equals`/`hashCode`·단순 위임. 깨질 분기가 없고, 깨지면 컴파일러·IDE가 잡는다.
 - **우리 소유가 아닌 것** — 프레임워크·라이브러리·외부 시스템 동작. `List.add()`·JPA·requests가 잘 도는지 검증하지 않는다. 우리가 볼 건 "그걸 올바르게 사용했는가"뿐.
 - **이미 다른 테스트가 보증하는 것** — 하위에서 검증된 로직을 상위에서 재검증하지 않는다. 단, 그걸 **활용해 새 로직**(판별·집계)이 생기면 그 부분은 다시 검증한다.
-- **단순 위임 Controller** — `.claude/rules/api.md`·rules-core와 동일. 로직 없는 위임은 슬라이스/E2E에서 한 번만.
+- **단순 위임 Controller** — `.claude/rules/api.md`·`.claude/rules/rules-core.md`와 동일. 로직 없는 위임은 슬라이스/E2E에서 한 번만.
 - **입출력(I/O) 자체** — 순수 계산 결과만 본다.
 
 ## 5. 실제 DB / Fake / Mock — 무엇을 언제 (사고 도구)
@@ -116,5 +116,5 @@
 코드가 "됐다"는 건 다음을 모두 만족할 때다.
 1. 도메인 로직과 핵심 정책 테스트가 통과한다(회귀 보호).
 2. 응답이 `api-spec.md`·`data-model.md` 명세와 일치한다(명세 준수).
-3. glossary(`glossary-dev.md`) 표준어를 따르고, 설계 규칙(rules-core)에서 크게 벗어나지 않는다.
+3. glossary(`glossary-dev.md`) 표준어를 따르고, 설계 규칙(`.claude/rules/rules-core.md`)에서 크게 벗어나지 않는다.
 4. **AC 기준 자가 판정** Pass 근거 명시 + `AC.md §1` 상태 칸 같은 커밋에서 갱신 (`CLAUDE.md` 작업흐름 2·3).

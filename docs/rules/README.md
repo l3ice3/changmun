@@ -6,16 +6,16 @@
 ## 파일 지도
 
 ```
-docs/rules/
+docs/rules/  (참조 라이브러리 — 자동 로드 안 됨. 작업 종류별로 발췌 참조)
   README.md              ← (이 파일) 전체 구조 안내
-  rules-core.md          ← 상시 규칙 압축본(원본). AI 매 요청 / 사람 빠른 참조
-  rules-full.md          ← 상세·이유·예시. 작업 종류별 발췌 참조
+  rules-full.md          ← 상세·이유(원칙). 작업 종류별 발췌 참조
+                            ※ 이 프로젝트에 적용한 구체 코드 예시(정답 형태)는 .claude/rules/api.md §코드 예시
   testing.md             ← 테스트 규칙: 실DB/Fake/Mock 결정·안 하는 것·명세 준수 (검증전략 SSOT는 AC.md)
   persistence.md         ← 저장·트랜잭션·멱등성: 작업단위 경계·UPSERT·부수효과 분리 (스키마 진실은 data-model)
   git.md                 ← 브랜치·커밋·PR·머지 + 이슈·라벨·AI 산출물 표기 + Flyway 타임스탬프 버전명
   glossary-dev.md        ← 개발자용 표준 용어(동의어 금지). 값의 진실은 data-model·api-spec
 
-CLAUDE.md                ← Claude Code가 항상 읽는 작업 지침 (core 기반)
+CLAUDE.md                ← Claude Code가 항상 읽는 작업 지침 (앱 규칙은 위 .claude/rules/가 path-scoped 자동 로드)
 AGENTS.md                ← Codex가 읽는 작업·리뷰 지침 — 리뷰 분담(A/B/C 분류) 전문 포함
                             (구 rules-review-bot.md 내용이 여기로 흡수됨)
 
@@ -29,6 +29,11 @@ apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Ja
                             (Checkstyle·PMD=린트 / Spotless=포맷 자동수정. spotlessApply로 정렬, spotlessCheck로 CI 차단)
 
 .claude/
+  rules/                 ← path-scoped 자동 로드 규칙(해당 앱 파일을 만질 때만 context에 로드)
+    rules-core.md        ← apps/api 상시 코딩 압축본(원본). paths: apps/api/**
+    api.md               ← apps/api 구조·정답 코드 예시. paths: apps/api/**
+    ingest.md            ← apps/ingest 규칙. paths: apps/ingest/**
+    web.md               ← apps/web 규칙. paths: apps/web/**
   settings.json          ← 팀 공유 hook 설정(커밋됨). 로컬 에이전트 강제선
   hooks/                 ← guard-protected-branch.sh(보호 브랜치 commit/push 차단) · guardrail-lint.sh(절대규칙 위반 피드백)
   hooks/README.md        ← hook 설명 + 강제 3계층(지향 / CI / 로컬 hook)
@@ -43,7 +48,7 @@ apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Ja
 ## 동작 흐름
 
 0. 작업 중 **로컬 hook**(`.claude/`)이 즉시 작동한다 — 보호 브랜치 commit/push 차단, 절대규칙 위반 피드백. CI를 대체하지 않는 보조선이다.
-1. 개발자(또는 AI)가 `CLAUDE.md` / `rules-core.md` 를 보며 구현한다(작업 종류에 따라 `testing.md`·`persistence.md` 발췌).
+1. 개발자(또는 AI)가 `CLAUDE.md` + 앱 규칙(`.claude/rules/`, path-scoped 자동 로드)을 보며 구현한다(작업 종류에 따라 `rules-full.md`·`testing.md`·`persistence.md` 발췌).
 2. PR을 올리면 GitHub Actions가 두 갈래로 검사한다.
    - **static-analysis.yml** → 셀 수 있는 규칙 위반 시 **빨간불 = 머지 불가**.
    - **Codex 클라우드 코드 리뷰** → `AGENTS.md`의 리뷰 분담 기준대로 설계·의미 문제를 **코멘트로 제안** (머지 막지 않음).
@@ -53,7 +58,7 @@ apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Ja
 
 | 계층 | 무엇 | 막는가? |
 |---|---|---|
-| **지향**(판단용) | `docs/rules/` · `CLAUDE.md` · `AGENTS.md` | 아니오 — 사람·AI가 읽고 판단 |
+| **지향**(판단용) | `.claude/rules/`(path-scoped 자동 로드) · `docs/rules/` · `CLAUDE.md` · `AGENTS.md` | 아니오 — 사람·AI가 읽고 판단 |
 | **로컬 hook**(보조선) | `.claude/hooks/` | 에이전트 작업 중 즉시(로컬만) |
 | **CI 정적분석**(본 게이트) | `static-analysis.yml` | 예 — 원격 PR 빨간불=머지 불가 |
 
@@ -75,7 +80,7 @@ apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Ja
 
 ## 토큰/컨텍스트 관리
 
-- AI에는 평소 `CLAUDE.md`(=core) 만 들어간다.
+- 상시 주입은 `CLAUDE.md`만. **앱 규칙(`.claude/rules/*`)은 해당 앱 파일을 만질 때 자동 로드**된다(path-scoped) — 다른 앱 작업 땐 안 들어와 노이즈가 준다. (apps/api는 `rules-core.md`+`api.md` 자동 로드)
 - 도메인·예외·테스트 등 특정 작업이 나올 때만 `rules-full.md` 해당 섹션을 추가한다.
 - full 전체를 통째로 주입하지 않는다.
 - 가지치기 기준: 리뷰봇 위반 로그로 자주 어기는 규칙만 core에 남기고,

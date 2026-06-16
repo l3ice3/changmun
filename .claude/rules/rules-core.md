@@ -1,7 +1,13 @@
-# 코딩 규칙 — 상시 (rules-core.md)
+---
+paths:
+  - "apps/api/**"
+---
 
-> 매 요청에 주입하는 압축본. 자주 어기고 짧게 표현되는 규칙만 담는다.
-> 상세·예외·테스트 전략은 `rules-full.md`를 작업 종류에 따라 발췌.
+# 코딩 규칙 — apps/api 상시 (rules-core.md)
+
+> **apps/api 작업 시 자동 로드된다**(path-scoped rule). Java 코딩의 상시 압축본 — 자주 어기고 짧게 표현되는 규칙만 담는다.
+> 더 깊이 필요할 때 발췌 참조: 상세·이유(원칙) `docs/rules/rules-full.md` · **구체 코드 예시(정답 형태) `.claude/rules/api.md §코드 예시`** · 테스트 `docs/rules/testing.md` · 저장/트랜잭션/멱등 `docs/rules/persistence.md` · 식별자 표준어 `docs/rules/glossary-dev.md`.
+> 커밋 전 `cd apps/api && ./gradlew check`(checkstyle+pmd+test) 통과 필수 — 실패 시 머지 불가.
 
 ## 스타일 (MUST)
 - indent depth ≤ 2 / 메서드 ≤ 20라인 / 메서드 인자 ≤ 4

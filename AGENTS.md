@@ -9,8 +9,8 @@
 1. **프로젝트 가드레일은 `CLAUDE.md`를 따른다** — 파일명과 무관하게 모든 AI·사람 공통 규칙이다.
    제1원칙(스펙이 모호하면 멈추고 질문, 추측 구현 금지) · 절대 규칙 10개 · 문서 맵 · 작업 흐름(FR 단위, AC 자가 판정).
 2. **Java(apps/api) 코딩 규칙은 구현 전에 반드시 참조한다**:
-   - 상시 규칙(원본): `docs/rules/rules-core.md`
-   - 상세·이유·예시: `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조
+   - 상시 규칙(원본): `.claude/rules/rules-core.md` (apps/api 작업 시 자동 로드 — Codex는 직접 열어 읽어라)
+   - 상세·이유(원칙): `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조 · 구체 코드 예시: `.claude/rules/api.md §코드 예시`
    - 테스트 작성: `docs/rules/testing.md` · 저장/트랜잭션/멱등: `docs/rules/persistence.md`
    - 커밋 전 `cd apps/api && ./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가
 3. **앱별 상세 규칙**: `.claude/rules/ingest.md` · `.claude/rules/api.md` · `.claude/rules/web.md` (해당 앱 작업 시 필독)
@@ -89,5 +89,5 @@
 ### 운영 원칙 (팀 참고)
 1. **하드 게이트(A)와 소프트 제안(B/C)을 분리**한다. 섞으면 둘 다 무뎌진다.
 2. 봇 지적의 **오탐률을 측정**한다. 특정 규칙의 오탐이 높으면 사람 전용으로 내리거나 경고로 완화한다.
-3. **위반 로그를 쌓는다.** 자주 어기는 규칙 = `rules-core.md` 상시 주입 후보, 한 번도 안 어기는 규칙 = 상시본에서 제외 후보.
+3. **위반 로그를 쌓는다.** 자주 어기는 규칙 = `.claude/rules/rules-core.md` 자동 로드 후보, 한 번도 안 어기는 규칙 = 상시본에서 제외 후보.
 4. **재현성·비용**: 모델을 고정하고 temperature를 낮춰 리뷰 편차를 줄인다. **diff-only**로 보고, 트리비얼 PR(docs·포맷·생성물)은 스킵해 비용·노이즈를 아낀다.

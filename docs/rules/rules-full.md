@@ -1,18 +1,20 @@
 # 코딩 규칙 — 전체 (rules-full.md)
 
 > **이 문서는 참조용이다. 매 요청에 통째로 주입하지 않는다.**
-> 평소 주입은 `rules-core.md`(상시 압축본)로 하고, 아래 표에 따라 **해당 작업을 할 때만** 이 문서의 해당 섹션을 발췌해 함께 넣는다.
+> 상시 규칙은 `.claude/rules/rules-core.md`(apps/api 작업 시 자동 로드)가 담당하고, 아래 표에 따라 **해당 작업을 할 때만** 이 문서의 해당 섹션을 발췌해 함께 넣는다.
 > 봇 위임 기준(리뷰 분담 A/B/C)은 루트 `AGENTS.md` §2를 본다.
 
 ### 발췌 라우팅 (작업 종류 → 읽을 섹션)
 | 지금 하는 작업 | 함께 주입할 섹션 |
 |---|---|
-| 일반 구현 전부 | `rules-core.md`만으로 충분 |
-| 도메인 모델링 | §3 타입/값, §4 클래스, §5 공통/다형성 |
+| 일반 구현 전부 | `.claude/rules/rules-core.md`만으로 충분(apps/api 작업 시 자동 로드) |
+| 도메인 모델링 | §3 타입/값, §4 클래스, §5 공통/다형성 + **`.claude/rules/api.md §코드 예시`(정답 형태)** |
 | 분기·중복 정리 | §5 공통/다형성, 부록 B 트리거 |
-| 계층/저장 설계 | §6 계층, §7 트랜잭션 + **`persistence.md`**(작업단위·멱등·UPSERT) |
-| 예외 처리 | §8 예외 |
+| 계층/저장 설계 | §6 계층, §7 트랜잭션 + **`persistence.md`**(작업단위·멱등·UPSERT) + **`api.md §코드 예시`** |
+| 예외 처리 | §8 예외 (아래 코드 블록이 정답 형태) |
 | 테스트 작성 | §9 테스트 + **`testing.md`**(실DB/Fake/Mock·안 하는 것·명세 준수) |
+
+> **원칙은 여기(rules-full), 이 프로젝트에 적용한 구체 코드 예시는 `.claude/rules/api.md §코드 예시`에 있다.** 도메인·계층 코드를 짤 때는 반드시 그 예시 형태를 따른다(추상 원칙만 읽고 추측 구현 금지).
 
 > 우선순위: **컨벤션/규칙 → 역할 분리 → 세부 로직**.
 > **MUST** 위반은 반려. **SHOULD**는 정당한 이유 없으면 지킨다.
@@ -151,6 +153,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                                                   HttpStatusCode status,
                                                                   WebRequest request) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, "입력값이 올바르지 않습니다.");
+        problemDetail.setProperty("code", "INVALID_PARAM");   // api-spec §0: 프론트가 code로 분기
         problemDetail.setProperty("errors", exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -161,18 +164,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(InvalidRequestException.class)
     public ResponseEntity<ProblemDetail> handleInvalidRequestException(InvalidRequestException exception) {
-        return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
+        return problem(HttpStatus.BAD_REQUEST, "INVALID_PARAM", exception.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleAllUncaughtException(Exception exception) {
         log.error("Unexpected exception occurred", exception);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, SERVER_ERROR_MESSAGE);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL", SERVER_ERROR_MESSAGE);
     }
 
-    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
-        return ResponseEntity.status(status)
-                .body(ProblemDetail.forStatusAndDetail(status, detail));
+    // api-spec §0: 에러 바디에 code 확장(INVALID_PARAM/NOT_FOUND/INTERNAL)을 실어 프론트가 분기한다.
+    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setProperty("code", code);
+        return ResponseEntity.status(status).body(body);
     }
 }
 ```
