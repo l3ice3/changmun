@@ -39,7 +39,7 @@
 10. **PRD Out-of-Scope 구현 금지**: 로그인·추천·알림·관리자 UI·민간 수집. 요청받지 않은 기능 추가 금지.
 
 ## 코딩 규칙 (앱별 — path-scoped 자동 로드)
-> 앱 규칙은 해당 앱 파일을 만질 때만 자동 로드된다(중복 기재·항상 주입 안 함):
+> 앱 규칙은 해당 앱 파일을 만질 때만 자동 로드된다(중복 기재·항상 주입 안 함). **자동 로드는 매칭 파일을 열 때 트리거되므로, 새 파일 생성 등 기존 파일을 먼저 읽지 않는 작업에선 안 실릴 수 있다 → 해당 앱 작업을 시작하기 전에 아래 규칙 파일을 직접 읽어라(작업 흐름 §1).**
 > - **apps/api(Java)**: `.claude/rules/rules-core.md`(상시 코딩 압축본) + `.claude/rules/api.md`(구조·정답 코드 예시) → 깊은 참조 라우팅은 `rules-core.md` 상단을 따른다. 커밋 전 `cd apps/api && ./gradlew check` 통과 필수.
 > - **apps/ingest(Python)**: `.claude/rules/ingest.md` · **apps/web(TS)**: `.claude/rules/web.md`
 > 전체 규칙 체계·강제 3계층: `docs/rules/README.md`. 로컬 hook: `.claude/hooks/README.md`.

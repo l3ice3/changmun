@@ -40,6 +40,13 @@ src/test/java/  # 슬라이스 테스트 — AC-011~021, 023 대응
 public record OpportunityStatus(StatusCode code, Integer dDay) {
     private static final int CLOSING_SOON_DAYS = 7;
 
+    // 불변식: dDay는 OPEN일 때만 존재(api-spec). 불일치 상태를 생성자에서 차단 → 내부 분기는 code로만 한다.
+    public OpportunityStatus {
+        if ((code == StatusCode.OPEN) != (dDay != null)) {
+            throw new IllegalArgumentException("dDay는 OPEN일 때만 존재한다: " + code);
+        }
+    }
+
     public static OpportunityStatus on(LocalDate today, boolean alwaysOpen, LocalDate deadline) {
         if (alwaysOpen) {
             return new OpportunityStatus(StatusCode.ALWAYS_OPEN, null);
@@ -82,7 +89,7 @@ OpportunityStatus status = opportunity.statusOn(today);
 ```
 
 ### 3) 엔티티 → 응답 DTO는 `from()` 정적 팩토리
-엔티티를 컨트롤러 밖으로 내보내지 않는다. 응답은 불변 `record`, 변환은 `XxxResponse.from(...)` 한 곳. JSON 계약상 `dDay`는 null 허용 — null은 **경계 DTO까지만**, 내부 분기는 객체에 묻는다.
+엔티티를 컨트롤러 밖으로 내보내지 않는다. 응답은 불변 `record`, 변환은 `XxxResponse.from(...)` 한 곳. `dDay` 부재는 "OPEN 아님"을 뜻하며 값 객체 불변식이 강제한다 — 그 null은 **응답 JSON에만** 싣고, 내부 분기는 null이 아니라 `status`/`code`로 한다.
 ```java
 public record OpportunityResponse(
         Long id, String status, Integer dDay, boolean closingSoon, List<String> badges /* ...api-spec §1 필드... */) {
@@ -100,7 +107,7 @@ public record OpportunityResponse(
 ```
 
 ### 4) Repository는 Spring Data JPA 인터페이스 + 파라미터 바인딩
-인터페이스 자체가 추상화다 — **수동 구현(`JdbcXxxRepository`) 분리는 JPA에선 과설계, 금지.** 모든 입력은 `@Param` 바인딩(문자열 조립 금지 — AC-021), 리스트/검색은 `is_canonical = true` 고정.
+인터페이스 자체가 추상화다 — **수동 구현(`JdbcXxxRepository`) 분리는 JPA에선 과설계, 금지.** 모든 입력은 `@Param` 바인딩(문자열 조립 금지 — AC-021). 리스트/검색은 `is_canonical = true` 고정 + 기본 `status=open`은 마감 제외(상시·기간미상은 포함 — api-spec §0/§1, AC-011·013). `status=all`이면 `onlyOpen=false`.
 ```java
 public interface OpportunityRepository extends JpaRepository<Opportunity, Long> {
 
@@ -109,10 +116,12 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
         WHERE is_canonical = true
           AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))
           AND (:audience IS NULL OR :audience = ANY(target_audience_type))
+          AND (:onlyOpen = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE)
         ORDER BY application_deadline ASC NULLS LAST
         """, nativeQuery = true)
     Page<Opportunity> search(@Param("stage") String stage,
                              @Param("audience") String audience,
+                             @Param("onlyOpen") boolean onlyOpen,
                              Pageable pageable);
 }
 ```
