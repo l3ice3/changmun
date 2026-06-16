@@ -9,6 +9,10 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/changmun}
     username: ${DB_USERNAME:changmun}
     password: ${DB_PASSWORD:changmun}
+    hikari:
+      # 세션 타임존을 한국으로 고정 → 네이티브 쿼리의 CURRENT_DATE가 서비스 기준일(Asia/Seoul)과 일치한다.
+      # status/dDay 산식(LocalDate.now(clock))과 onlyOpen 필터가 같은 "오늘"을 보게 한다.
+      connection-init-sql: "SET TIME ZONE 'Asia/Seoul'"
 
   jpa:
     hibernate:
@@ -18,6 +22,10 @@ spring:
   flyway:
     # 스키마의 단일 진실 = 레포 루트 /db/migrations (apps/api 기준 상대경로, 배포 시 env로 교체)
     locations: filesystem:${DB_MIGRATIONS_DIR:../../db/migrations}
+
+  mvc:
+    problemdetails:
+      enabled: true   # 미처리 예외도 RFC7807 ProblemDetail로 통일 (api-spec §0)
 
 server:
   port: 8080

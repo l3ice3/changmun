@@ -33,6 +33,12 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+	// Testcontainers — 리포지토리 네이티브 쿼리(배열 overlap·pg_trgm·NULLS LAST)는 실 PostgreSQL로만
+	// 정직하게 검증된다(H2는 거짓 통과). 근거: .claude/rules/api.md §테스트.
+	testImplementation("org.springframework.boot:spring-boot-testcontainers")
+	testImplementation(platform("org.testcontainers:testcontainers-bom:1.20.4"))
+	testImplementation("org.testcontainers:junit-jupiter")
+	testImplementation("org.testcontainers:postgresql")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
