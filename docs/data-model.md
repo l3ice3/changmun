@@ -153,7 +153,7 @@ WHERE (:category IS NULL OR category = :category)
   AND (:region   IS NULL OR region   = :region)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
-  AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE)
+  AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
 ORDER BY application_deadline ASC NULLS LAST
 LIMIT :size OFFSET :offset;
 ```
