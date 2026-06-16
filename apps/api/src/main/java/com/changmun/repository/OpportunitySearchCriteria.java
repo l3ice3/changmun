@@ -65,12 +65,20 @@ public final class OpportunitySearchCriteria {
     return category;
   }
 
+  /** 검색어는 LIKE 와일드카드(%, _)·escape 문자(\)를 리터럴로 이스케이프한다 — 입력이 패턴을 흔들지 않게 (AC-021). */
   public String getQuery() {
-    return query;
+    return escapeLike(query);
   }
 
   public boolean isOnlyOpen() {
     return onlyOpen;
+  }
+
+  private static String escapeLike(String value) {
+    if (value == null) {
+      return null;
+    }
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
   /** 보조 필터(지역·카테고리·검색어·진행상태) 운반용. */

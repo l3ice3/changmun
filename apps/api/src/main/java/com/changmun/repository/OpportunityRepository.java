@@ -31,8 +31,8 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
           AND (CAST(:#{#criteria.category} AS text) IS NULL
                OR category = CAST(:#{#criteria.category} AS text))
           AND (CAST(:#{#criteria.query} AS text) IS NULL
-               OR title ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%'
-               OR summary ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%')
+               OR title ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%' ESCAPE '\\'
+               OR summary ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%' ESCAPE '\\')
           AND (:#{#criteria.onlyOpen} = FALSE
                OR is_always_open
                OR application_deadline >= CURRENT_DATE

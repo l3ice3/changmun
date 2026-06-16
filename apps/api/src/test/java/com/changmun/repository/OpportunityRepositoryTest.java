@@ -165,6 +165,16 @@ class OpportunityRepositoryTest {
   }
 
   @Test
+  @DisplayName("검색어의 %·_ 는 와일드카드가 아니라 리터럴로 처리된다 (AC-021)")
+  void searchWildcardsAreTreatedAsLiteral() {
+    new TestOpportunity().title("정상공고").deadline(today.plusDays(5)).insert(jdbc);
+
+    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, "__", true)));
+
+    assertThat(page.getContent()).isEmpty();
+  }
+
+  @Test
   @DisplayName("ids 조회는 요청 순서를 보존하고 없는 id는 건너뛴다 (AC-023)")
   void idsPreserveOrderAndSkipMissing() {
     long first = new TestOpportunity().title("공고A").deadline(today.plusDays(5)).insert(jdbc);
