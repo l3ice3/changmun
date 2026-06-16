@@ -101,25 +101,25 @@ public record OpportunityResponse(
                 status.code().name(),
                 status.dDay(),
                 status.isClosingSoon(),
-                opportunity.badgesOn(today).labels() /* ... */);
+                opportunity.badgesOn(today).codes() /* 라벨 아님 — 배지 "코드" 배열. 라벨 렌더는 프론트(api-spec §0) */);
     }
 }
 ```
 
 ### 4) Repository는 Spring Data JPA 인터페이스 + 파라미터 바인딩
-인터페이스 자체가 추상화다 — **수동 구현(`JdbcXxxRepository`) 분리는 JPA에선 과설계, 금지.** 모든 입력은 `@Param` 바인딩(문자열 조립 금지 — AC-021). 리스트/검색은 `is_canonical = true` 고정 + 기본 `status=open`은 마감 제외(상시·기간미상은 포함 — api-spec §0/§1, AC-011·013). `status=all`이면 `onlyOpen=false`.
+인터페이스 자체가 추상화다 — **수동 구현(`JdbcXxxRepository`) 분리는 JPA에선 과설계, 금지.** 모든 입력은 `@Param` 바인딩(문자열 조립 금지 — AC-021). 리스트/검색은 `is_canonical = true` 고정 + 기본 `status=open`은 **진행중·상시·기간미상 포함, `CLOSED`만 제외**(api-spec §0/§1, AC-011·013). `status=all`이면 `onlyOpen=false`. 페르소나는 stage 코드 **집합**으로 펼쳐 배열 overlap(`&&`)으로 조회한다(EARLY_STAGE=`LT_1Y`/`2Y`/`3Y` 다중).
 ```java
 public interface OpportunityRepository extends JpaRepository<Opportunity, Long> {
 
     @Query(value = """
         SELECT * FROM opportunity
         WHERE is_canonical = true
-          AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))
+          AND (:stages   IS NULL OR target_startup_stage && CAST(:stages AS text[]))                                       -- 배열 overlap: EARLY_STAGE 다중 코드
           AND (:audience IS NULL OR :audience = ANY(target_audience_type))
-          AND (:onlyOpen = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE)
+          AND (:onlyOpen = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상 포함, CLOSED만 제외
         ORDER BY application_deadline ASC NULLS LAST
         """, nativeQuery = true)
-    Page<Opportunity> search(@Param("stage") String stage,
+    Page<Opportunity> search(@Param("stages") List<String> stages,   // 페르소나→stage 코드 집합(service에서 변환)
                              @Param("audience") String audience,
                              @Param("onlyOpen") boolean onlyOpen,
                              Pageable pageable);

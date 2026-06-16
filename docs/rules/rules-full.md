@@ -153,6 +153,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                                                   HttpStatusCode status,
                                                                   WebRequest request) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, "입력값이 올바르지 않습니다.");
+        problemDetail.setProperty("code", "INVALID_PARAM");   // api-spec §0: 프론트가 code로 분기
         problemDetail.setProperty("errors", exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -163,18 +164,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(InvalidRequestException.class)
     public ResponseEntity<ProblemDetail> handleInvalidRequestException(InvalidRequestException exception) {
-        return problem(HttpStatus.BAD_REQUEST, exception.getMessage());
+        return problem(HttpStatus.BAD_REQUEST, "INVALID_PARAM", exception.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleAllUncaughtException(Exception exception) {
         log.error("Unexpected exception occurred", exception);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, SERVER_ERROR_MESSAGE);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL", SERVER_ERROR_MESSAGE);
     }
 
-    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
-        return ResponseEntity.status(status)
-                .body(ProblemDetail.forStatusAndDetail(status, detail));
+    // api-spec §0: 에러 바디에 code 확장(INVALID_PARAM/NOT_FOUND/INTERNAL)을 실어 프론트가 분기한다.
+    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setProperty("code", code);
+        return ResponseEntity.status(status).body(body);
     }
 }
 ```
