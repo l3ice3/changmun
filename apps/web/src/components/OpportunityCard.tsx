@@ -43,6 +43,10 @@ export function OpportunityCard({ item }: { item: Card }) {
         <Tag tone="muted">{sourceLabel(item.source)}</Tag>
       </div>
 
+      {item.eligibilityDetail ? (
+        <p className="mt-2 line-clamp-1 text-[12px] text-secondary">{item.eligibilityDetail}</p>
+      ) : null}
+
       <div className="mt-3 flex items-center justify-between border-t border-hair pt-2.5">
         <DDay item={item} />
         <span className="text-[13px] text-dim" aria-hidden="true">

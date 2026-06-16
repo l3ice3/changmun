@@ -1,6 +1,8 @@
 // 익명 찜 — 기기 localStorage. 시크릿 모드 등 불가 시 세션 메모리로 폴백 (AC-022).
 
 const KEY = "changmun_bookmarks";
+// api-spec §1: ids 조회는 최대 50개. 저장 시 최신 50개로 cap 해 계약 한도 초과 요청을 막는다 (Codex #18).
+const MAX_BOOKMARKS = 50;
 let memory: number[] = [];
 
 function storageAvailable(): boolean {
@@ -40,7 +42,7 @@ export function isBookmarked(id: number): boolean {
 export function toggleBookmark(id: number): boolean {
   const ids = getBookmarks();
   const exists = ids.includes(id);
-  save(exists ? ids.filter((each) => each !== id) : [id, ...ids]);
+  save(exists ? ids.filter((each) => each !== id) : [id, ...ids].slice(0, MAX_BOOKMARKS));
   return !exists;
 }
 

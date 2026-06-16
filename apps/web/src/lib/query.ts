@@ -39,3 +39,22 @@ export function pageOf(sp: RawParams): number {
 export function personaOf(sp: RawParams): string {
   return first(sp.persona) ?? "";
 }
+
+// list_view 이벤트 payload — api-spec §4 허용 키만, 값이 있는 필터만 담는다 (AC-025: 탭/필터 포함).
+export function listViewPayload(
+  sp: RawParams,
+  resultCount: number,
+): Record<string, string | number> {
+  const payload: Record<string, string | number> = { page: pageOf(sp), resultCount };
+  const persona = first(sp.persona);
+  if (persona) payload.persona = persona;
+  const region = first(sp.region);
+  if (region) payload.region = region;
+  const category = first(sp.category);
+  if (category) payload.category = category;
+  const status = first(sp.status);
+  if (status) payload.statusFilter = status;
+  const query = first(sp.q);
+  if (query) payload.q = query;
+  return payload;
+}

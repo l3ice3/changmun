@@ -97,9 +97,13 @@ export async function fetchGlossary(): Promise<GlossaryEntry[]> {
 }
 
 // 찜 조회(클라이언트) — 저장된 ids로. 빈 배열이면 호출하지 않는다.
+// api-spec §1 한도(최대 50)를 방어적으로 다시 cap 한다(저장 단계에서도 cap — bookmarks.ts).
+const MAX_IDS = 50;
+
 export async function fetchByIds(ids: number[]): Promise<OpportunityCard[]> {
-  if (ids.length === 0) return [];
-  const query = new URLSearchParams({ ids: ids.join(",") });
+  const capped = ids.slice(0, MAX_IDS);
+  if (capped.length === 0) return [];
+  const query = new URLSearchParams({ ids: capped.join(",") });
   const res = await fetch(`${API_BASE}/opportunities?${query.toString()}`);
   if (!res.ok) throw new ApiError(res.status);
   const data: OpportunityList = await res.json();

@@ -7,7 +7,7 @@ import { OpportunityGrid } from "@/components/OpportunityGrid";
 import { PersonaTabs } from "@/components/PersonaTabs";
 import { SearchBar } from "@/components/SearchBar";
 import { fetchOpportunities, type OpportunityList } from "@/lib/api";
-import { pageOf, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
+import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
 
 export const metadata: Metadata = { title: "검색" };
 
@@ -67,9 +67,7 @@ export default async function SearchPage({
           <ErrorState retryHref="/search" />
         ) : (
           <>
-            <ListViewTracker
-              payload={{ q: query, page: pageOf(sp), resultCount: list.totalItems }}
-            />
+            <ListViewTracker payload={listViewPayload(sp, list.totalItems)} />
             <OpportunityGrid
               list={list}
               basePath="/search"

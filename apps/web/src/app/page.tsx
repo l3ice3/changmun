@@ -6,7 +6,7 @@ import { ListViewTracker } from "@/components/ListViewTracker";
 import { OpportunityGrid } from "@/components/OpportunityGrid";
 import { PersonaTabs } from "@/components/PersonaTabs";
 import { fetchOpportunities, type OpportunityList } from "@/lib/api";
-import { pageOf, paramsRecord, personaOf, toApiQuery, type RawParams } from "@/lib/query";
+import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
 
 const EMPTY = {
   title: "조건에 맞는 공고가 없어요",
@@ -41,13 +41,7 @@ export default async function Home({
         <div className="mt-6">
           {list ? (
             <>
-              <ListViewTracker
-                payload={{
-                  persona: personaOf(sp),
-                  page: pageOf(sp),
-                  resultCount: list.totalItems,
-                }}
-              />
+              <ListViewTracker payload={listViewPayload(sp, list.totalItems)} />
               <OpportunityGrid
                 list={list}
                 basePath="/"
