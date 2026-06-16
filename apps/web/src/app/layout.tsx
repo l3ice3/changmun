@@ -1,10 +1,23 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Nav } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "창문 — 창업 지원금 큐레이션",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  ),
+  title: {
+    default: "창문 — 창업 지원금 큐레이션",
+    template: "%s · 창문",
+  },
   description:
-    "예비·극초기 창업자와 대학생을 위한, 내 단계에 맞는 정부 지원금만 골라주는 지원금 전담 비서",
+    "예비·극초기 창업자와 대학생을 위한, 내 단계에 맞는 정부 지원금만 골라주는 지원금 전담 비서. 가입 없이 페르소나 탭 한 번으로.",
+  openGraph: {
+    title: "창문 — 창업 지원금 큐레이션",
+    description: "내 단계에 맞는 정부 지원금만, 가입 없이.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -12,7 +25,17 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
+        />
+      </head>
+      <body className="min-h-screen flex flex-col">
+        <Nav />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </body>
     </html>
   );
 }

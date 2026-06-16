@@ -1,12 +1,65 @@
-// S1 메인(페르소나 탭 + 공고 리스트)은 FR-003에서 구현한다.
-// 계약: docs/screens.md S1 · docs/api-spec.md §1 · 규칙: .claude/rules/web.md
-export default function Home() {
+import { Suspense } from "react";
+import { ErrorState } from "@/components/ErrorState";
+import { FilterBar } from "@/components/FilterBar";
+import { Hero } from "@/components/Hero";
+import { ListViewTracker } from "@/components/ListViewTracker";
+import { OpportunityGrid } from "@/components/OpportunityGrid";
+import { PersonaTabs } from "@/components/PersonaTabs";
+import { fetchOpportunities, type OpportunityList } from "@/lib/api";
+import { pageOf, paramsRecord, personaOf, toApiQuery, type RawParams } from "@/lib/query";
+
+const EMPTY = {
+  title: "조건에 맞는 공고가 없어요",
+  message: "필터를 줄이거나 전체 탭에서 둘러보세요.",
+  ctaHref: "/",
+  ctaLabel: "전체 공고 보기",
+};
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<RawParams>;
+}) {
+  const sp = await searchParams;
+  let list: OpportunityList | null = null;
+  try {
+    list = await fetchOpportunities(toApiQuery(sp));
+  } catch {
+    list = null;
+  }
+
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <h1 className="text-2xl font-bold">창문</h1>
-      <p className="mt-2 text-gray-600">
-        스캐폴딩 화면 — 메인 리스트(S1)는 FR-003에서 구현됩니다.
-      </p>
-    </main>
+    <div>
+      <Hero />
+      <div className="mx-auto max-w-[1200px] px-3.5 py-7">
+        <Suspense fallback={null}>
+          <PersonaTabs />
+          <div className="mt-4">
+            <FilterBar />
+          </div>
+        </Suspense>
+        <div className="mt-6">
+          {list ? (
+            <>
+              <ListViewTracker
+                payload={{
+                  persona: personaOf(sp),
+                  page: pageOf(sp),
+                  resultCount: list.totalItems,
+                }}
+              />
+              <OpportunityGrid
+                list={list}
+                basePath="/"
+                params={paramsRecord(sp)}
+                empty={EMPTY}
+              />
+            </>
+          ) : (
+            <ErrorState retryHref="/" />
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
