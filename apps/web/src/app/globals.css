@@ -1,1 +1,111 @@
 @import "tailwindcss";
+
+/* 창문 디자인 시스템 — DESIGN.md. 블루베리 인디고 단일 액센트 + 딥 네이비 히어로 + 화이트 캔버스 + grain. */
+@theme {
+  --color-bg: #ffffff;
+  --color-bg-alt: #f9fafb;
+  --color-surface: #f2f4f6;
+  --color-surface-blue: #eceefb;
+
+  --color-ink: #191f28;
+  --color-secondary: #4e5968;
+  --color-muted: #8b95a1;
+  --color-dim: #b0b8c1;
+
+  --color-line: #e5e8eb;
+  --color-hair: #eef0f2;
+  --color-strong: #d8dce3;
+  --color-edge: #c3c9e8;
+
+  --color-accent: #3f4fbf;
+  --color-accent-hover: #2c3aa0;
+  --color-accent-bright: #6473f2;
+  --color-accent-soft: #eceefb;
+
+  --color-hero: #1a2348;
+  --color-hero-text: #ffffff;
+  --color-hero-label: #8a97cc;
+  --color-hero-sub: #aab6e0;
+  --color-hero-mint: #3fe0ab;
+
+  --color-success: #0f9e75;
+  --color-success-soft: #e1f5ee;
+  --color-danger: #d8455c;
+  --color-danger-soft: #fce9ec;
+  --color-violet: #7a4fcf;
+  --color-violet-soft: #f1ebfb;
+
+  --radius-card: 14px;
+  --radius-hero: 18px;
+
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* 숫자(D-day·금액·건수·날짜)는 항상 tabular figures (DESIGN.md §3·7). */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 탭/프레스 피드백 — scale(0.97) ~120ms (DESIGN.md §6). */
+.press {
+  transition: transform 120ms ease-out;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/*
+ * 캔버스 grain(bloom): 화이트 위 ~0.04 multiply. 블루베리 분(粉) 질감 — 서명적 디테일, 벽지 아님.
+ * 픽셀 클릭 방해 없도록 pointer-events:none + 최상단 고정.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 히어로(네이비) grain: 더 선명한 frosted soft-light (~0.85). 블록 안쪽에만. */
+.grain-hero {
+  position: relative;
+  isolation: isolate;
+}
+.grain-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.85;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='h'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23h)'/%3E%3C/svg%3E");
+}
+.grain-hero > * {
+  position: relative;
+  z-index: 1;
+}
