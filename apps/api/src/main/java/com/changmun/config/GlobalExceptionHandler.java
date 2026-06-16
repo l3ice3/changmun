@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +37,12 @@ public class GlobalExceptionHandler {
   public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
     log.debug("파라미터 형식 오류. name={}", exception.getName());
     return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "파라미터 형식이 올바르지 않습니다");
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ProblemDetail handleUnreadableBody(HttpMessageNotReadableException exception) {
+    log.debug("요청 본문 파싱 실패", exception);
+    return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "요청 본문을 읽을 수 없습니다");
   }
 
   @ExceptionHandler(NotFoundException.class)

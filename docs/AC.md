@@ -27,7 +27,7 @@
 | FR-004 | 공고 상세 + 용어풀이 | AC-015 ~ AC-018 | 구현 — 상세 API + glossary 매칭(단위) + 상세/용어 E2E(MockMvc) Pass. AC-015·016·017·018 충족. glossary 스타터 시드(V20260616_1600) |
 | FR-005 | 키워드 검색 | AC-019 ~ AC-021 | 구현(서버) — q(title+summary pg_trgm ILIKE)·2글자 미만 400·메타문자 바인딩 안전. AC-019·020·021 Pass(슬라이스+E2E). 검색 UI는 프론트 |
 | FR-006 | 찜(익명·로컬) | AC-022 ~ AC-024 | 구현(서버) — ids= 순서보존·없는 id 누락·canonical 무관. AC-023·024 Pass(슬라이스), 엔드포인트 라우팅 E2E. localStorage·AC-022 UI는 프론트 |
-| FR-007 | 행동 로그 | AC-025 ~ AC-027 | 미구현 |
+| FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 
 ---
 
