@@ -1,7 +1,7 @@
 # persistence.md — 저장·트랜잭션·멱등성 규칙
 
 > **무엇을 함께 저장하고, 어디까지 묶고, 실패하면 어떻게 안내할지**에 대한 약속.
-> 설계(`rules-core.md`·`rules-full.md` §6·§7)·테스트(`testing.md` 5절)·계약(`docs/data-model.md` LOCKED)과 함께 읽는다.
+> 설계(`.claude/rules/rules-core.md`·`rules-full.md` §6·§7)·테스트(`testing.md` 5절)·계약(`docs/data-model.md` LOCKED)과 함께 읽는다.
 > 창문은 **읽기 전용 서빙 API + 일 1회 수집 배치** 구조라, 트랜잭션의 무게중심은 `apps/api`가 아니라 **`apps/ingest`(UPSERT 배치)**에 있다.
 
 ## 1. 도메인 ↔ 저장소 분리

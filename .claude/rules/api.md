@@ -118,8 +118,16 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
           AND (:audience IS NULL OR :audience = ANY(target_audience_type))
           AND (:onlyOpen = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상 포함, CLOSED만 제외
         ORDER BY application_deadline ASC NULLS LAST
-        """, nativeQuery = true)
-    Page<Opportunity> search(@Param("stages") List<String> stages,   // 페르소나→stage 코드 집합(service에서 변환)
+        """,
+        countQuery = """
+        SELECT count(*) FROM opportunity
+        WHERE is_canonical = true
+          AND (:stages   IS NULL OR target_startup_stage && CAST(:stages AS text[]))
+          AND (:audience IS NULL OR :audience = ANY(target_audience_type))
+          AND (:onlyOpen = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)
+        """,
+        nativeQuery = true)   // native + 배열연산 → count 자동 파생 불가, countQuery 필수
+    Page<Opportunity> search(@Param("stages") String[] stages,   // String[]=text[] 바인딩(data-model §2 @JdbcTypeCode(SqlTypes.ARRAY) 일관). 페르소나→stage 코드 집합
                              @Param("audience") String audience,
                              @Param("onlyOpen") boolean onlyOpen,
                              Pageable pageable);
