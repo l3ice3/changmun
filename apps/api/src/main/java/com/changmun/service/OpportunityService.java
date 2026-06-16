@@ -10,8 +10,10 @@ import com.changmun.web.NotFoundException;
 import com.changmun.web.dto.OpportunityDetailResponse;
 import com.changmun.web.dto.OpportunityListRequest;
 import com.changmun.web.dto.OpportunityListResponse;
+import com.changmun.web.dto.OpportunityResponse;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,8 +39,20 @@ public class OpportunityService {
   @Transactional(readOnly = true)
   public OpportunityListResponse list(OpportunityListRequest request) {
     LocalDate today = LocalDate.now(clock);
+    if (request.isBookmarkQuery()) {
+      return bookmarks(request.bookmarkIds(), today);
+    }
     Page<Opportunity> found = fetch(request);
     return OpportunityListResponse.from(found, today);
+  }
+
+  private OpportunityListResponse bookmarks(Long[] ids, LocalDate today) {
+    List<Opportunity> found = repository.findByIdsInOrder(ids);
+    List<OpportunityResponse> items = new ArrayList<>();
+    for (Opportunity opportunity : found) {
+      items.add(OpportunityResponse.from(opportunity, today));
+    }
+    return OpportunityListResponse.ofItems(items);
   }
 
   @Transactional(readOnly = true)

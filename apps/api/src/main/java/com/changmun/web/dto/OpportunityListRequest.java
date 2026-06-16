@@ -3,6 +3,8 @@ package com.changmun.web.dto;
 import com.changmun.domain.Persona;
 import com.changmun.domain.SortOrder;
 import com.changmun.web.InvalidParameterException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -18,12 +20,14 @@ public class OpportunityListRequest {
   private static final int MIN_QUERY_LENGTH = 2;
   private static final int MAX_PAGE_SIZE = 50;
   private static final int DEFAULT_PAGE_SIZE = 20;
+  private static final int MAX_BOOKMARK_IDS = 50;
 
   private String persona;
   private String region;
   private String category;
   private String status = STATUS_OPEN;
   private String query;
+  private String ids;
   private String sort = "deadline";
   private int page = 1;
   private int size = DEFAULT_PAGE_SIZE;
@@ -82,6 +86,39 @@ public class OpportunityListRequest {
     throw new InvalidParameterException("sort", sort);
   }
 
+  public boolean isBookmarkQuery() {
+    return !isBlank(ids);
+  }
+
+  /** 찜 조회 id 목록 — 요청 순서 보존, 최대 50개, 비숫자는 400 (api-spec.md §1). */
+  public Long[] bookmarkIds() {
+    String[] tokens = ids.split(",");
+    if (tokens.length > MAX_BOOKMARK_IDS) {
+      throw new InvalidParameterException("ids", ids);
+    }
+    List<Long> parsed = new ArrayList<>();
+    for (String token : tokens) {
+      addId(parsed, token);
+    }
+    return parsed.toArray(new Long[0]);
+  }
+
+  private static void addId(List<Long> parsed, String token) {
+    String trimmed = token.trim();
+    if (trimmed.isEmpty()) {
+      return;
+    }
+    parsed.add(parseId(trimmed));
+  }
+
+  private static Long parseId(String token) {
+    try {
+      return Long.valueOf(token);
+    } catch (NumberFormatException invalid) {
+      throw new InvalidParameterException("ids", token);
+    }
+  }
+
   public int pageIndex() {
     return Math.max(0, page - 1);
   }
@@ -127,6 +164,10 @@ public class OpportunityListRequest {
 
   public void setQ(String value) {
     this.query = value;
+  }
+
+  public void setIds(String ids) {
+    this.ids = ids;
   }
 
   public void setSort(String sort) {

@@ -57,4 +57,18 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
   /** 같은 dedup 그룹의 다른 출처(자기 자신 제외) — 상세의 otherSources용 (api-spec.md §2). */
   @Query("SELECT o FROM Opportunity o WHERE o.dedupGroupId = :groupId AND o.id <> :selfId")
   List<Opportunity> findGroupSiblings(@Param("groupId") Long groupId, @Param("selfId") Long selfId);
+
+  /**
+   * 찜 조회 — 요청 순서 보존(array_position), 없는 id는 누락(에러 아님 — AC-023). is_canonical 무관(강등돼도 유지 — AC-024).
+   * 다른 필터 무시.
+   */
+  @Query(
+      value =
+          """
+          SELECT * FROM opportunity
+          WHERE id = ANY(CAST(:ids AS bigint[]))
+          ORDER BY array_position(CAST(:ids AS bigint[]), id)
+          """,
+      nativeQuery = true)
+  List<Opportunity> findByIdsInOrder(@Param("ids") Long[] ids);
 }

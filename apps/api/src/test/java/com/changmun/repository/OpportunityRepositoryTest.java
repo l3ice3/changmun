@@ -7,6 +7,7 @@ import com.changmun.domain.Persona;
 import com.changmun.repository.OpportunitySearchCriteria.Filters;
 import com.changmun.support.TestOpportunity;
 import java.time.LocalDate;
+import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -137,6 +138,56 @@ class OpportunityRepositoryTest {
     Page<Opportunity> page = byDeadline(filters(new Filters("서울", null, null, true)));
 
     assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("서울공고");
+  }
+
+  @Test
+  @DisplayName("부분일치 검색(q)이 동작한다 — pg_trgm ILIKE (AC-019)")
+  void searchMatchesPartialTitle() {
+    new TestOpportunity().title("청년창업사관학교 모집").deadline(today.plusDays(5)).insert(jdbc);
+    new TestOpportunity().title("관련 없는 공고").deadline(today.plusDays(5)).insert(jdbc);
+
+    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, "창업사관", true)));
+
+    assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("청년창업사관학교 모집");
+  }
+
+  @Test
+  @DisplayName("SQL 메타·인젝션 문자열은 0건으로 안전 처리되고 테이블은 그대로다 (AC-021)")
+  void searchInjectionIsSafe() {
+    new TestOpportunity().title("정상공고").deadline(today.plusDays(5)).insert(jdbc);
+    Filters injection = new Filters(null, null, "'; DROP TABLE opportunity;-- %_", true);
+
+    Page<Opportunity> injected = byDeadline(filters(injection));
+    Page<Opportunity> survived = byDeadline(filters(new Filters(null, null, "정상", true)));
+
+    assertThat(injected.getContent()).isEmpty();
+    assertThat(survived.getContent()).extracting(Opportunity::getTitle).containsExactly("정상공고");
+  }
+
+  @Test
+  @DisplayName("ids 조회는 요청 순서를 보존하고 없는 id는 건너뛴다 (AC-023)")
+  void idsPreserveOrderAndSkipMissing() {
+    long first = new TestOpportunity().title("공고A").deadline(today.plusDays(5)).insert(jdbc);
+    long second = new TestOpportunity().title("공고B").deadline(today.plusDays(5)).insert(jdbc);
+
+    List<Opportunity> found = repository.findByIdsInOrder(new Long[] {second, 999_999L, first});
+
+    assertThat(found).extracting(Opportunity::getTitle).containsExactly("공고B", "공고A");
+  }
+
+  @Test
+  @DisplayName("ids 조회는 canonical이 아니어도 반환한다 — 강등돼도 유지 (AC-024)")
+  void idsReturnNonCanonical() {
+    long demoted =
+        new TestOpportunity()
+            .title("강등됨")
+            .canonical(false)
+            .deadline(today.plusDays(5))
+            .insert(jdbc);
+
+    List<Opportunity> found = repository.findByIdsInOrder(new Long[] {demoted});
+
+    assertThat(found).extracting(Opportunity::getTitle).containsExactly("강등됨");
   }
 
   @Test

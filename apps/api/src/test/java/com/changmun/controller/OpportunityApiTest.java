@@ -97,6 +97,20 @@ class OpportunityApiTest {
   }
 
   @Test
+  @DisplayName("ids= 조회는 다른 필터를 무시하고 요청 순서대로 해당 공고만 반환한다 (AC-022·023)")
+  void bookmarkIdsQueryReturnsRequestedInOrder() throws Exception {
+    long first = new TestOpportunity().title("찜A").deadline(today.plusDays(5)).insert(jdbc);
+    long second = new TestOpportunity().title("찜B").deadline(today.plusDays(5)).insert(jdbc);
+
+    ResultActions result =
+        mockMvc.perform(get("/api/v1/opportunities").param("ids", second + "," + first));
+
+    result.andExpect(status().isOk());
+    result.andExpect(jsonPath("$.items.length()").value(2));
+    result.andExpect(jsonPath("$.items[0].title").value("찜B"));
+  }
+
+  @Test
   @DisplayName("범위를 넘는 page는 에러가 아니라 200 + 빈 items다 (AC-014)")
   void pageBeyondRangeReturnsOkWithEmptyItems() throws Exception {
     insertPreStartup(today.plusDays(3));
