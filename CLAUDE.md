@@ -23,7 +23,7 @@
 /apps/api          Spring Boot (Java, Gradle Kotlin DSL) — 읽기 전용 서빙 API
 /apps/ingest       Python (poetry) — 수집·정규화·dedup 배치. 일 1회 실행
 /apps/web          Next.js + TypeScript — SSG/ISR (SEO 핵심)
-/.claude/rules     앱별 상세 규칙 (해당 앱 작업 시 필독)
+/.claude/rules     앱별 규칙 + apps/api 코딩 규칙(rules-core) — path-scoped 자동 로드(해당 앱 파일 작업 시)
 ```
 
 ## 절대 규칙 (위반 = 즉시 반려)

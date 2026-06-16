@@ -58,7 +58,7 @@ apps/api/build.gradle.kts  ← 위 도구들 + Spotless(자동 포맷, Google Ja
 
 | 계층 | 무엇 | 막는가? |
 |---|---|---|
-| **지향**(판단용) | `docs/rules/` · `CLAUDE.md` · `AGENTS.md` | 아니오 — 사람·AI가 읽고 판단 |
+| **지향**(판단용) | `.claude/rules/`(path-scoped 자동 로드) · `docs/rules/` · `CLAUDE.md` · `AGENTS.md` | 아니오 — 사람·AI가 읽고 판단 |
 | **로컬 hook**(보조선) | `.claude/hooks/` | 에이전트 작업 중 즉시(로컬만) |
 | **CI 정적분석**(본 게이트) | `static-analysis.yml` | 예 — 원격 PR 빨간불=머지 불가 |
 
