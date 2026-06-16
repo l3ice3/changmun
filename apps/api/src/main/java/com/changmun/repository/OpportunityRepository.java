@@ -1,6 +1,7 @@
 package com.changmun.repository;
 
 import com.changmun.domain.Opportunity;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -52,4 +53,8 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
   @Query(value = SELECT_BY_LATEST, countQuery = COUNT_FILTERED, nativeQuery = true)
   Page<Opportunity> searchByLatest(
       @Param("criteria") OpportunitySearchCriteria criteria, Pageable pageable);
+
+  /** 같은 dedup 그룹의 다른 출처(자기 자신 제외) — 상세의 otherSources용 (api-spec.md §2). */
+  @Query("SELECT o FROM Opportunity o WHERE o.dedupGroupId = :groupId AND o.id <> :selfId")
+  List<Opportunity> findGroupSiblings(@Param("groupId") Long groupId, @Param("selfId") Long selfId);
 }
