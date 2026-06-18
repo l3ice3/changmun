@@ -29,8 +29,8 @@ class TestMapRecordHappy:
         assert record.region == "서울"
         assert record.organization == "서울특별시"
         assert record.organization_type == "PUBLIC"
-        assert record.target_startup_stage == ["PRE_STARTUP", "LT_1Y"]
-        assert record.target_audience_type == ["YOUTH", "UNIV_STUDENT", "GENERAL", "SOLO_CREATOR"]
+        assert record.target_startup_stage is None  # 분류 칸은 수집 미관여 — direct_targets 소관 (#11)
+        assert record.target_audience_type is None
         assert record.application_start_date == date(2026, 6, 1)
         assert record.application_deadline == date(2026, 6, 19)
         assert record.is_always_open is False
@@ -46,6 +46,20 @@ class TestMapRecordHappy:
         original = fixture_record(0)
         record = kstartup.map_record(original).record
         assert record.raw == original  # 원본 그대로 — 가공 저장 금지
+
+
+class TestDirectTargets:
+    """직접 신호는 map_record가 아니라 direct_targets가 raw에서 산출한다 (#11)."""
+
+    def test_direct_signals_from_raw(self):
+        stages, audiences = kstartup.direct_targets(fixture_record(0))
+        assert stages == ["PRE_STARTUP", "LT_1Y"]
+        assert audiences == ["YOUTH", "UNIV_STUDENT", "GENERAL", "SOLO_CREATOR"]
+
+    def test_no_signal_returns_none(self):
+        stages, audiences = kstartup.direct_targets(fixture_record(3))
+        assert stages is None
+        assert audiences is None
 
 
 class TestMapRecordSkip:

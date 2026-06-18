@@ -7,6 +7,13 @@ import re
 
 from ingest import db
 from ingest.report import EnrichmentReport
+from ingest.sources import kstartup, ontong_youth
+
+# 소스별 직접 신호 산출 — 분류 칸은 수집이 안 건드리므로 persona가 raw에서 재산출한다 (#11)
+_DIRECT_EXTRACTORS = {
+    kstartup.SOURCE: kstartup.direct_targets,
+    ontong_youth.SOURCE: ontong_youth.direct_targets,
+}
 
 _PRE_STARTUP = re.compile(r"예비\s*창업|창업\s*예정|창업\s*준비")
 _UNIV_STUDENT = re.compile(r"대학생")
@@ -19,9 +26,24 @@ _STAGE_BY_YEARS = {"1": "LT_1Y", "2": "LT_2Y", "3": "LT_3Y", "5": "LT_5Y", "7": 
 
 
 def apply(conn) -> EnrichmentReport:
+    # 순서 = 신호 강한 순(§6-D): 직접(raw 재산출, 덮어쓰기) → 상속(그룹 union) → 키워드(union)
+    direct = _fill_direct(conn)
     inherited = db.inherit_group_targets(conn)
     keyword_filled = _fill_by_keywords(conn)  # commit은 호출자(main._enrich_isolated) 책임
-    return EnrichmentReport(name="persona", metrics={"상속": inherited, "키워드": keyword_filled})
+    return EnrichmentReport(
+        name="persona", metrics={"직접": direct, "상속": inherited, "키워드": keyword_filled})
+
+
+def _fill_direct(conn) -> int:
+    rows = []
+    for record_id, source, raw in db.fetch_direct_inputs(conn):
+        extractor = _DIRECT_EXTRACTORS.get(source)
+        if extractor is None or raw is None:
+            continue
+        stages, audiences = extractor(raw)
+        rows.append((stages, audiences, record_id))
+    db.set_direct_targets(conn, rows)
+    return len(rows)
 
 
 def extract_targets(text: str) -> tuple[list[str] | None, list[str] | None]:

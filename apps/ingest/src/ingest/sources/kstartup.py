@@ -115,8 +115,8 @@ def map_record(raw: dict) -> MappingResult:
         organization=clean_text(raw.get("pbanc_ntrp_nm")),
         organization_type=normalize_organization_type(raw.get("sprv_inst"), unknown),
         support_amount=None,  # 공고 API에 없음 — 타 출처/Phase 2에서 보강 (§2)
-        target_startup_stage=normalize_stages(raw.get("biz_enyy"), unknown),
-        target_audience_type=normalize_audiences(raw.get("aply_trgt"), unknown),
+        target_startup_stage=None,  # 분류 칸은 enrichment(persona)가 raw에서 산출 — 수집은 안 건드림 (#11)
+        target_audience_type=None,
         eligibility_detail=clean_text(raw.get("aply_trgt_ctnt")),
         application_start_date=parse_yyyymmdd(raw.get("pbanc_rcpt_bgng_dt")),
         application_deadline=parse_yyyymmdd(raw.get("pbanc_rcpt_end_dt")),
@@ -127,6 +127,14 @@ def map_record(raw: dict) -> MappingResult:
         raw=raw,  # 원본 그대로 보존 — 가공 저장 금지 (CLAUDE.md 절대 규칙 3)
     )
     return MappingResult(record, None, unknown)
+
+
+def direct_targets(raw: dict) -> tuple[list[str] | None, list[str] | None]:
+    """구조화 직접 신호(최고 신뢰, §6-D) — biz_enyy/aply_trgt에서 (stage, audience) 산출.
+
+    persona가 매 배치 raw에서 재산출한다 → 공고 수정·매핑 보강이 반영되면서도 수집은 분류 칸을 안 건드린다.
+    """
+    return normalize_stages(raw.get("biz_enyy"), []), normalize_audiences(raw.get("aply_trgt"), [])
 
 
 def _resolve_apply_url(raw: dict) -> str | None:

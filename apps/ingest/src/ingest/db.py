@@ -5,8 +5,9 @@
 컬럼은 소관별로 나뉜다 (책임 분리):
 - _KEY_COLUMNS       : 멱등 키. ON CONFLICT 대상.
 - _COLLECTED_COLUMNS : 수집이 매 배치 최신으로 갱신하는 원본 칸. UPSERT의 UPDATE 대상.
-- _ENRICHED_COLUMNS  : 분류 칸(페르소나). 수집은 최초 INSERT 시 직접 신호만 넣고 이후 UPDATE하지 않는다 →
-                       dedup·persona가 채운 값을 수집이 덮지 않아, persona 단계가 일시 실패해도 보존된다 (#11).
+- _ENRICHED_COLUMNS  : 분류 칸(페르소나). 수집은 INSERT·UPDATE 둘 다 건드리지 않는다 — persona가 raw에서
+                       직접 신호를 재산출하고 상속·키워드를 채운다(전담). 수집이 덮지 않으므로 persona
+                       단계가 일시 실패해도 보존되고(#11), 직접 신호도 매 배치 갱신된다(공고 수정·매핑 보강 반영).
 - (미포함) dedup_group_id·is_canonical : 수집이 INSERT에도 안 넣어 DB 기본값 → dedup이 채운다.
 - (미포함) first_seen_at : 최초 수집 시각 보존(UPDATE 안 함) / updated_at : 매 UPSERT now()로 갱신.
 """
@@ -27,7 +28,8 @@ _ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
 
 
 def _build_upsert_sql() -> str:
-    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS + _ENRICHED_COLUMNS
+    # 분류 칸(_ENRICHED_COLUMNS)은 INSERT·UPDATE 둘 다 빠진다 — 수집은 분류에 관여하지 않는다 (#11)
+    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS
     values = ", ".join(f"%({column})s" for column in insert_columns)
     update_sets = ",\n    ".join(f"{column} = EXCLUDED.{column}" for column in _COLLECTED_COLUMNS)
     return (
@@ -40,7 +42,6 @@ def _build_upsert_sql() -> str:
     )
 
 
-# 분류 칸(_ENRICHED_COLUMNS)은 UPDATE 절에서 빠진다 — 수집이 enrichment 결과를 덮지 않게 (#11)
 _UPSERT_SQL = _build_upsert_sql()
 
 
@@ -56,6 +57,13 @@ FROM opportunity
 """
 
 _APPLY_DEDUP_SQL = "UPDATE opportunity SET dedup_group_id = %s, is_canonical = %s WHERE id = %s"
+
+# 페르소나 1단계(직접): raw 직접 신호를 매 배치 재산출해 덮어쓴다 — 분류 칸을 수집이 안 건드리므로(#11)
+# 직접 신호도 여기서 최신화한다(공고 수정·매핑 보강 반영). 이후 상속·키워드가 union으로 보강한다.
+_DIRECT_INPUTS_SQL = "SELECT id, source, raw FROM opportunity"
+_SET_DIRECT_TARGETS_SQL = (
+    "UPDATE opportunity SET target_startup_stage = %s, target_audience_type = %s WHERE id = %s"
+)
 
 # 페르소나 2단계(상속): 그룹 내 K-Startup 타깃을 타 출처와 '합집합'으로 공유한다 (§6-D: 그룹 전체가 공유).
 # COALESCE(NULL 컬럼만 채움)는 멤버가 부분 신호(예: 온통 ['YOUTH'])를 가지면 donor의 더 풍부한 값을
@@ -128,6 +136,20 @@ def apply_dedup(conn, assignments) -> None:
     rows = [(item.group_id, item.canonical, item.record_id) for item in assignments]
     with conn.cursor() as cursor:
         cursor.executemany(_APPLY_DEDUP_SQL, rows)
+
+
+def fetch_direct_inputs(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_DIRECT_INPUTS_SQL)
+        return cursor.fetchall()
+
+
+def set_direct_targets(conn, rows: list[tuple]) -> None:
+    """직접 신호 일괄 덮어쓰기 — rows: [(stages, audiences, record_id), ...]."""
+    if not rows:
+        return
+    with conn.cursor() as cursor:
+        cursor.executemany(_SET_DIRECT_TARGETS_SQL, rows)
 
 
 def inherit_group_targets(conn) -> int:
