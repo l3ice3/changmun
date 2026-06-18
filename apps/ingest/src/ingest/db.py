@@ -1,7 +1,14 @@
 """DB 적재 — UPSERT: ON CONFLICT (source, external_id).
 
 멱등성은 DB가 보장한다 — 존재 확인 후 INSERT 패턴 금지(레이스). (ingest.md 규칙 3)
-UPDATE 시 건드리지 않는 컬럼: first_seen_at(최초 수집 보존), dedup_group_id·is_canonical(FR-002 배치 소관).
+
+컬럼은 소관별로 나뉜다 (책임 분리):
+- _KEY_COLUMNS       : 멱등 키. ON CONFLICT 대상.
+- _COLLECTED_COLUMNS : 수집이 매 배치 최신으로 갱신하는 원본 칸. UPSERT의 UPDATE 대상.
+- _ENRICHED_COLUMNS  : 분류 칸(페르소나). 수집은 최초 INSERT 시 직접 신호만 넣고 이후 UPDATE하지 않는다 →
+                       dedup·persona가 채운 값을 수집이 덮지 않아, persona 단계가 일시 실패해도 보존된다 (#11).
+- (미포함) dedup_group_id·is_canonical : 수집이 INSERT에도 안 넣어 DB 기본값 → dedup이 채운다.
+- (미포함) first_seen_at : 최초 수집 시각 보존(UPDATE 안 함) / updated_at : 매 UPSERT now()로 갱신.
 """
 from dataclasses import asdict
 
@@ -10,41 +17,31 @@ from psycopg.types.json import Jsonb
 
 from ingest.record import OpportunityRecord
 
-_UPSERT_SQL = """
-INSERT INTO opportunity (
-    source, external_id, title, summary, category, region,
-    organization, organization_type, support_amount,
-    target_startup_stage, target_audience_type, eligibility_detail,
-    application_start_date, application_deadline, is_always_open,
-    detail_url, apply_url, source_status, raw
-) VALUES (
-    %(source)s, %(external_id)s, %(title)s, %(summary)s, %(category)s, %(region)s,
-    %(organization)s, %(organization_type)s, %(support_amount)s,
-    %(target_startup_stage)s, %(target_audience_type)s, %(eligibility_detail)s,
-    %(application_start_date)s, %(application_deadline)s, %(is_always_open)s,
-    %(detail_url)s, %(apply_url)s, %(source_status)s, %(raw)s
+_KEY_COLUMNS = ("source", "external_id")
+_COLLECTED_COLUMNS = (
+    "title", "summary", "category", "region", "organization", "organization_type",
+    "support_amount", "eligibility_detail", "application_start_date", "application_deadline",
+    "is_always_open", "detail_url", "apply_url", "source_status", "raw",
 )
-ON CONFLICT (source, external_id) DO UPDATE SET
-    title = EXCLUDED.title,
-    summary = EXCLUDED.summary,
-    category = EXCLUDED.category,
-    region = EXCLUDED.region,
-    organization = EXCLUDED.organization,
-    organization_type = EXCLUDED.organization_type,
-    support_amount = EXCLUDED.support_amount,
-    target_startup_stage = EXCLUDED.target_startup_stage,
-    target_audience_type = EXCLUDED.target_audience_type,
-    eligibility_detail = EXCLUDED.eligibility_detail,
-    application_start_date = EXCLUDED.application_start_date,
-    application_deadline = EXCLUDED.application_deadline,
-    is_always_open = EXCLUDED.is_always_open,
-    detail_url = EXCLUDED.detail_url,
-    apply_url = EXCLUDED.apply_url,
-    source_status = EXCLUDED.source_status,
-    raw = EXCLUDED.raw,
-    updated_at = now()
-RETURNING (xmax = 0) AS inserted
-"""
+_ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
+
+
+def _build_upsert_sql() -> str:
+    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS + _ENRICHED_COLUMNS
+    values = ", ".join(f"%({column})s" for column in insert_columns)
+    update_sets = ",\n    ".join(f"{column} = EXCLUDED.{column}" for column in _COLLECTED_COLUMNS)
+    return (
+        f"INSERT INTO opportunity ({', '.join(insert_columns)})\n"
+        f"VALUES ({values})\n"
+        f"ON CONFLICT (source, external_id) DO UPDATE SET\n"
+        f"    {update_sets},\n"
+        f"    updated_at = now()\n"
+        f"RETURNING (xmax = 0) AS inserted"
+    )
+
+
+# 분류 칸(_ENRICHED_COLUMNS)은 UPDATE 절에서 빠진다 — 수집이 enrichment 결과를 덮지 않게 (#11)
+_UPSERT_SQL = _build_upsert_sql()
 
 
 # dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5)

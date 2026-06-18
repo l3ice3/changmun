@@ -75,3 +75,42 @@ class TestIdempotency:
 
     def test_empty_batch_is_noop(self, conn):
         assert db.upsert_records(conn, []) == (0, 0)
+
+
+class TestEnrichedColumnsPreserved:
+    """#11: 재수집 UPSERT가 분류 칸(페르소나)을 덮지 않는다 — persona 실패해도 보존."""
+
+    def test_rerun_preserves_enriched_targets(self, conn):
+        db.upsert_records(conn, [make_record("100", "원본 제목")])
+        conn.commit()
+        # enrichment(상속·키워드)가 audience를 채웠다고 가정
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE opportunity SET target_audience_type = ARRAY['UNIV_STUDENT']"
+                " WHERE source = %s AND external_id = '100'",
+                (TEST_SOURCE,),
+            )
+        conn.commit()
+
+        # 재수집 — 원본엔 audience 없음(None), 제목만 갱신
+        rerun = OpportunityRecord(
+            source=TEST_SOURCE,
+            external_id="100",
+            title="갱신된 제목",
+            detail_url="https://example.test/100",
+            target_startup_stage=["PRE_STARTUP"],
+            target_audience_type=None,
+            raw={"x": 1},
+        )
+        db.upsert_records(conn, [rerun])
+        conn.commit()
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT title, target_audience_type FROM opportunity"
+                " WHERE source = %s AND external_id = '100'",
+                (TEST_SOURCE,),
+            )
+            title, audience = cursor.fetchone()
+        assert title == "갱신된 제목"  # 수집 칸은 최신으로 갱신
+        assert audience == ["UNIV_STUDENT"]  # 분류 칸은 보존 (수집이 덮지 않음)
