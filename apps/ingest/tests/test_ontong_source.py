@@ -116,13 +116,13 @@ class TestDirectTargets:
         item = real_item()
         item["sprtTrgtAgeLmtYn"] = "Y"
         item["sprtTrgtMaxAge"] = "39"
-        stages, audiences = ontong_youth.direct_targets(item)
+        stages, audiences = ontong_youth.direct_targets(item, [])
         assert audiences == ["YOUTH"]
         assert stages is None
 
     def test_no_age_limit_keeps_null(self):
         # 실데이터 1번 레코드: ageLmtYn=N → 신호 없음 → NULL (AC-009)
-        stages, audiences = ontong_youth.direct_targets(real_item())
+        stages, audiences = ontong_youth.direct_targets(real_item(), [])
         assert audiences is None
         assert stages is None
 
@@ -130,7 +130,7 @@ class TestDirectTargets:
         item = real_item()
         item["sprtTrgtAgeLmtYn"] = "Y"
         item["sprtTrgtMaxAge"] = "45"
-        _, audiences = ontong_youth.direct_targets(item)
+        _, audiences = ontong_youth.direct_targets(item, [])
         assert audiences is None
 
 

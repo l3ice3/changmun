@@ -180,10 +180,10 @@ def _resolve_period(raw: dict) -> tuple[date | None, date | None, bool]:
     return start_date, None, False
 
 
-def direct_targets(raw: dict) -> tuple[list[str] | None, list[str] | None]:
+def direct_targets(raw: dict, unknown: list[str]) -> tuple[list[str] | None, list[str] | None]:
     """직접 신호 — (stage, audience). 온통청년은 업력(stage) 신호가 없고, 연령에서 YOUTH만 유추한다.
 
-    persona가 매 배치 raw에서 재산출한다(분류 칸은 수집 미관여, #11).
+    매 배치 raw에서 재산출한다(분류 칸은 수집 미관여, #11). 연령 유추는 enum 매핑이 아니라 unknown 없음.
     """
     return None, _derived_audiences(raw)
 

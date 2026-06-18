@@ -129,12 +129,13 @@ def map_record(raw: dict) -> MappingResult:
     return MappingResult(record, None, unknown)
 
 
-def direct_targets(raw: dict) -> tuple[list[str] | None, list[str] | None]:
+def direct_targets(raw: dict, unknown: list[str]) -> tuple[list[str] | None, list[str] | None]:
     """구조화 직접 신호(최고 신뢰, §6-D) — biz_enyy/aply_trgt에서 (stage, audience) 산출.
 
-    persona가 매 배치 raw에서 재산출한다 → 공고 수정·매핑 보강이 반영되면서도 수집은 분류 칸을 안 건드린다.
+    매 배치 raw에서 재산출한다 → 공고 수정·매핑 보강이 반영되면서도 수집은 분류 칸을 안 건드린다.
+    미지 토큰은 unknown에 로그한다 (AC-005 — 새 enum 값 추적).
     """
-    return normalize_stages(raw.get("biz_enyy"), []), normalize_audiences(raw.get("aply_trgt"), [])
+    return normalize_stages(raw.get("biz_enyy"), unknown), normalize_audiences(raw.get("aply_trgt"), unknown)
 
 
 def _resolve_apply_url(raw: dict) -> str | None:

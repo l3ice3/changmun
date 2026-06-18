@@ -25,8 +25,8 @@ def default_collectors() -> dict[str, Collector]:
 
 
 def default_enrichers() -> dict[str, Enricher]:
-    # 순서 보장: dedup(그룹) → persona(상속이 그룹에 의존)
-    return {"dedup": dedup.run, "persona": persona.apply}
+    # 순서 = 의존: 직접(raw→target_*, dedup의 info_count 입력) → dedup(그룹) → persona(상속·키워드)
+    return {"direct": persona.fill_direct, "dedup": dedup.run, "persona": persona.apply}
 
 
 def run(
