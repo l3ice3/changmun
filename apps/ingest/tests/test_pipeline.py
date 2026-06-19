@@ -64,8 +64,8 @@ class TestSourceIsolation:
         assert "=== 수집 리포트 ===" in capsys.readouterr().out
 
 
-class TestEnrichmentIsolation:
-    def test_dedup_failure_skips_dependent_persona(self, capsys):
+class TestEnrichmentAtomicity:
+    def test_failure_rolls_back_all_and_skips_rest(self, capsys):
         conn = FakeConnection()
         persona_calls = []
 
@@ -83,13 +83,12 @@ class TestEnrichmentIsolation:
             enrichers={"dedup": broken_dedup, "persona": ok_persona},
         )
         assert exit_code == 1
-        assert persona_calls == []  # dedup 실패 → 의존 단계 persona 스킵
-        assert conn.rollbacks == 1
-        out = capsys.readouterr().out
-        assert "[dedup] 실패" in out
-        assert "건너뜀" in out
+        assert persona_calls == []  # dedup 실패 → 루프 중단, 후속 단계 미실행
+        assert conn.rollbacks == 1  # 전체 원자 롤백
+        assert conn.commits == 0  # 실패 시 commit 안 함
+        assert "원자 롤백" in capsys.readouterr().out
 
-    def test_all_enrichers_ok_commit_each_step(self, capsys):
+    def test_all_enrichers_ok_single_commit(self, capsys):
         conn = FakeConnection()
 
         exit_code = run(
@@ -97,9 +96,10 @@ class TestEnrichmentIsolation:
             collectors={"ok": ok_report("ok")},
             connect=fake_connect_factory(conn),
             enrichers={
+                "direct": lambda c: EnrichmentReport(name="persona-direct", metrics={"직접": 3}),
                 "dedup": lambda c: EnrichmentReport(name="dedup", metrics={"그룹": 1}),
                 "persona": lambda c: EnrichmentReport(name="persona", metrics={"상속": 2}),
             },
         )
         assert exit_code == 0
-        assert conn.commits == 2  # 후처리 각 단계 성공 시 호출자가 commit (③ 트랜잭션 경계)
+        assert conn.commits == 1  # 후처리 3단계를 한 번에 commit (원자적)
