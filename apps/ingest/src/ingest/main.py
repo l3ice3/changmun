@@ -25,8 +25,8 @@ def default_collectors() -> dict[str, Collector]:
 
 
 def default_enrichers() -> dict[str, Enricher]:
-    # 순서 보장: dedup(그룹) → persona(상속이 그룹에 의존)
-    return {"dedup": dedup.run, "persona": persona.apply}
+    # 순서 = 의존: 직접(raw→target_*, dedup의 info_count 입력) → dedup(그룹) → persona(상속·키워드)
+    return {"direct": persona.fill_direct, "dedup": dedup.run, "persona": persona.apply}
 
 
 def run(
@@ -50,20 +50,21 @@ def run(
 
 
 def _run_enrichers(enrichers: dict[str, Enricher], conn) -> list[EnrichmentReport]:
-    """후처리는 의존 파이프라인(dedup → persona) — 선행 단계가 실패하면 후속 단계를 건너뛴다.
+    """후처리 3단계(직접 → dedup → persona)를 한 트랜잭션으로 — 전체 성공 시에만 commit한다.
 
-    persona 상속은 dedup_group_id를 읽으므로, dedup 실패 후 persona를 돌리면
-    stale·누락 그룹으로 잘못된 값을 커밋한다. 그래서 의존 단계는 스킵한다.
+    단계마다 따로 commit하면, 직접 단계가 분류 칸을 덮어쓴 직후(상속·키워드 적용 전) 상태가
+    노출돼 페르소나가 일시 빈다(Codex). 어느 단계든 실패하면 통째로 rollback해 어제 값을 보존한다.
+    이로써 "후처리 실패가 노출 분류를 무효화하지 않는다"는 격리 의도가 원자적으로 지켜진다.
     """
     reports: list[EnrichmentReport] = []
-    upstream_failed = False
-    for name, enrich in enrichers.items():
-        if upstream_failed:
-            reports.append(EnrichmentReport(name=name, failed=True, error="선행 단계 실패로 건너뜀"))
-            continue
-        report = _enrich_isolated(name, enrich, conn)
-        upstream_failed = report.failed
-        reports.append(report)
+    try:
+        for _name, enrich in enrichers.items():
+            reports.append(enrich(conn))
+    except Exception as exc:  # noqa: BLE001 — 후처리 원자성이 목적
+        conn.rollback()
+        logger.error("후처리 실패 — 전체 롤백(원자적): %s", exc)
+        return [EnrichmentReport(name=name, failed=True, error="후처리 원자 롤백") for name in enrichers]
+    conn.commit()
     return reports
 
 
@@ -75,22 +76,6 @@ def _collect_isolated(name: str, collect: Collector, settings: Settings, conn) -
         conn.rollback()
         logger.error("[%s] 소스 수집 실패: %s", name, exc)
         return SourceReport(source=name, failed=True, error=str(exc))
-
-
-def _enrich_isolated(name: str, enrich: Enricher, conn) -> EnrichmentReport:
-    """후처리 실패가 수집 결과를 무효화하지 않는다 — 다음 배치에서 재평가 가능(전체 재계산).
-
-    commit은 여기(호출자)서 한다 — dedup·persona는 쓰기만 하고 트랜잭션 경계를 모른다.
-    덕분에 통합 테스트는 commit 없이 호출 후 rollback해 실데이터를 보존할 수 있다.
-    """
-    try:
-        report = enrich(conn)
-        conn.commit()
-        return report
-    except Exception as exc:  # noqa: BLE001 — 단계 격리가 목적
-        conn.rollback()
-        logger.error("[%s] 후처리 실패: %s", name, exc)
-        return EnrichmentReport(name=name, failed=True, error=str(exc))
 
 
 def _exit_code(source_reports: list[SourceReport], enrichment_reports: list[EnrichmentReport]) -> int:

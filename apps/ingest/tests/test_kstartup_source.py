@@ -29,7 +29,7 @@ class TestMapRecordHappy:
         assert record.region == "서울"
         assert record.organization == "서울특별시"
         assert record.organization_type == "PUBLIC"
-        assert record.target_startup_stage == ["PRE_STARTUP", "LT_1Y"]
+        assert record.target_startup_stage == ["PRE_STARTUP", "LT_1Y"]  # 직접 신호 INSERT 저장 (#11)
         assert record.target_audience_type == ["YOUTH", "UNIV_STUDENT", "GENERAL", "SOLO_CREATOR"]
         assert record.application_start_date == date(2026, 6, 1)
         assert record.application_deadline == date(2026, 6, 19)
@@ -46,6 +46,29 @@ class TestMapRecordHappy:
         original = fixture_record(0)
         record = kstartup.map_record(original).record
         assert record.raw == original  # 원본 그대로 — 가공 저장 금지
+
+
+class TestDirectTargets:
+    """직접 신호는 map_record가 아니라 direct_targets가 raw에서 산출한다 (#11)."""
+
+    def test_direct_signals_from_raw(self):
+        stages, audiences = kstartup.direct_targets(fixture_record(0), [])
+        assert stages == ["PRE_STARTUP", "LT_1Y"]
+        assert audiences == ["YOUTH", "UNIV_STUDENT", "GENERAL", "SOLO_CREATOR"]
+
+    def test_no_signal_returns_none(self):
+        stages, audiences = kstartup.direct_targets(fixture_record(3), [])
+        assert stages is None
+        assert audiences is None
+
+    def test_unknown_token_logged(self):
+        # 직접 단계도 미지 토큰을 unknown에 남긴다 (AC-005 회귀 방지)
+        item = dict(fixture_record(0))
+        item["biz_enyy"] = "예비창업자,15년미만"
+        unknown = []
+        stages, _ = kstartup.direct_targets(item, unknown)
+        assert stages == ["PRE_STARTUP"]
+        assert any("15년미만" in entry for entry in unknown)
 
 
 class TestMapRecordSkip:

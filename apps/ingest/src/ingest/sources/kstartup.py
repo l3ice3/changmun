@@ -105,6 +105,8 @@ def map_record(raw: dict) -> MappingResult:
     if detail_url is None:
         # 스키마 NOT NULL 제약 — 라이브에선 항상 존재, 방어적 스킵
         return MappingResult(None, f"detail_url 없음(pbanc_sn={external_id})", unknown)
+    # 직접 신호는 INSERT 시 저장(신규 행이 후처리 rollback돼도 보존) — 갱신은 persona 직접 단계가 한다 (#11)
+    direct_stage, direct_audience = direct_targets(raw, unknown)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=str(external_id),  # JSON에서 number로 옴 → 문자열화 (§6 규칙 3)
@@ -115,8 +117,8 @@ def map_record(raw: dict) -> MappingResult:
         organization=clean_text(raw.get("pbanc_ntrp_nm")),
         organization_type=normalize_organization_type(raw.get("sprv_inst"), unknown),
         support_amount=None,  # 공고 API에 없음 — 타 출처/Phase 2에서 보강 (§2)
-        target_startup_stage=normalize_stages(raw.get("biz_enyy"), unknown),
-        target_audience_type=normalize_audiences(raw.get("aply_trgt"), unknown),
+        target_startup_stage=direct_stage,
+        target_audience_type=direct_audience,
         eligibility_detail=clean_text(raw.get("aply_trgt_ctnt")),
         application_start_date=parse_yyyymmdd(raw.get("pbanc_rcpt_bgng_dt")),
         application_deadline=parse_yyyymmdd(raw.get("pbanc_rcpt_end_dt")),
@@ -127,6 +129,15 @@ def map_record(raw: dict) -> MappingResult:
         raw=raw,  # 원본 그대로 보존 — 가공 저장 금지 (CLAUDE.md 절대 규칙 3)
     )
     return MappingResult(record, None, unknown)
+
+
+def direct_targets(raw: dict, unknown: list[str]) -> tuple[list[str] | None, list[str] | None]:
+    """구조화 직접 신호(최고 신뢰, §6-D) — biz_enyy/aply_trgt에서 (stage, audience) 산출.
+
+    매 배치 raw에서 재산출한다 → 공고 수정·매핑 보강이 반영되면서도 수집은 분류 칸을 안 건드린다.
+    미지 토큰은 unknown에 로그한다 (AC-005 — 새 enum 값 추적).
+    """
+    return normalize_stages(raw.get("biz_enyy"), unknown), normalize_audiences(raw.get("aply_trgt"), unknown)
 
 
 def _resolve_apply_url(raw: dict) -> str | None:

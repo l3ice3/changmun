@@ -104,26 +104,38 @@ class TestPeriodResolution:
         assert record.application_deadline is None
 
 
-class TestDerivedAudience:
-    def test_explicit_youth_age_limit(self):
+class TestDirectTargets:
+    """직접 신호(YOUTH 유추)는 map_record가 아니라 direct_targets가 raw에서 산출한다 (#11)."""
+
+    def test_map_record_stores_direct_signal(self):
+        # 직접 신호는 INSERT 시 저장된다(신규 행 보존). 신호 있는 항목으로 확인 (#11)
         item = real_item()
         item["sprtTrgtAgeLmtYn"] = "Y"
         item["sprtTrgtMaxAge"] = "39"
         record = ontong_youth.map_record(item).record
         assert record.target_audience_type == ["YOUTH"]
+        assert record.target_startup_stage is None  # 온통은 업력 신호 없음
+
+    def test_explicit_youth_age_limit(self):
+        item = real_item()
+        item["sprtTrgtAgeLmtYn"] = "Y"
+        item["sprtTrgtMaxAge"] = "39"
+        stages, audiences = ontong_youth.direct_targets(item, [])
+        assert audiences == ["YOUTH"]
+        assert stages is None
 
     def test_no_age_limit_keeps_null(self):
         # 실데이터 1번 레코드: ageLmtYn=N → 신호 없음 → NULL (AC-009)
-        record = ontong_youth.map_record(real_item()).record
-        assert record.target_audience_type is None
-        assert record.target_startup_stage is None
+        stages, audiences = ontong_youth.direct_targets(real_item(), [])
+        assert audiences is None
+        assert stages is None
 
     def test_age_above_youth_range_keeps_null(self):
         item = real_item()
         item["sprtTrgtAgeLmtYn"] = "Y"
         item["sprtTrgtMaxAge"] = "45"
-        record = ontong_youth.map_record(item).record
-        assert record.target_audience_type is None
+        _, audiences = ontong_youth.direct_targets(item, [])
+        assert audiences is None
 
 
 class TestSkipAndGuards:
