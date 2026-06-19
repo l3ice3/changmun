@@ -3,14 +3,11 @@
 규칙: data-model.md §6-D. 신호 없으면 NULL 유지(억지 채움 금지, AC-009). LLM 호출 금지(MVP).
 키워드 규칙은 보수적으로 — 확실한 패턴만 (ingest.md 규칙 6).
 """
-import logging
 import re
 
 from ingest import db
 from ingest.report import EnrichmentReport
 from ingest.sources import kstartup, ontong_youth
-
-logger = logging.getLogger(__name__)
 
 # 소스별 직접 신호 산출 — 분류 칸은 수집이 안 건드리므로 persona가 raw에서 재산출한다 (#11)
 _DIRECT_EXTRACTORS = {
@@ -29,23 +26,21 @@ _STAGE_BY_YEARS = {"1": "LT_1Y", "2": "LT_2Y", "3": "LT_3Y", "5": "LT_5Y", "7": 
 
 
 def fill_direct(conn) -> EnrichmentReport:
-    """페르소나 1단계(직접) — raw 직접 신호를 재산출해 덮어쓴다.
+    """페르소나 1단계(직접) — raw 직접 신호를 재산출해 갱신한다(기존 행의 공고 수정·매핑 보강 반영).
 
-    dedup '전에' 실행한다(main 순서) — dedup의 info_count(canonical 동순위 판정, §6-D)가
-    직접 신호를 반영하게(Codex). 미지 토큰은 로그한다(AC-005). commit은 호출자 책임.
+    dedup '전에' 실행한다(main 순서) — dedup의 info_count(canonical 동순위 판정, §6-D)가 직접
+    신호를 반영하게(Codex). 신규 행 직접 신호는 수집 INSERT가 이미 넣었고 미지 토큰도 수집이
+    로그하므로(AC-005), 여기선 미지값을 버린다. commit은 호출자 책임.
     """
     rows = []
-    unknown: list[str] = []
     for record_id, source, raw in db.fetch_direct_inputs(conn):
         extractor = _DIRECT_EXTRACTORS.get(source)
         if extractor is None or raw is None:
             continue
-        stages, audiences = extractor(raw, unknown)
+        stages, audiences = extractor(raw, [])  # 미지값은 수집(map_record)이 이미 로그
         rows.append((stages, audiences, record_id))
     db.set_direct_targets(conn, rows)
-    if unknown:
-        logger.warning("직접 신호 미지 토큰 %d건 (최대 20): %s", len(unknown), unknown[:20])
-    return EnrichmentReport(name="persona-direct", metrics={"직접": len(rows), "미지값": len(unknown)})
+    return EnrichmentReport(name="persona-direct", metrics={"직접": len(rows)})
 
 
 def apply(conn) -> EnrichmentReport:

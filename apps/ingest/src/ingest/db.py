@@ -5,9 +5,10 @@
 컬럼은 소관별로 나뉜다 (책임 분리):
 - _KEY_COLUMNS       : 멱등 키. ON CONFLICT 대상.
 - _COLLECTED_COLUMNS : 수집이 매 배치 최신으로 갱신하는 원본 칸. UPSERT의 UPDATE 대상.
-- _ENRICHED_COLUMNS  : 분류 칸(페르소나). 수집은 INSERT·UPDATE 둘 다 건드리지 않는다 — persona가 raw에서
-                       직접 신호를 재산출하고 상속·키워드를 채운다(전담). 수집이 덮지 않으므로 persona
-                       단계가 일시 실패해도 보존되고(#11), 직접 신호도 매 배치 갱신된다(공고 수정·매핑 보강 반영).
+- _ENRICHED_COLUMNS  : 분류 칸(페르소나). INSERT엔 수집이 산출한 '직접 신호'를 저장한다(신규 행이
+                       후처리 rollback돼도 페르소나 탭에서 누락되지 않게, Codex). UPDATE에선 제외해
+                       dedup/persona가 채운 상속·키워드를 보존한다(#11). 직접 신호 '갱신'(공고 수정 반영)은
+                       persona 직접 단계가 매 배치 수행 → 신규 보존·갱신·enrichment 보존을 모두 만족.
 - (미포함) dedup_group_id·is_canonical : 수집이 INSERT에도 안 넣어 DB 기본값 → dedup이 채운다.
 - (미포함) first_seen_at : 최초 수집 시각 보존(UPDATE 안 함) / updated_at : 매 UPSERT now()로 갱신.
 """
@@ -28,8 +29,9 @@ _ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
 
 
 def _build_upsert_sql() -> str:
-    # 분류 칸(_ENRICHED_COLUMNS)은 INSERT·UPDATE 둘 다 빠진다 — 수집은 분류에 관여하지 않는다 (#11)
-    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS
+    # INSERT엔 분류 칸의 직접 신호를 저장(신규 행이 후처리 rollback돼도 보존)하되, UPDATE 절에선 제외해
+    # enrichment(상속·키워드)를 수집이 덮지 않게 한다 (#11, Codex).
+    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS + _ENRICHED_COLUMNS
     values = ", ".join(f"%({column})s" for column in insert_columns)
     update_sets = ",\n    ".join(f"{column} = EXCLUDED.{column}" for column in _COLLECTED_COLUMNS)
     return (

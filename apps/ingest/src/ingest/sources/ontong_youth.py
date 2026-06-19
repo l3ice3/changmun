@@ -110,6 +110,8 @@ def map_record(raw: dict) -> MappingResult:
         # 서버 필터 이중 방어 — 수집 범위 밖 슬라이스는 적재하지 않는다
         return MappingResult(None, f"창업 슬라이스 아님(mclsfNm={raw.get('mclsfNm')})", unknown)
     start_date, deadline, always_open = _resolve_period(raw)
+    # 직접 신호는 INSERT 시 저장(신규 행이 후처리 rollback돼도 보존) — 갱신은 persona 직접 단계가 한다 (#11)
+    direct_stage, direct_audience = direct_targets(raw, unknown)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=external_id,
@@ -120,8 +122,8 @@ def map_record(raw: dict) -> MappingResult:
         organization=_organization_of(raw),
         organization_type=None,  # 온통청년엔 기관 유형 필드 없음 (§6-C)
         support_amount=None,
-        target_startup_stage=None,  # 분류 칸은 enrichment(persona)가 raw에서 산출 — 수집 미관여 (#11)
-        target_audience_type=None,
+        target_startup_stage=direct_stage,
+        target_audience_type=direct_audience,
         eligibility_detail=_resolve_eligibility(raw),
         application_start_date=start_date,
         application_deadline=deadline,

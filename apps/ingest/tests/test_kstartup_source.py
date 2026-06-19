@@ -29,8 +29,8 @@ class TestMapRecordHappy:
         assert record.region == "서울"
         assert record.organization == "서울특별시"
         assert record.organization_type == "PUBLIC"
-        assert record.target_startup_stage is None  # 분류 칸은 수집 미관여 — direct_targets 소관 (#11)
-        assert record.target_audience_type is None
+        assert record.target_startup_stage == ["PRE_STARTUP", "LT_1Y"]  # 직접 신호 INSERT 저장 (#11)
+        assert record.target_audience_type == ["YOUTH", "UNIV_STUDENT", "GENERAL", "SOLO_CREATOR"]
         assert record.application_start_date == date(2026, 6, 1)
         assert record.application_deadline == date(2026, 6, 19)
         assert record.is_always_open is False
