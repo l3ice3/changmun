@@ -1,16 +1,7 @@
 """DB 적재 — UPSERT: ON CONFLICT (source, external_id).
 
 멱등성은 DB가 보장한다 — 존재 확인 후 INSERT 패턴 금지(레이스). (ingest.md 규칙 3)
-
-컬럼은 소관별로 나뉜다 (책임 분리):
-- _KEY_COLUMNS       : 멱등 키. ON CONFLICT 대상.
-- _COLLECTED_COLUMNS : 수집이 매 배치 최신으로 갱신하는 원본 칸. UPSERT의 UPDATE 대상.
-- _ENRICHED_COLUMNS  : 분류 칸(페르소나). INSERT엔 수집이 산출한 '직접 신호'를 저장한다(신규 행이
-                       후처리 rollback돼도 페르소나 탭에서 누락되지 않게, Codex). UPDATE에선 제외해
-                       dedup/persona가 채운 상속·키워드를 보존한다(#11). 직접 신호 '갱신'(공고 수정 반영)은
-                       persona 직접 단계가 매 배치 수행 → 신규 보존·갱신·enrichment 보존을 모두 만족.
-- (미포함) dedup_group_id·is_canonical : 수집이 INSERT에도 안 넣어 DB 기본값 → dedup이 채운다.
-- (미포함) first_seen_at : 최초 수집 시각 보존(UPDATE 안 함) / updated_at : 매 UPSERT now()로 갱신.
+UPDATE 시 건드리지 않는 컬럼: first_seen_at(최초 수집 보존), dedup_group_id·is_canonical(FR-002 배치 소관).
 """
 from dataclasses import asdict
 
@@ -19,32 +10,41 @@ from psycopg.types.json import Jsonb
 
 from ingest.record import OpportunityRecord
 
-_KEY_COLUMNS = ("source", "external_id")
-_COLLECTED_COLUMNS = (
-    "title", "summary", "category", "region", "organization", "organization_type",
-    "support_amount", "eligibility_detail", "application_start_date", "application_deadline",
-    "is_always_open", "detail_url", "apply_url", "source_status", "raw",
+_UPSERT_SQL = """
+INSERT INTO opportunity (
+    source, external_id, title, summary, category, region,
+    organization, organization_type, support_amount,
+    target_startup_stage, target_audience_type, eligibility_detail,
+    application_start_date, application_deadline, is_always_open,
+    detail_url, apply_url, source_status, raw
+) VALUES (
+    %(source)s, %(external_id)s, %(title)s, %(summary)s, %(category)s, %(region)s,
+    %(organization)s, %(organization_type)s, %(support_amount)s,
+    %(target_startup_stage)s, %(target_audience_type)s, %(eligibility_detail)s,
+    %(application_start_date)s, %(application_deadline)s, %(is_always_open)s,
+    %(detail_url)s, %(apply_url)s, %(source_status)s, %(raw)s
 )
-_ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
-
-
-def _build_upsert_sql() -> str:
-    # INSERT엔 분류 칸의 직접 신호를 저장(신규 행이 후처리 rollback돼도 보존)하되, UPDATE 절에선 제외해
-    # enrichment(상속·키워드)를 수집이 덮지 않게 한다 (#11, Codex).
-    insert_columns = _KEY_COLUMNS + _COLLECTED_COLUMNS + _ENRICHED_COLUMNS
-    values = ", ".join(f"%({column})s" for column in insert_columns)
-    update_sets = ",\n    ".join(f"{column} = EXCLUDED.{column}" for column in _COLLECTED_COLUMNS)
-    return (
-        f"INSERT INTO opportunity ({', '.join(insert_columns)})\n"
-        f"VALUES ({values})\n"
-        f"ON CONFLICT (source, external_id) DO UPDATE SET\n"
-        f"    {update_sets},\n"
-        f"    updated_at = now()\n"
-        f"RETURNING (xmax = 0) AS inserted"
-    )
-
-
-_UPSERT_SQL = _build_upsert_sql()
+ON CONFLICT (source, external_id) DO UPDATE SET
+    title = EXCLUDED.title,
+    summary = EXCLUDED.summary,
+    category = EXCLUDED.category,
+    region = EXCLUDED.region,
+    organization = EXCLUDED.organization,
+    organization_type = EXCLUDED.organization_type,
+    support_amount = EXCLUDED.support_amount,
+    target_startup_stage = EXCLUDED.target_startup_stage,
+    target_audience_type = EXCLUDED.target_audience_type,
+    eligibility_detail = EXCLUDED.eligibility_detail,
+    application_start_date = EXCLUDED.application_start_date,
+    application_deadline = EXCLUDED.application_deadline,
+    is_always_open = EXCLUDED.is_always_open,
+    detail_url = EXCLUDED.detail_url,
+    apply_url = EXCLUDED.apply_url,
+    source_status = EXCLUDED.source_status,
+    raw = EXCLUDED.raw,
+    updated_at = now()
+RETURNING (xmax = 0) AS inserted
+"""
 
 
 # dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5)
@@ -59,13 +59,6 @@ FROM opportunity
 """
 
 _APPLY_DEDUP_SQL = "UPDATE opportunity SET dedup_group_id = %s, is_canonical = %s WHERE id = %s"
-
-# 페르소나 1단계(직접): raw 직접 신호를 매 배치 재산출해 덮어쓴다 — 분류 칸을 수집이 안 건드리므로(#11)
-# 직접 신호도 여기서 최신화한다(공고 수정·매핑 보강 반영). 이후 상속·키워드가 union으로 보강한다.
-_DIRECT_INPUTS_SQL = "SELECT id, source, raw FROM opportunity"
-_SET_DIRECT_TARGETS_SQL = (
-    "UPDATE opportunity SET target_startup_stage = %s, target_audience_type = %s WHERE id = %s"
-)
 
 # 페르소나 2단계(상속): 그룹 내 K-Startup 타깃을 타 출처와 '합집합'으로 공유한다 (§6-D: 그룹 전체가 공유).
 # COALESCE(NULL 컬럼만 채움)는 멤버가 부분 신호(예: 온통 ['YOUTH'])를 가지면 donor의 더 풍부한 값을
@@ -138,20 +131,6 @@ def apply_dedup(conn, assignments) -> None:
     rows = [(item.group_id, item.canonical, item.record_id) for item in assignments]
     with conn.cursor() as cursor:
         cursor.executemany(_APPLY_DEDUP_SQL, rows)
-
-
-def fetch_direct_inputs(conn) -> list[tuple]:
-    with conn.cursor() as cursor:
-        cursor.execute(_DIRECT_INPUTS_SQL)
-        return cursor.fetchall()
-
-
-def set_direct_targets(conn, rows: list[tuple]) -> None:
-    """직접 신호 일괄 덮어쓰기 — rows: [(stages, audiences, record_id), ...]."""
-    if not rows:
-        return
-    with conn.cursor() as cursor:
-        cursor.executemany(_SET_DIRECT_TARGETS_SQL, rows)
 
 
 def inherit_group_targets(conn) -> int:

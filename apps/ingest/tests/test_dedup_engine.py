@@ -181,17 +181,6 @@ class TestCanonical:
         assert assignments[1].group_id is None
         assert assignments[2].group_id is None
 
-    def test_undated_promoted_over_closed_canonical(self):
-        """그룹 K-Startup이 마감이고 다른 출처가 UNDATED면, UNDATED를 canonical로 — 노출 가능 우선 (#14)."""
-        closed_kstartup = record(
-            1, "k-startup", "예비창업 창업기업 모집 공고", deadline=date(2020, 1, 1), group_id=5)
-        undated_ontong = record(
-            2, "ontong-youth", "예비창업 창업기업 모집 공고", deadline=None, always_open=False, group_id=5)
-        assignments = by_id(engine.build_assignments([closed_kstartup, undated_ontong], TODAY))
-        assert assignments[1].group_id == assignments[2].group_id is not None  # 같은 그룹 유지
-        assert assignments[1].canonical is False  # 마감된 K-Startup은 대표 양보
-        assert assignments[2].canonical is True   # 노출 가능한 UNDATED가 대표
-
     def test_no_kstartup_group_prefers_info_count(self):
         """§6-D: 그룹에 K-Startup이 없으면 정보량 많은 쪽이 canonical."""
         rich = record(1, "ontong-youth", "창업 공간 입주 모집", info_count=12)

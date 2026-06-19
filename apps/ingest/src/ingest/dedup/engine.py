@@ -167,11 +167,11 @@ def _assign_group(members: list[DedupRecord], today: date) -> list[Assignment]:
 
 
 def _pick_canonical(members: list[DedupRecord], today: date) -> DedupRecord:
-    """노출 가능성 우선(AC-010) → K-Startup 우선 → 정보량 → id 안정 정렬 (§6-D 규칙 5)."""
+    """진행 중 우선(AC-010) → K-Startup 우선 → 정보량 → id 안정 정렬 (§6-D 규칙 5)."""
     return max(
         members,
         key=lambda record: (
-            _exposure_rank(record, today),
+            _is_open(record, today),
             record.source == KSTARTUP_SOURCE,
             record.info_count,
             -record.record_id,
@@ -179,19 +179,8 @@ def _pick_canonical(members: list[DedupRecord], today: date) -> DedupRecord:
     )
 
 
-# 노출 가능성 순위(클수록 canonical 우선). UNDATED(기간 미상)는 api-spec §0이 기본 노출에 포함하므로
-# 마감(CLOSED)보다 우선시켜, 마감된 레코드가 노출 가능한 공고를 canonical 자리에서 가리지 않게 한다 (#14).
-_EXPOSURE_OPEN = 2
-_EXPOSURE_UNDATED = 1
-_EXPOSURE_CLOSED = 0
-
-
-def _exposure_rank(record: DedupRecord, today: date) -> int:
-    if record.always_open or (record.deadline is not None and record.deadline >= today):
-        return _EXPOSURE_OPEN
-    if record.deadline is None:
-        return _EXPOSURE_UNDATED
-    return _EXPOSURE_CLOSED
+def _is_open(record: DedupRecord, today: date) -> bool:
+    return record.always_open or (record.deadline is not None and record.deadline >= today)
 
 
 def _find(parent: dict[int, int], node: int) -> int:
