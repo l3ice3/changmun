@@ -108,7 +108,7 @@ CREATE TABLE opportunity (
     support_amount          TEXT,
 
     -- 타깃팅 (예비창업자·대학생 친화 필터 = 차별점)
-    target_startup_stage    TEXT[],   -- {PRE_STARTUP, LT_1Y, LT_2Y, LT_3Y, LT_5Y, LT_7Y, LT_10Y}
+    target_startup_stage    TEXT[],   -- {PRE_STARTUP, LT_1Y, LT_2Y, LT_3Y, LT_4Y, LT_5Y, LT_6Y, LT_7Y, LT_10Y}
     target_audience_type    TEXT[],   -- {YOUTH, UNIV_STUDENT, GENERAL, UNIVERSITY, RESEARCH_INST, COMPANY, SOLO_CREATOR}
     eligibility_detail      TEXT,
 
@@ -327,7 +327,7 @@ K-Startup 검색 UI의 실제 지원분야 = **사업화 · 기술개발(R&D) ·
 
 ### target_startup_stage — `biz_enyy`
 
-예비창업자→PRE_STARTUP, 1년미만→LT_1Y, 2년미만→LT_2Y, 3년미만→LT_3Y, 5년미만→LT_5Y, 7년미만→LT_7Y, 10년미만→LT_10Y.
+예비창업자→PRE_STARTUP, 1년미만→LT_1Y, 2년미만→LT_2Y, 3년미만→LT_3Y, 4년미만→LT_4Y, 5년미만→LT_5Y, 6년미만→LT_6Y, 7년미만→LT_7Y, 10년미만→LT_10Y. (4·6년 미만은 라이브 K-Startup `biz_enyy`에서 관찰돼 추가 — 2026-06-18)
 
 ### target_audience_type — `aply_trgt`
 

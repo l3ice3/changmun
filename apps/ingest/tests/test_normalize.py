@@ -92,6 +92,10 @@ class TestTargets:
     def test_stage_tokens(self):
         assert normalize_stages("예비창업자,1년미만", []) == ["PRE_STARTUP", "LT_1Y"]
 
+    def test_stage_4y_6y_added(self):
+        # 라이브 biz_enyy에서 관찰된 4·6년미만 (data-model §7 확장, 2026-06-18)
+        assert normalize_stages("4년미만,6년미만", []) == ["LT_4Y", "LT_6Y"]
+
     def test_audience_tokens_with_space(self):
         assert normalize_audiences("대학생,1인 창조기업", []) == ["UNIV_STUDENT", "SOLO_CREATOR"]
 
