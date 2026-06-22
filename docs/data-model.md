@@ -69,7 +69,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `category` | VARCHAR(40) | YES | 표준화 ← `supt_biz_clsfc` |
 | `region` | VARCHAR(40) | YES | 표준화 ← `supt_regin` ("서울","전국","경남"…) |
 | `organization` | TEXT | YES | `pbanc_ntrp_nm` (기관명) |
-| `organization_type` | VARCHAR(20) | YES | 표준화 ← `sprv_inst` (공공기관/민간/교육기관) |
+| `organization_type` | VARCHAR(20) | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처 |
 | `support_amount` | TEXT | YES | 공고 API엔 없음(§6). 타 출처에서 채움 |
 | `target_startup_stage` | TEXT[] | YES | 표준화 ← `biz_enyy` — **차별점 필터** |
 | `target_audience_type` | TEXT[] | YES | 표준화 ← `aply_trgt` ("대학생" 포함) — **차별점 필터** |
@@ -199,7 +199,7 @@ END AS d_day
 7. **target_startup_stage[]:** `biz_enyy`("예비창업자,1년미만,…") 콤마 분리 → 표준 코드.
 8. **target_audience_type[]:** `aply_trgt`("청소년,대학생,일반인,…") 콤마 분리 → 표준 코드.
 9. **eligibility_detail:** `aply_trgt_ctnt` 그대로(표시용 자유텍스트).
-10. **organization / organization_type:** 기관명=`pbanc_ntrp_nm`, 유형=`sprv_inst`(공공기관/민간/교육기관). (sprv_inst는 기관명이 아니라 유형 — 라이브 확인)
+10. **organization / organization_type:** 기관명=`pbanc_ntrp_nm`, 유형=`sprv_inst`. 둘 다 **원문 그대로 저장**(표시용 — 코드 표준화 안 함). `organization_type`은 필터 축이 아니라, 미지값을 NULL로 버리지 않고 원문 보존(예: 지자체·중앙부처). (sprv_inst는 기관명이 아니라 유형 — 라이브 확인)
 11. **URL 정제:** 일부 URL 필드가 마크다운 래핑(`[bare](https://full)`)·스킴 누락·바 URL로 옴 → `[..](url)`이면 괄호 안 URL 추출, 스킴 없으면 `https://` 보정, 공백 strip.
 12. **apply_url 폴백 체인:** `biz_aply_url`(라이브 전부 null) → `aply_mthd_onli_rcpt_istc`(신청 폼 URL) → `biz_gdnc_url`(안내 URL). 11번 정제 적용. (사용자 노출 1차 링크는 항상 `detail_url`)
 13. **무시(raw만):** `biz_trgt_age`(거의 전 연령), `aply_mthd_eml_rcpt_istc`(암호화 블롭), `prch_cnpl_no`(연락처).
@@ -335,9 +335,9 @@ K-Startup 검색 UI의 실제 지원분야 = **사업화 · 기술개발(R&D) ·
 
 > 출처별 원천이 다름: K-Startup=`aply_trgt` 직접 / 온통청년=`schoolCd`+연령에서 **유추** / Bizinfo=없음(NULL). 같은 컬럼으로 정규화하는 게 크롤러의 핵심 일.
 
-### organization_type — `sprv_inst`
+### organization_type — `sprv_inst` (원문, 표준화 안 함)
 
-공공기관→PUBLIC, 민간→PRIVATE, 교육기관→EDUCATION (미관찰 값 등장 시 추가).
+**표시용**이라 `sprv_inst` 원문을 그대로 저장한다(코드 매핑·표준 enum 폐기). 필터 축이 아니므로 미지값을 NULL로 버리지 않는다 — 예: 공공기관·지자체·중앙부처가 그대로 들어온다. (이전: PUBLIC/PRIVATE/EDUCATION 코드 매핑 → 표시용엔 손실만 커서 폐기)
 
 ### region — `supt_regin`
 

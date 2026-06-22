@@ -2,7 +2,8 @@
 
 열린 enum 원칙 (§6 규칙 6, AC-005): 미지값에 crash 금지.
 - category: 미지값 → '기타' + 원본 로그
-- 그 외(stage/audience/org_type/region): 미지값 → 버리고 로그 (억지 채움 금지, 원본은 raw 보존)
+- 그 외(stage/audience/region): 미지값 → 버리고 로그 (억지 채움 금지, 원본은 raw 보존)
+- organization_type: 표준화 안 함 — 표시용이라 소스 원문 그대로 저장(소스 매핑에서 clean_text)
 """
 import html
 import re
@@ -43,12 +44,6 @@ AUDIENCE_MAP = {
     "연구기관": "RESEARCH_INST",
     "일반기업": "COMPANY",
     "1인창조기업": "SOLO_CREATOR",
-}
-
-ORGANIZATION_TYPE_MAP = {
-    "공공기관": "PUBLIC",
-    "민간": "PRIVATE",
-    "교육기관": "EDUCATION",
 }
 
 # 전국 + 17개 시도 + 해외 (§7). 라이브는 짧은 형태로 옴 — 풀네임만 추가 매핑
@@ -113,16 +108,6 @@ def normalize_region(value: str | None, unknown: list[str]) -> str | None:
     if mapped:
         return mapped
     unknown.append(f"region:{value}")
-    return None
-
-
-def normalize_organization_type(value: str | None, unknown: list[str]) -> str | None:
-    if value is None or not str(value).strip():
-        return None
-    mapped = ORGANIZATION_TYPE_MAP.get(str(value).strip())
-    if mapped:
-        return mapped
-    unknown.append(f"organization_type:{value}")
     return None
 
 
