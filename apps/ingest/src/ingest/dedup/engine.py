@@ -30,7 +30,7 @@ class DedupRecord:
     norm_title: str
     veto_tokens: frozenset[str]
     norm_org: str | None
-    region: str | None
+    region: list[str] | None
     start_date: date | None
     deadline: date | None
     always_open: bool
@@ -134,12 +134,15 @@ def _is_same_announcement(left: DedupRecord, right: DedupRecord) -> bool:
 
 
 def _region_conflict(left: DedupRecord, right: DedupRecord) -> bool:
-    """둘 다 지역이 있고 서로 다르면 다른 공고 — '[서울] OO'/'[부산] OO' 오합치 방지 (Codex 재리뷰).
+    """둘 다 지역이 있고 겹치는 지역이 하나도 없으면 다른 공고 — '[서울] OO'/'[부산] OO' 오합치 방지.
 
     norm_title이 [지역] 접두를 제거하고 score가 region을 보지 않으므로, 지역만 다른 변형이
-    같은 기관·기간으로 묶일 수 있다. 한쪽 region이 NULL(온통청년 복수지역 등)이면 비교하지 않는다.
+    같은 기관·기간으로 묶일 수 있다. region은 배열이라 '교집합 없음(disjoint)'을 충돌로 본다 —
+    한쪽이라도 겹치면(예: ['서울','경기'] vs ['경기']) 같은 공고로 본다. 한쪽이 NULL이면 비교 안 함.
     """
-    return left.region is not None and right.region is not None and left.region != right.region
+    if not left.region or not right.region:
+        return False
+    return set(left.region).isdisjoint(right.region)
 
 
 def has_substantive_difference(left_tokens: frozenset[str], right_tokens: frozenset[str]) -> bool:

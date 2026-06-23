@@ -98,17 +98,22 @@ def normalize_category(value: str | None, unknown: list[str]) -> str | None:
     return UNKNOWN_CATEGORY
 
 
-def normalize_region(value: str | None, unknown: list[str]) -> str | None:
+def normalize_regions(value: str | None, unknown: list[str]) -> list[str] | None:
+    """콤마 구분 지역 → 표준 시도 배열(복수 보존). 미지 토큰 로그+제외, 결과 없으면 None."""
     if value is None or not str(value).strip():
         return None
-    region = str(value).strip()
-    if region in REGIONS:
-        return region
-    mapped = _REGION_FULL_NAME.get(region)
-    if mapped:
-        return mapped
-    unknown.append(f"region:{value}")
-    return None
+    regions: list[str] = []
+    for token in str(value).split(","):
+        name = token.strip()
+        if not name:
+            continue
+        mapped = name if name in REGIONS else _REGION_FULL_NAME.get(name)
+        if mapped is None:
+            unknown.append(f"region:{name}")
+            continue
+        if mapped not in regions:
+            regions.append(mapped)
+    return regions or None
 
 
 def _normalize_tokens(
@@ -144,24 +149,18 @@ def normalize_ontong_category(value: str | None, title: str | None, unknown: lis
     return UNKNOWN_CATEGORY
 
 
-def sido_from_zip_codes(value: str | None, unknown: list[str]) -> str | None:
-    """법정동 5자리 코드(콤마 복수) → 시도. 단일 시도일 때만 채운다 — 복수는 보류(NULL, raw 보존).
+def sido_from_zip_codes(value: str | None, unknown: list[str]) -> list[str] | None:
+    """법정동 5자리 코드(콤마 복수) → 시도 배열. 인식된 시도를 모두 담는다(복수 지역 보존).
 
-    단일 region 컬럼이라 best-effort (§6-C 규칙 2). 억지 채움 금지 원칙 준용.
+    region이 배열이라 복수·부분 인식을 보존한다 (§6-C 규칙 2). 인식 0개면 None, 미지 코드는 로그.
     """
     if value is None or not str(value).strip():
         return None
-    matched, has_unknown = _scan_sido(str(value), unknown)
-    # 미분류 코드가 하나라도 있으면 단일 지역으로 단정하지 않는다 — 미지/복수 정책을 한 지역으로
-    # 오도하지 않게 (§6-C best-effort, Codex). 인식 지역이 정확히 1개일 때만 채운다.
-    if has_unknown or len(matched) != 1:
-        return None
-    return next(iter(matched))
+    return sorted(_scan_sido(str(value), unknown)) or None
 
 
-def _scan_sido(joined: str, unknown: list[str]) -> tuple[set[str], bool]:
+def _scan_sido(joined: str, unknown: list[str]) -> set[str]:
     matched: set[str] = set()
-    has_unknown = False
     for code in joined.split(","):
         trimmed = code.strip()
         if not trimmed:
@@ -169,10 +168,9 @@ def _scan_sido(joined: str, unknown: list[str]) -> tuple[set[str], bool]:
         sido = _ZIP_SIDO_PREFIX.get(trimmed[:2])
         if sido is None:
             unknown.append(f"region_zip:{trimmed}")
-            has_unknown = True
             continue
         matched.add(sido)
-    return matched, has_unknown
+    return matched
 
 
 def normalize_stages(value: str | None, unknown: list[str]) -> list[str] | None:

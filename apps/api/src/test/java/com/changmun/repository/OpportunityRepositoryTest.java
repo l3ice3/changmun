@@ -141,6 +141,23 @@ class OpportunityRepositoryTest {
   }
 
   @Test
+  @DisplayName("복수 지역 공고는 각 지역 필터 모두에 잡힌다 — region TEXT[] 멤버십")
+  void multiRegionMatchesEachSido() {
+    new TestOpportunity()
+        .title("수도권공고")
+        .region("서울", "경기")
+        .deadline(today.plusDays(5))
+        .insert(jdbc);
+
+    assertThat(byDeadline(filters(new Filters("서울", null, null, true))).getContent())
+        .extracting(Opportunity::getTitle)
+        .containsExactly("수도권공고");
+    assertThat(byDeadline(filters(new Filters("경기", null, null, true))).getContent())
+        .extracting(Opportunity::getTitle)
+        .containsExactly("수도권공고");
+  }
+
+  @Test
   @DisplayName("부분일치 검색(q)이 동작한다 — pg_trgm ILIKE (AC-019)")
   void searchMatchesPartialTitle() {
     new TestOpportunity().title("청년창업사관학교 모집").deadline(today.plusDays(5)).insert(jdbc);

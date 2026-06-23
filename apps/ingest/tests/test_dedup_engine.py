@@ -17,7 +17,7 @@ def record(record_id, source, title, **overrides) -> DedupRecord:
         "norm_title": norm_title(title),
         "veto_tokens": veto_tokens(title),
         "norm_org": norm_org(overrides.pop("organization", "중소벤처기업부")),
-        "region": overrides.pop("region", "전국"),
+        "region": overrides.pop("region", ["전국"]),
         "start_date": overrides.pop("start_date", date(2026, 6, 1)),
         "deadline": overrides.pop("deadline", DEADLINE),
         "always_open": overrides.pop("always_open", False),
@@ -94,8 +94,8 @@ class TestGrouping:
 
     def test_different_region_not_merged(self):
         """지역만 다른 동일 본문(같은 기관·기간)은 별개 공고 — region veto (Codex 재리뷰)."""
-        left = record(1, "k-startup", "[서울] 청년창업 공간 지원사업", region="서울")
-        right = record(2, "k-startup", "[부산] 청년창업 공간 지원사업", region="부산")
+        left = record(1, "k-startup", "[서울] 청년창업 공간 지원사업", region=["서울"])
+        right = record(2, "k-startup", "[부산] 청년창업 공간 지원사업", region=["부산"])
         assignments = by_id(engine.build_assignments([left, right], TODAY))
         assert assignments[1].group_id is None
         assert assignments[2].group_id is None
@@ -103,7 +103,7 @@ class TestGrouping:
     def test_null_region_still_merges(self):
         """한쪽 지역이 NULL이면 region 비교를 건너뛰고 기존 판정으로 같은 공고를 묶는다."""
         left = record(1, "k-startup", "청년창업 공간 지원사업", region=None)
-        right = record(2, "ontong-youth", "청년창업 공간 지원사업", region="서울")
+        right = record(2, "ontong-youth", "청년창업 공간 지원사업", region=["서울"])
         assignments = by_id(engine.build_assignments([left, right], TODAY))
         assert assignments[1].group_id == assignments[2].group_id == 1
 

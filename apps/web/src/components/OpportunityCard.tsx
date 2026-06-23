@@ -39,7 +39,7 @@ export function OpportunityCard({ item }: { item: Card }) {
 
       <div className="mt-2 flex flex-wrap gap-1">
         {item.category ? <Tag>{item.category}</Tag> : null}
-        {item.region ? <Tag tone="muted">{item.region}</Tag> : null}
+        {item.region?.length ? <Tag tone="muted">{item.region.join(", ")}</Tag> : null}
         <Tag tone="muted">{sourceLabel(item.source)}</Tag>
       </div>
 

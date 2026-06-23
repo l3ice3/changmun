@@ -8,7 +8,7 @@ from ingest.normalize import (
     normalize_audiences,
     normalize_category,
     normalize_ontong_category,
-    normalize_region,
+    normalize_regions,
     normalize_stages,
     parse_yyyymmdd,
     sido_from_zip_codes,
@@ -77,13 +77,22 @@ class TestCategory:
 
 class TestRegion:
     def test_short_and_full_name(self):
-        assert normalize_region("서울", []) == "서울"
-        assert normalize_region("대전광역시", []) == "대전"
-        assert normalize_region("전북특별자치도", []) == "전북"
+        assert normalize_regions("서울", []) == ["서울"]
+        assert normalize_regions("대전광역시", []) == ["대전"]
+        assert normalize_regions("전북특별자치도", []) == ["전북"]
+
+    def test_multiple_regions(self):
+        assert normalize_regions("서울,경기", []) == ["서울", "경기"]
+        assert normalize_regions("서울,서울특별시", []) == ["서울"]  # 중복 제거
 
     def test_unknown_logged_and_dropped(self):
         unknown = []
-        assert normalize_region("수도권", unknown) is None
+        assert normalize_regions("수도권", unknown) is None
+        assert unknown == ["region:수도권"]
+
+    def test_partial_unknown_keeps_recognized(self):
+        unknown = []
+        assert normalize_regions("서울,수도권", unknown) == ["서울"]
         assert unknown == ["region:수도권"]
 
 
@@ -137,23 +146,24 @@ class TestMentionsAlwaysOpen:
 
 class TestSidoFromZipCodes:
     def test_single_sigungu_code(self):
-        assert sido_from_zip_codes("47830", []) == "경북"
+        assert sido_from_zip_codes("47830", []) == ["경북"]
 
     def test_multiple_codes_same_sido(self):
-        assert sido_from_zip_codes("47830,47840", []) == "경북"
+        assert sido_from_zip_codes("47830,47840", []) == ["경북"]
 
-    def test_multiple_sido_deferred(self):
-        assert sido_from_zip_codes("11000,26000", []) is None  # 단일 컬럼 — 보류, raw 보존
+    def test_multiple_sido_array(self):
+        # region이 배열이라 복수 시도를 모두 보존(정렬)
+        assert sido_from_zip_codes("11000,26000", []) == ["부산", "서울"]
 
     def test_unknown_prefix_logged(self):
         unknown = []
         assert sido_from_zip_codes("99999", unknown) is None
         assert unknown == ["region_zip:99999"]
 
-    def test_partial_unknown_forces_null(self):
-        # 인식+미분류 혼재 → 단일 지역으로 단정하지 않음 (Codex J)
+    def test_partial_unknown_keeps_recognized(self):
+        # 인식+미분류 혼재 → 인식된 시도는 배열로 보존, 미지 코드는 로그
         unknown = []
-        assert sido_from_zip_codes("47830,99999", unknown) is None
+        assert sido_from_zip_codes("47830,99999", unknown) == ["경북"]
         assert "region_zip:99999" in unknown
 
 

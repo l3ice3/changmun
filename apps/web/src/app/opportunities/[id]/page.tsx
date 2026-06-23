@@ -105,7 +105,9 @@ export default async function DetailPage({ params }: Params) {
             {opportunity.category}
           </span>
         ) : null}
-        {opportunity.region ? <span className="text-secondary">{opportunity.region}</span> : null}
+        {opportunity.region?.length ? (
+          <span className="text-secondary">{opportunity.region.join(", ")}</span>
+        ) : null}
         <span className="text-muted">{sourceLabel(opportunity.source)}</span>
         <span className="tnum text-secondary">
           {periodLabel(opportunity.applicationStartDate, opportunity.applicationDeadline)}

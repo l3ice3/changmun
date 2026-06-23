@@ -27,7 +27,7 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
           AND (CAST(:#{#criteria.audience} AS text) IS NULL
                OR CAST(:#{#criteria.audience} AS text) = ANY(target_audience_type))
           AND (CAST(:#{#criteria.region} AS text) IS NULL
-               OR region = CAST(:#{#criteria.region} AS text))
+               OR CAST(:#{#criteria.region} AS text) = ANY(region))
           AND (CAST(:#{#criteria.category} AS text) IS NULL
                OR category = CAST(:#{#criteria.category} AS text))
           AND (CAST(:#{#criteria.query} AS text) IS NULL
