@@ -13,7 +13,7 @@ export interface OpportunityCard {
   title: string;
   organization: string | null;
   category: string | null;
-  region: string | null;
+  region: string[] | null;
   applicationStartDate: string | null;
   applicationDeadline: string | null;
   isAlwaysOpen: boolean;

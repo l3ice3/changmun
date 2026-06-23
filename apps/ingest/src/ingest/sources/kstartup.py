@@ -17,7 +17,7 @@ from ingest.normalize import (
     clean_url,
     normalize_audiences,
     normalize_category,
-    normalize_region,
+    normalize_regions,
     normalize_stages,
     parse_yyyymmdd,
 )
@@ -112,7 +112,7 @@ def map_record(raw: dict) -> MappingResult:
         title=title,
         summary=clean_text(raw.get("pbanc_ctnt")),
         category=normalize_category(raw.get("supt_biz_clsfc"), unknown),
-        region=normalize_region(raw.get("supt_regin"), unknown),
+        region=normalize_regions(raw.get("supt_regin"), unknown),
         organization=clean_text(raw.get("pbanc_ntrp_nm")),
         organization_type=clean_text(raw.get("sprv_inst")),  # 표시용 — 원문 그대로(코드 매핑 폐기)
         support_amount=None,  # 공고 API에 없음 — 타 출처/Phase 2에서 보강 (§2)

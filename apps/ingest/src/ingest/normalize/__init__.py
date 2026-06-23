@@ -6,7 +6,7 @@ from ingest.normalize.taxonomy import (
     normalize_audiences,
     normalize_category,
     normalize_ontong_category,
-    normalize_region,
+    normalize_regions,
     normalize_stages,
     sido_from_zip_codes,
 )
@@ -27,7 +27,7 @@ __all__ = [
     "normalize_audiences",
     "normalize_category",
     "normalize_ontong_category",
-    "normalize_region",
+    "normalize_regions",
     "normalize_stages",
     "sido_from_zip_codes",
 ]

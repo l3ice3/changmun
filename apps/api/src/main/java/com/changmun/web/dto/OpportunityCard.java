@@ -16,7 +16,7 @@ public record OpportunityCard(
     String title,
     String organization,
     String category,
-    String region,
+    List<String> region,
     LocalDate applicationStartDate,
     LocalDate applicationDeadline,
     @JsonProperty("isAlwaysOpen") boolean alwaysOpen,

@@ -42,8 +42,9 @@ public class Opportunity {
   @Column(name = "category")
   private String category;
 
-  @Column(name = "region")
-  private String region;
+  @JdbcTypeCode(SqlTypes.ARRAY)
+  @Column(name = "region", columnDefinition = "text[]")
+  private List<String> region;
 
   @Column(name = "organization")
   private String organization;
@@ -119,7 +120,7 @@ public class Opportunity {
     return category;
   }
 
-  public String getRegion() {
+  public List<String> getRegion() {
     return region;
   }
 

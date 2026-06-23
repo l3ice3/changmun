@@ -24,7 +24,7 @@ class TestMapRecordHappy:
         assert record.external_id == "20260527005400213221"  # plcyNo 20자리 (§6-C)
         assert record.title == "2026년 청년창업자 임차료 지원사업"
         assert record.category == "사업화"  # mclsfNm 창업 → 느슨 매핑 (§7)
-        assert record.region == "경북"  # zipCd 47830 → 시도 (§6-C 규칙 2)
+        assert record.region == ["경북"]  # zipCd 47830 → 시도 배열 (§6-C 규칙 2)
         assert record.organization == "경상북도 고령군 인구정책실"
         assert record.application_start_date == date(2026, 5, 18)  # aplyYmd 분리 (§6-C 규칙 3)
         assert record.application_deadline == date(2026, 6, 16)
@@ -153,11 +153,11 @@ class TestSkipAndGuards:
         assert result.record is None
         assert "창업 슬라이스 아님" in result.skip_reason
 
-    def test_multi_sido_region_deferred(self):
+    def test_multi_sido_region_array(self):
         item = real_item()
-        item["zipCd"] = "11000,26000"  # 서울+부산 → 단일 컬럼이라 보류
+        item["zipCd"] = "11000,26000"  # 서울+부산 → 배열로 모두 보존(정렬)
         record = ontong_youth.map_record(item).record
-        assert record.region is None
+        assert record.region == ["부산", "서울"]
 
 
 class FakeResponse:

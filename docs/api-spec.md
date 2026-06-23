@@ -40,7 +40,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `persona`: `PRE_STARTUP`(예비) · `UNIV_STUDENT`(대학생) · `EARLY_STAGE`(초기 = stage ∈ {LT_1Y,LT_2Y,LT_3Y}) · 생략=전체
 - `status`: `open`(기본) · `all`
 - `sort`: `deadline`(기본) · `latest`(`first_seen_at DESC`)
-- `region`: 17개 시도 라벨 또는 `전국` (URL 인코딩된 한글 그대로)
+- `region`: 17개 시도 라벨 또는 `전국` (URL 인코딩된 한글 그대로). **요청은 단일 지역**(필터 1개), **응답 `region`은 배열**(공고가 복수 지역일 수 있음 — 서버는 공고의 region 배열에 요청 지역이 포함되면 매칭)
 - `category`: 표준 11종+`기타` 라벨 그대로 (data-model §7)
 - `source`(응답): `k-startup` · `bizinfo` · `ontong-youth`
 
@@ -71,7 +71,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
       "title": "2026년 예비창업패키지 창업자 모집",
       "organization": "중소벤처기업부",
       "category": "사업화",
-      "region": "전국",
+      "region": ["전국"],
       "applicationStartDate": "2026-06-01",
       "applicationDeadline": "2026-06-30",
       "isAlwaysOpen": false,

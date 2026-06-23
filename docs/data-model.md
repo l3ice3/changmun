@@ -67,7 +67,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `title` | TEXT | NO | `biz_pbanc_nm` |
 | `summary` | TEXT | YES | `pbanc_ctnt` |
 | `category` | VARCHAR(40) | YES | 표준화 ← `supt_biz_clsfc` |
-| `region` | VARCHAR(40) | YES | 표준화 ← `supt_regin` ("서울","전국","경남"…) |
+| `region` | TEXT[] | YES | 표준화 ← `supt_regin` ("서울","전국"…). **복수 시도 배열**(콤마 분리 → 각 시도 매핑) |
 | `organization` | TEXT | YES | `pbanc_ntrp_nm` (기관명) |
 | `organization_type` | VARCHAR(20) | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처 |
 | `support_amount` | TEXT | YES | 공고 API엔 없음(§6). 타 출처에서 채움 |
@@ -102,7 +102,7 @@ CREATE TABLE opportunity (
     title                   TEXT         NOT NULL,
     summary                 TEXT,
     category                VARCHAR(40),
-    region                  VARCHAR(40),
+    region                  TEXT[],
     organization            TEXT,
     organization_type       VARCHAR(20),
     support_amount          TEXT,
@@ -132,7 +132,7 @@ CREATE TABLE opportunity (
 
 CREATE INDEX idx_opportunity_deadline ON opportunity (application_deadline);
 CREATE INDEX idx_opportunity_category ON opportunity (category);
-CREATE INDEX idx_opportunity_region   ON opportunity (region);
+CREATE INDEX idx_opportunity_region   ON opportunity USING gin (region);  -- TEXT[] 멤버십(@> 배열 포함)
 CREATE INDEX idx_opportunity_stage    ON opportunity USING gin (target_startup_stage);
 CREATE INDEX idx_opportunity_audience ON opportunity USING gin (target_audience_type);
 CREATE INDEX idx_opportunity_title_trgm ON opportunity USING gin (title gin_trgm_ops);
@@ -150,7 +150,7 @@ CREATE INDEX idx_opportunity_dedup_grp ON opportunity (dedup_group_id);
 SELECT *
 FROM opportunity
 WHERE (:category IS NULL OR category = :category)
-  AND (:region   IS NULL OR region   = :region)
+  AND (:region   IS NULL OR region @> ARRAY[:region]::text[])   -- 배열 포함(GIN 인덱스 활용)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
   AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
@@ -341,7 +341,7 @@ K-Startup 검색 UI의 실제 지원분야 = **사업화 · 기술개발(R&D) ·
 
 ### region — `supt_regin`
 
-`전국` + 17개 시도 + `해외`. 라이브는 이미 짧은 형태("서울","경남","부산","인천")로 옴 → 풀네임("서울특별시") 들어올 경우만 매핑. (복수 지역 콤마 가능성은 계속 관찰)
+`전국` + 17개 시도 + `해외`. 라이브는 이미 짧은 형태("서울","경남","부산","인천")로 옴 → 풀네임("서울특별시") 들어올 경우만 매핑. **컬럼은 `TEXT[]` — 콤마 복수 지역을 분리해 각 시도로 매핑한 배열로 저장**(예: "서울,경기" → `{서울,경기}`). 단일 컬럼이 아니라 배열이므로 복수 지역이 어느 한쪽 필터에서도 누락되지 않는다. 인식 0개면 NULL(미지 토큰은 로그). 온통청년은 `zipCd` 복수 → 인식된 시도 전부 배열로(이전엔 복수면 보류).
 
 ---
 

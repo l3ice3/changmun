@@ -26,7 +26,7 @@ class TestMapRecordHappy:
         assert record.external_id == "177976"  # number → str (§6 규칙 3)
         assert record.title == "2026 하반기 서울 AI 허브 입주기업 모집 공고"  # strip (§6 규칙 5)
         assert record.category == "기술개발(R&D)"  # &amp; 디코딩 (§6 규칙 4)
-        assert record.region == "서울"
+        assert record.region == ["서울"]
         assert record.organization == "서울특별시"
         assert record.organization_type == "공공기관"  # 원문 그대로(표시용)
         assert record.target_startup_stage == ["PRE_STARTUP", "LT_1Y"]  # 직접 신호 INSERT 저장 (#11)
@@ -94,7 +94,7 @@ class TestMapRecordEdges:
         assert record.category == "기타"
         assert "category:수출 지원" in result.unknown_values
         assert record.organization_type == "지자체"  # 원문 보존(표시용 — 코드 매핑 폐기, 미지 NULL 아님)
-        assert record.region == "대전"  # 풀네임 → 시도
+        assert record.region == ["대전"]  # 풀네임 → 시도
         assert record.application_start_date is None  # "2026-06-30" 형식 이탈
         assert record.application_deadline is None  # 빈값
         assert record.target_startup_stage is None  # 신호 없음 → NULL (억지 채움 금지)

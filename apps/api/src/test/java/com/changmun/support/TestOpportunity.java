@@ -34,7 +34,7 @@ public final class TestOpportunity {
       VALUES (
         :source, :externalId, :title, :detailUrl, :canonical,
         :startDate, :deadline, :alwaysOpen,
-        :stages::text[], :audiences::text[], :category, :region,
+        :stages::text[], :audiences::text[], :category, :region::text[],
         :summary, :eligibilityDetail, :organization, :organizationType,
         :supportAmount, :applyUrl, :dedupGroupId, :firstSeenAt)
       RETURNING id
@@ -51,7 +51,7 @@ public final class TestOpportunity {
   private List<String> stages;
   private List<String> audiences;
   private String category;
-  private String region;
+  private List<String> region;
   private String summary;
   private String eligibilityDetail;
   private String organization;
@@ -118,8 +118,8 @@ public final class TestOpportunity {
     return this;
   }
 
-  public TestOpportunity region(String value) {
-    this.region = value;
+  public TestOpportunity region(String... values) {
+    this.region = List.of(values);
     return this;
   }
 
@@ -213,7 +213,7 @@ public final class TestOpportunity {
   }
 
   public String getRegion() {
-    return region;
+    return literal(region);
   }
 
   public String getSummary() {

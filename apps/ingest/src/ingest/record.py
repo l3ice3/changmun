@@ -15,7 +15,7 @@ class OpportunityRecord:
     detail_url: str
     summary: str | None = None
     category: str | None = None
-    region: str | None = None
+    region: list[str] | None = None
     organization: str | None = None
     organization_type: str | None = None
     support_amount: str | None = None
