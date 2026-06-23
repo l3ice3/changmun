@@ -88,7 +88,9 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 
 > `biz_trgt_age`는 라이브에서 거의 모든 공고가 "전 연령"이라 **저신호 → core에서 제외, raw에만** 보존.
 
-### Flyway: `V1__create_opportunity.sql`
+### 현재 스키마 (= `V1__create_opportunity.sql` + 후속 ALTER 마이그레이션 반영)
+
+> 아래는 **현재 효력 스키마**다. V1 원본과 ALTER 이력의 단일 진실은 `/db/migrations/` — 일부 컬럼은 V1 이후 ALTER로 타입이 바뀌었다(예: `organization_type` VARCHAR(20)→TEXT). 위 컬럼 표와 이 블록은 항상 *현재* 타입을 보여준다.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
