@@ -69,7 +69,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `category` | VARCHAR(40) | YES | 표준화 ← `supt_biz_clsfc` |
 | `region` | VARCHAR(40) | YES | 표준화 ← `supt_regin` ("서울","전국","경남"…) |
 | `organization` | TEXT | YES | `pbanc_ntrp_nm` (기관명) |
-| `organization_type` | VARCHAR(20) | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처 |
+| `organization_type` | TEXT | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처. `organization`처럼 자유 텍스트라 길이 제약 없음 |
 | `support_amount` | TEXT | YES | 공고 API엔 없음(§6). 타 출처에서 채움 |
 | `target_startup_stage` | TEXT[] | YES | 표준화 ← `biz_enyy` — **차별점 필터** |
 | `target_audience_type` | TEXT[] | YES | 표준화 ← `aply_trgt` ("대학생" 포함) — **차별점 필터** |
@@ -104,7 +104,7 @@ CREATE TABLE opportunity (
     category                VARCHAR(40),
     region                  VARCHAR(40),
     organization            TEXT,
-    organization_type       VARCHAR(20),
+    organization_type       TEXT,
     support_amount          TEXT,
 
     -- 타깃팅 (예비창업자·대학생 친화 필터 = 차별점)
