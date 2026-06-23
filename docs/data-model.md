@@ -69,7 +69,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `category` | VARCHAR(40) | YES | 표준화 ← `supt_biz_clsfc` |
 | `region` | TEXT[] | YES | 표준화 ← `supt_regin` ("서울","전국"…). **복수 시도 배열**(콤마 분리 → 각 시도 매핑) |
 | `organization` | TEXT | YES | `pbanc_ntrp_nm` (기관명) |
-| `organization_type` | VARCHAR(20) | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처 |
+| `organization_type` | TEXT | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처. `organization`처럼 자유 텍스트라 길이 제약 없음 |
 | `support_amount` | TEXT | YES | 공고 API엔 없음(§6). 타 출처에서 채움 |
 | `target_startup_stage` | TEXT[] | YES | 표준화 ← `biz_enyy` — **차별점 필터** |
 | `target_audience_type` | TEXT[] | YES | 표준화 ← `aply_trgt` ("대학생" 포함) — **차별점 필터** |
@@ -88,7 +88,9 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 
 > `biz_trgt_age`는 라이브에서 거의 모든 공고가 "전 연령"이라 **저신호 → core에서 제외, raw에만** 보존.
 
-### Flyway: `V1__create_opportunity.sql`
+### 현재 스키마 (= `V1__create_opportunity.sql` + 후속 ALTER 마이그레이션 반영)
+
+> 아래는 **현재 효력 스키마**다. V1 원본과 ALTER 이력의 단일 진실은 `/db/migrations/` — 일부 컬럼은 V1 이후 ALTER로 타입이 바뀌었다(예: `organization_type` VARCHAR(20)→TEXT). 위 컬럼 표와 이 블록은 항상 *현재* 타입을 보여준다.
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -104,7 +106,7 @@ CREATE TABLE opportunity (
     category                VARCHAR(40),
     region                  TEXT[],
     organization            TEXT,
-    organization_type       VARCHAR(20),
+    organization_type       TEXT,
     support_amount          TEXT,
 
     -- 타깃팅 (예비창업자·대학생 친화 필터 = 차별점)
