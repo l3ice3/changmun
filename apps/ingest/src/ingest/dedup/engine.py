@@ -134,15 +134,17 @@ def _is_same_announcement(left: DedupRecord, right: DedupRecord) -> bool:
 
 
 def _region_conflict(left: DedupRecord, right: DedupRecord) -> bool:
-    """둘 다 지역이 있고 겹치는 지역이 하나도 없으면 다른 공고 — '[서울] OO'/'[부산] OO' 오합치 방지.
+    """둘 다 지역이 있고 지역 집합이 정확히 같지 않으면 다른 공고 — 부분 겹침도 병합하지 않는다.
 
     norm_title이 [지역] 접두를 제거하고 score가 region을 보지 않으므로, 지역만 다른 변형이
-    같은 기관·기간으로 묶일 수 있다. region은 배열이라 '교집합 없음(disjoint)'을 충돌로 본다 —
-    한쪽이라도 겹치면(예: ['서울','경기'] vs ['경기']) 같은 공고로 본다. 한쪽이 NULL이면 비교 안 함.
+    같은 기관·기간으로 묶일 수 있다. dedup 적용은 canonical 한 행만 노출하는데, 부분 겹침
+    (['서울','경기'] vs ['서울'])을 병합하면 canonical이 일부 지역을 잃어 그 지역 필터에서 누락된다
+    (복수 지역 보존 계약 위반 — Codex P1). 그래서 '지역 집합이 같을 때만' 병합을 허용한다
+    (오합치 > 놓침 — AC-008). 한쪽이 NULL이면 비교하지 않는다.
     """
     if not left.region or not right.region:
         return False
-    return set(left.region).isdisjoint(right.region)
+    return set(left.region) != set(right.region)
 
 
 def has_substantive_difference(left_tokens: frozenset[str], right_tokens: frozenset[str]) -> bool:

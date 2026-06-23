@@ -100,6 +100,24 @@ class TestGrouping:
         assert assignments[1].group_id is None
         assert assignments[2].group_id is None
 
+    def test_partial_region_overlap_not_merged(self):
+        """부분 겹침(['서울','경기'] vs ['서울'])은 병합하지 않는다 — canonical이 '경기'를 잃어
+
+        경기 필터에서 누락되는 것을 막는다(복수 지역 보존 — Codex P1). 집합이 같을 때만 병합.
+        """
+        left = record(1, "k-startup", "청년창업 공간 지원사업", region=["서울", "경기"])
+        right = record(2, "k-startup", "청년창업 공간 지원사업", region=["서울"])
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id is None
+        assert assignments[2].group_id is None
+
+    def test_same_region_set_merges(self):
+        """지역 집합이 같으면(순서 무관) 병합한다."""
+        left = record(1, "k-startup", "청년창업 공간 지원사업", region=["서울", "경기"])
+        right = record(2, "ontong-youth", "청년창업 공간 지원사업", region=["경기", "서울"])
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id == assignments[2].group_id == 1
+
     def test_null_region_still_merges(self):
         """한쪽 지역이 NULL이면 region 비교를 건너뛰고 기존 판정으로 같은 공고를 묶는다."""
         left = record(1, "k-startup", "청년창업 공간 지원사업", region=None)
