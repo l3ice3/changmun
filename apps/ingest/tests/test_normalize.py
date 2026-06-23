@@ -8,7 +8,6 @@ from ingest.normalize import (
     normalize_audiences,
     normalize_category,
     normalize_ontong_category,
-    normalize_organization_type,
     normalize_region,
     normalize_stages,
     parse_yyyymmdd,
@@ -107,16 +106,6 @@ class TestTargets:
     def test_no_signal_is_null(self):
         assert normalize_stages(None, []) is None
         assert normalize_audiences("", []) is None
-
-
-class TestOrganizationType:
-    def test_known(self):
-        assert normalize_organization_type("공공기관", []) == "PUBLIC"
-
-    def test_unknown_logged(self):
-        unknown = []
-        assert normalize_organization_type("지자체", unknown) is None
-        assert unknown == ["organization_type:지자체"]
 
 
 class TestSplitDateRange:
