@@ -7,16 +7,21 @@ paths:
 
 > 읽기 전용 서빙 API. 근거: `docs/api-spec.md`(계약), PRD FR-003·004·005·007.
 
-## 구조 (단순 레이어드 — 작은 읽기 API라 과설계 금지)
+## 구조 (도메인 단위 패키지 + 도메인 내부 레이어 하위패키지 — 과설계 금지)
 ```
-src/main/java/.../
-  controller/   # OpportunityController, GlossaryController, EventController — 위임만
-  service/      # 유스케이스 조립 + 기준일(today) 주입. 산식은 도메인에 위임(여기서 if-getter로 풀지 않음)
-  repository/   # Spring Data JPA 인터페이스 + 네이티브 쿼리(배열 contains, pg_trgm)
-  domain/       # 엔티티(스키마와 1:1 매핑) + 값 객체(status·badges 산식 캡슐화)
-  config/       # CORS, Jackson(camelCase), 전역 에러 핸들러(RFC7807 ProblemDetail + code 확장)
-src/test/java/  # 슬라이스 테스트 — AC-011~021, 023 대응
+src/main/java/com/changmun/
+  opportunity/   # 공고 도메인
+    controller/  # OpportunityController — 위임만
+    service/     # 유스케이스 조립 + 기준일(today) 주입. 산식은 도메인에 위임(여기서 if-getter로 풀지 않음)
+    repository/  # Spring Data JPA 인터페이스 + 네이티브 쿼리(배열 contains, pg_trgm)
+    domain/      # 엔티티(스키마와 1:1 매핑) + 값 객체(status·badges 산식 캡슐화)
+    dto/         # 응답/요청 record (XxxResponse.from(...))
+  glossary/      # 용어풀이 도메인 (controller/service/repository/domain/dto)
+  event/         # 이벤트 로그 도메인 (controller/service/repository/domain/dto)
+  common/        # 도메인 공통 — config(CORS·Jackson camelCase·RFC7807 전역 에러 핸들러) + web(공유 예외)
+src/test/java/   # 본 패키지를 미러링. 슬라이스 테스트 — AC-011~021, 023 대응
 ```
+> 도메인 우선 분리이되, **레이어 하위패키지명(`controller`/`service`/`repository`/`domain`)은 그대로 유지**한다 — `ArchitectureTest`의 `..controller..`/`..service..`/`..domain..`/`..repository..` 계층 규칙이 이 이름에 의존한다(`rules-full.md §6`). 새 도메인도 이 5칸(+필요 시 dto)을 따른다. 도메인 간 의존(예: opportunity가 glossary 용어를 조립)은 service/dto 레벨에서 명시적 import로 허용되지만, `..domain..` 순수성·repository 접근 제한은 계속 유효하다.
 > 읽기 전용이라 도메인은 "상태 변경" 대신 **"산식에 답하는"** 역할이 핵심이다. 정확히 어떤 모양인지는 아래 **§코드 예시**를 그대로 따른다.
 
 ## 규칙

@@ -11,7 +11,8 @@ import com.tngtech.archunit.lang.ArchRule;
 /**
  * 계층 규칙 자동 검사 (A그룹 중 구조 규칙). 근거: docs/rules/rules-full.md §6 계층
  *
- * <p>패키지 구조 전제: ..controller.. / ..service.. / ..domain.. / ..repository..
+ * <p>패키지 구조 전제: 도메인 단위(opportunity/glossary/event) 아래 레이어 하위패키지 — ..controller.. / ..service.. /
+ * ..domain.. / ..repository.. (도메인 우선 분리지만 레이어명은 유지).
  */
 @AnalyzeClasses(packages = "com.changmun", importOptions = ImportOption.DoNotIncludeTests.class)
 public class ArchitectureTest {
