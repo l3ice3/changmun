@@ -6,14 +6,25 @@ import com.changmun.opportunity.domain.SortOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.web.bind.annotation.BindParam;
 
 /**
- * 리스트/검색 요청 파라미터 바인딩 + 파싱 (api-spec.md §1). 검증은 파싱 접근자에서 수행해 잘못된 값을 {@link
- * InvalidParameterException}으로 던지고 전역 핸들러가 400 INVALID_PARAM으로 변환한다. page/size는 안전 범위로 보정한다(범위 초과
- * page는 에러가 아니라 빈 결과 — AC-014).
+ * 리스트/검색 요청 파라미터 — 불변 record. 쿼리 키는 {@link BindParam}으로 raw 컴포넌트에 바인딩하고, 파싱·검증은 접근자에서 수행해 잘못된 값을
+ * {@link InvalidParameterException}으로 던진다(전역 핸들러가 400 INVALID_PARAM으로 변환). 검증을 생성자가 아닌 접근자에서 하는 이유:
+ * 바인딩 시점이 아니라 사용 시점에 검증해 기존 동작(범위 초과 page는 에러가 아니라 빈 결과 — AC-014)을 보존한다.
+ * 기본값(status=open·sort=deadline·page=1·size=20)은 컴포넌트가 null일 때 접근자가 적용한다.
  */
-@SuppressWarnings("PMD.TooManyFields") // 요청 파라미터 바인딩 묶음.
-public class OpportunityListRequest {
+@SuppressWarnings("PMD.TooManyFields") // 요청 파라미터 바인딩 묶음(record 컴포넌트).
+public record OpportunityListRequest(
+    @BindParam("persona") String personaParam,
+    @BindParam("region") String regionParam,
+    @BindParam("category") String categoryParam,
+    @BindParam("status") String statusParam,
+    @BindParam("q") String queryParam,
+    @BindParam("ids") String idsParam,
+    @BindParam("sort") String sortParam,
+    @BindParam("page") Integer pageParam,
+    @BindParam("size") Integer sizeParam) {
 
   private static final String STATUS_OPEN = "open";
   private static final String STATUS_ALL = "all";
@@ -22,85 +33,89 @@ public class OpportunityListRequest {
   private static final int DEFAULT_PAGE_SIZE = 20;
   private static final int MAX_BOOKMARK_IDS = 50;
 
-  private String persona;
-  private String region;
-  private String category;
-  private String status = STATUS_OPEN;
-  private String query;
-  private String ids;
-  private String sort = "deadline";
-  private int page = 1;
-  private int size = DEFAULT_PAGE_SIZE;
-
   public Persona persona() {
-    if (isBlank(persona)) {
+    if (isBlank(personaParam)) {
       return null;
     }
-    return parsePersona(persona.trim());
+    return parsePersona(personaParam.trim());
   }
 
   public String region() {
-    return blankToNull(region);
+    return blankToNull(regionParam);
   }
 
   public String category() {
-    return blankToNull(category);
+    return blankToNull(categoryParam);
   }
 
   public String searchTerm() {
-    String trimmed = blankToNull(query);
+    String trimmed = blankToNull(queryParam);
     if (trimmed == null) {
       return null;
     }
     if (trimmed.length() < MIN_QUERY_LENGTH) {
-      throw new InvalidParameterException("q", query);
+      throw new InvalidParameterException("q", queryParam);
     }
     return trimmed;
   }
 
   public boolean onlyOpen() {
-    if (isBlank(status)) {
+    if (isBlank(statusParam)) {
       return true;
     }
-    String value = status.trim().toLowerCase(Locale.ROOT);
+    String value = statusParam.trim().toLowerCase(Locale.ROOT);
     if (value.equals(STATUS_ALL)) {
       return false;
     }
     if (value.equals(STATUS_OPEN)) {
       return true;
     }
-    throw new InvalidParameterException("status", status);
+    throw new InvalidParameterException("status", statusParam);
   }
 
   public SortOrder sortOrder() {
-    if (isBlank(sort)) {
+    if (isBlank(sortParam)) {
       return SortOrder.DEADLINE;
     }
-    String value = sort.trim().toLowerCase(Locale.ROOT);
+    String value = sortParam.trim().toLowerCase(Locale.ROOT);
     if (value.equals("latest")) {
       return SortOrder.LATEST;
     }
     if (value.equals("deadline")) {
       return SortOrder.DEADLINE;
     }
-    throw new InvalidParameterException("sort", sort);
+    throw new InvalidParameterException("sort", sortParam);
   }
 
   public boolean isBookmarkQuery() {
-    return !isBlank(ids);
+    return !isBlank(idsParam);
   }
 
   /** 찜 조회 id 목록 — 요청 순서 보존, 최대 50개, 비숫자는 400 (api-spec.md §1). */
   public Long[] bookmarkIds() {
-    String[] tokens = ids.split(",");
+    String[] tokens = idsParam.split(",");
     if (tokens.length > MAX_BOOKMARK_IDS) {
-      throw new InvalidParameterException("ids", ids);
+      throw new InvalidParameterException("ids", idsParam);
     }
     List<Long> parsed = new ArrayList<>();
     for (String token : tokens) {
       addId(parsed, token);
     }
     return parsed.toArray(new Long[0]);
+  }
+
+  public int pageIndex() {
+    if (pageParam == null) {
+      return 0;
+    }
+    return Math.max(0, pageParam - 1);
+  }
+
+  public int pageSize() {
+    if (sizeParam == null) {
+      return DEFAULT_PAGE_SIZE;
+    }
+    return Math.min(MAX_PAGE_SIZE, Math.max(1, sizeParam));
   }
 
   private static void addId(List<Long> parsed, String token) {
@@ -117,14 +132,6 @@ public class OpportunityListRequest {
     } catch (NumberFormatException invalid) {
       throw new InvalidParameterException("ids", token);
     }
-  }
-
-  public int pageIndex() {
-    return Math.max(0, page - 1);
-  }
-
-  public int pageSize() {
-    return Math.min(MAX_PAGE_SIZE, Math.max(1, size));
   }
 
   private static Persona parsePersona(String value) {
@@ -144,41 +151,5 @@ public class OpportunityListRequest {
 
   private static boolean isBlank(String value) {
     return value == null || value.isBlank();
-  }
-
-  public void setPersona(String persona) {
-    this.persona = persona;
-  }
-
-  public void setRegion(String region) {
-    this.region = region;
-  }
-
-  public void setCategory(String category) {
-    this.category = category;
-  }
-
-  public void setStatus(String status) {
-    this.status = status;
-  }
-
-  public void setQ(String value) {
-    this.query = value;
-  }
-
-  public void setIds(String ids) {
-    this.ids = ids;
-  }
-
-  public void setSort(String sort) {
-    this.sort = sort;
-  }
-
-  public void setPage(int page) {
-    this.page = page;
-  }
-
-  public void setSize(int size) {
-    this.size = size;
   }
 }
