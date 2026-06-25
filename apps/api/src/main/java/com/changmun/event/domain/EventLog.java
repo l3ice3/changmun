@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -18,6 +19,7 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "event_log")
+@Getter
 public class EventLog {
 
   @Id
@@ -48,25 +50,5 @@ public class EventLog {
     this.eventType = eventType;
     this.payload = payload;
     this.occurredAt = occurredAt;
-  }
-
-  public Long getId() {
-    return id;
-  }
-
-  public UUID getClientId() {
-    return clientId;
-  }
-
-  public String getEventType() {
-    return eventType;
-  }
-
-  public Map<String, Object> getPayload() {
-    return payload;
-  }
-
-  public Instant getOccurredAt() {
-    return occurredAt;
   }
 }

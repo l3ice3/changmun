@@ -22,6 +22,11 @@ repositories {
 }
 
 dependencies {
+	// Lombok — getter 보일러플레이트 축소용. @Getter만 사용(@Setter·@Data 금지 — api.md 규칙).
+	compileOnly("org.projectlombok:lombok")
+	annotationProcessor("org.projectlombok:lombok")
+	testCompileOnly("org.projectlombok:lombok")
+	testAnnotationProcessor("org.projectlombok:lombok")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.springframework.boot:spring-boot-starter-validation")

@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.util.List;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -22,6 +23,7 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "opportunity")
+@Getter
 @SuppressWarnings("PMD.TooManyFields") // 원장 엔티티 — LOCKED 스키마의 서빙 컬럼을 1:1로 받는다.
 public class Opportunity {
 
@@ -98,77 +100,5 @@ public class Opportunity {
 
   public Badges badgesOn(LocalDate today) {
     return Badges.of(statusOn(today), targeting());
-  }
-
-  public Long getId() {
-    return id;
-  }
-
-  public String getSource() {
-    return source;
-  }
-
-  public String getTitle() {
-    return title;
-  }
-
-  public String getSummary() {
-    return summary;
-  }
-
-  public String getCategory() {
-    return category;
-  }
-
-  public List<String> getRegion() {
-    return region;
-  }
-
-  public String getOrganization() {
-    return organization;
-  }
-
-  public String getOrganizationType() {
-    return organizationType;
-  }
-
-  public String getSupportAmount() {
-    return supportAmount;
-  }
-
-  public List<String> getTargetStartupStage() {
-    return targetStartupStage;
-  }
-
-  public List<String> getTargetAudienceType() {
-    return targetAudienceType;
-  }
-
-  public String getEligibilityDetail() {
-    return eligibilityDetail;
-  }
-
-  public LocalDate getApplicationStartDate() {
-    return applicationStartDate;
-  }
-
-  public LocalDate getApplicationDeadline() {
-    return applicationDeadline;
-  }
-
-  public boolean isAlwaysOpen() {
-    return alwaysOpen;
-  }
-
-  public String getDetailUrl() {
-    return detailUrl;
-  }
-
-  public String getApplyUrl() {
-    return applyUrl;
-  }
-
-  public Long getDedupGroupId() {
-    return dedupGroupId;
   }
 }
