@@ -6,10 +6,12 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
 
 /** 용어 사전 항목 — db/migrations/V2 glossary 테이블과 1:1 (api-spec.md §3). */
 @Entity
 @Table(name = "glossary")
+@Getter
 public class GlossaryTerm {
 
   @Id
@@ -30,17 +32,5 @@ public class GlossaryTerm {
   public GlossaryTerm(String term, String description) {
     this.term = term;
     this.description = description;
-  }
-
-  public Long getId() {
-    return id;
-  }
-
-  public String getTerm() {
-    return term;
-  }
-
-  public String getDescription() {
-    return description;
   }
 }
