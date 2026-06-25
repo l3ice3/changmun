@@ -48,7 +48,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ## 1. GET /api/v1/opportunities — 리스트/검색/찜 조회
 
-### 요청 파라미터
+### 요청 (쿼리 파라미터)
 | 파라미터 | 타입 | 기본 | 설명 |
 |---|---|---|---|
 | `persona` | enum | (없음) | 페르소나 탭. 잘못된 값 → 400 (AC-014) |
@@ -61,7 +61,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `page` | int | 1 | 1-base. 범위 초과 → 200 + 빈 items (AC-014) |
 | `size` | int | 20 | 최대 50 |
 
-### 응답 200
+### 응답 `200`
 ```json
 {
   "items": [
@@ -98,7 +98,12 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ## 2. GET /api/v1/opportunities/{id} — 상세
 
-### 응답 200 (리스트 항목 필드 **전부** + 아래 추가)
+### 요청 (경로 파라미터)
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `id` | int (path) | 공고 ID |
+
+### 응답 `200` (리스트 항목 필드 **전부** + 아래 추가)
 ```json
 {
   "...리스트 항목과 동일 필드...": "...",
@@ -123,7 +128,10 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ## 3. GET /api/v1/glossary — 용어 사전
 
-### 응답 200
+### 요청
+- 없음 (파라미터·바디 없음)
+
+### 응답 `200`
 ```json
 { "items": [ { "term": "업력", "description": "사업자등록 후 지난 기간. '업력 3년 미만'이면 등록한 지 3년이 안 된 기업" } ] }
 ```
@@ -133,7 +141,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ## 4. POST /api/v1/events — 행동 로그
 
-### 요청
+### 요청 (바디)
 ```json
 {
   "clientId": "550e8400-e29b-41d4-a716-446655440000",
@@ -146,8 +154,11 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
 - `occurredAt` 생략 시 서버 수신 시각.
 
-### 응답
-- `202 { "accepted": true }` — 본문 검증 실패는 `400`. **클라이언트는 fire-and-forget**(응답·실패 무시, UX 차단 금지 — AC-026).
+### 응답 `202`
+```json
+{ "accepted": true }
+```
+- 본문 검증 실패는 `400`. **클라이언트는 fire-and-forget**(응답·실패 무시, UX 차단 금지 — AC-026).
 
 ---
 
