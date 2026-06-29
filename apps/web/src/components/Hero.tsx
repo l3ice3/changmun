@@ -1,30 +1,29 @@
 import Link from "next/link";
-import { SearchBar } from "./SearchBar";
+import type { Stats } from "@/lib/api";
+import { HeroSearch } from "./HeroSearch";
 
 const POPULAR = ["예비창업패키지", "청년창업사관학교", "R&D", "바우처", "글로벌"];
 
-// 단 하나의 딥 네이비 히어로 블록 — frosted grain. 페이지/섹션 배경으로 쓰지 않는다 (DESIGN.md §2·7).
-export function Hero() {
+// 단 하나의 딥 네이비 히어로 블록 — frosted grain, 중앙 정렬. 콘텐츠와 동일 폭(max-w-[1200px]) 셸.
+export function Hero({ stats }: { stats: Stats | null }) {
   return (
-    <section className="px-3.5 pt-3.5">
-      <div className="grain-hero overflow-hidden rounded-[18px] bg-hero px-6 py-10 sm:px-10 sm:py-14">
-        <p className="text-[12px] font-medium tracking-wide text-hero-label">
-          창업의 문을 여는 창
-        </p>
-        <h1 className="mt-2 text-[21px] font-semibold leading-tight tracking-tight text-hero-text sm:text-[32px]">
+    <section className="mx-auto max-w-[1200px] px-3.5 pt-4">
+      <div className="hero-sea rounded-[18px] px-6 py-12 text-center sm:px-10 sm:py-16">
+        <p className="text-[12px] font-medium tracking-wide text-hero-label">창업의 문을 여는 창</p>
+        <h1 className="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-hero-text sm:text-[32px]">
           내 단계에 맞는 정부 지원금만,
           <br />
           가입 없이 한 번에.
         </h1>
-        <p className="mt-3 max-w-lg text-[13px] leading-relaxed text-hero-sub sm:text-[14px]">
+        <p className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed text-hero-sub sm:text-[14px]">
           예비·초기 창업자와 대학생을 위해 K-Startup·기업마당·온통청년의 창업 공고를 모아 골라드려요.
         </p>
 
-        <div className="mt-6 max-w-xl">
-          <SearchBar variant="hero" />
+        <div className="mx-auto mt-6 max-w-xl">
+          <HeroSearch />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <span className="text-[12px] text-hero-label">인기</span>
           {POPULAR.map((keyword) => (
             <Link
@@ -36,7 +35,24 @@ export function Hero() {
             </Link>
           ))}
         </div>
+
+        {stats ? (
+          <div className="mx-auto mt-8 flex max-w-md items-center divide-x divide-white/15">
+            <Stat label="진행 중 공고" value={stats.open} />
+            <Stat label="오늘 뜬 공고" value={stats.newToday} />
+            <Stat label="마감임박" value={stats.closingSoon} />
+          </div>
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex-1 px-4">
+      <div className="tnum text-[20px] font-semibold text-hero-text">{value.toLocaleString()}</div>
+      <div className="mt-0.5 text-[12px] text-hero-sub">{label}</div>
+    </div>
   );
 }

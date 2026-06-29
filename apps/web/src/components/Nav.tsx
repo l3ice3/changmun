@@ -18,11 +18,11 @@ function isActive(pathname: string, href: string): boolean {
 export function Nav() {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-40 border-b border-hair bg-bg/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-hair bg-bg/90 backdrop-blur lg:hidden">
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4">
         <Link href="/" className="press flex items-center gap-2">
           <WindowMark className="h-7 w-7" />
-          <span className="text-[18px] font-semibold tracking-tight">창문</span>
+          <span className="brand-logo text-[20px] text-hero">창문</span>
         </Link>
         <nav className="flex items-center gap-1 text-[14px]">
           {LINKS.map((link) => (

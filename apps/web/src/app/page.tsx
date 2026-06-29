@@ -5,7 +5,7 @@ import { Hero } from "@/components/Hero";
 import { ListViewTracker } from "@/components/ListViewTracker";
 import { OpportunityGrid } from "@/components/OpportunityGrid";
 import { PersonaTabs } from "@/components/PersonaTabs";
-import { fetchOpportunities, type OpportunityList } from "@/lib/api";
+import { fetchOpportunities, fetchStats, type OpportunityList, type Stats } from "@/lib/api";
 import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
 
 const EMPTY = {
@@ -27,10 +27,11 @@ export default async function Home({
   } catch {
     list = null;
   }
+  const stats: Stats | null = await fetchStats();
 
   return (
     <div>
-      <Hero />
+      <Hero stats={stats} />
       <div className="mx-auto max-w-[1200px] px-3.5 py-7">
         <Suspense fallback={null}>
           <PersonaTabs />
