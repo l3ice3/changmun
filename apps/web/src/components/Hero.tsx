@@ -16,7 +16,7 @@ export function Hero({ stats }: { stats: Stats | null }) {
           가입 없이 한 번에.
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed text-hero-sub sm:text-[14px]">
-          예비·초기 창업자와 대학생을 위해 K-Startup·기업마당·온통청년의 창업 공고를 모아 골라드려요.
+          K-Startup·기업마당·온통청년에 흩어진 창업 지원사업을 한곳에 모아, 예비·초기 창업자·대학생 단계에 맞는 것만 골라드려요.
         </p>
 
         <div className="mx-auto mt-6 max-w-xl">
