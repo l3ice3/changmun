@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { Sidebar } from "@/components/Sidebar";
+import { TopBar } from "@/components/TopBar";
 import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
@@ -30,11 +32,19 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
         />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&display=swap"
+        />
       </head>
-      <body className="min-h-screen flex flex-col">
-        <Nav />
-        <main className="flex-1">{children}</main>
-        <Footer />
+      <body className="min-h-screen lg:flex">
+        <Sidebar />
+        <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col">
+          <TopBar />
+          <Nav />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </div>
       </body>
     </html>
   );

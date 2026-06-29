@@ -76,6 +76,25 @@ export async function fetchOpportunities(
   return res.json();
 }
 
+export interface Stats {
+  open: number;
+  newToday: number;
+  closingSoon: number;
+}
+
+// 홈 지표. 실패 시 null → 히어로가 지표 행을 숨긴다(UX 차단 금지). 항상 최신(no-store).
+export async function fetchStats(): Promise<Stats | null> {
+  try {
+    const res = await fetch(`${API_BASE}/opportunities/stats`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchOpportunity(
   id: string,
 ): Promise<OpportunityDetail | null> {

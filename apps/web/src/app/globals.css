@@ -66,12 +66,86 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* 브랜드 워드마크 — 디스플레이 폰트(우아한 명조). 로고 텍스트에만 적용. */
+.brand-logo {
+  font-family: "Gowun Batang", "Pretendard Variable", serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 /* 탭/프레스 피드백 — scale(0.97) ~120ms (DESIGN.md §6). */
 .press {
   transition: transform 120ms ease-out;
 }
 .press:active {
   transform: scale(0.97);
+}
+
+/* 검색 팝업 enter 애니메이션 — 스무스 페이드 + 팝업(scale·slide). */
+@keyframes changmun-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes changmun-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-in {
+  animation: changmun-fade-in 0.18s ease-out;
+}
+.animate-pop-in {
+  animation: changmun-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/*
+ * 히어로 배경 — 지중해 심해 + 햇빛 반사 물결. 같은 블루베리 네이비 계열 유지.
+ * 깊이 그라데이션(base) + 햇빛 글린트(radial) + 물결 caustics(::before, screen) + frosted grain(::after, soft-light).
+ */
+.hero-sea {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: #18234d;
+  background-image:
+    radial-gradient(115% 85% at 22% -12%, rgba(140, 184, 242, 0.42), transparent 52%),
+    radial-gradient(85% 70% at 86% 4%, rgba(86, 202, 214, 0.2), transparent 58%),
+    radial-gradient(100% 120% at 50% 125%, rgba(7, 12, 34, 0.55), transparent 60%),
+    linear-gradient(165deg, #243663 0%, #1a2348 48%, #121839 100%);
+}
+.hero-sea::before {
+  content: "";
+  position: absolute;
+  inset: -12%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  background-size: cover;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='840' height='520'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.026' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.58 0 0 0 0 0.8 0 0 0 0 1 0 0 0 1.1 -0.52'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+}
+.hero-sea::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+.hero-sea > * {
+  position: relative;
+  z-index: 1;
 }
 
 /*
