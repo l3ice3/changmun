@@ -71,4 +71,27 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
           """,
       nativeQuery = true)
   List<Opportunity> findByIdsInOrder(@Param("ids") Long[] ids);
+
+  /**
+   * 홈 지표(진행 중·오늘 뜬·마감임박) — canonical 기준. 세 값을 한 SELECT 조건부 집계로 계산해 동일 스냅샷에서 반환한다(open ⊇ closingSoon
+   * 부분집합 관계가 동시 수집 커밋에도 깨지지 않게).
+   */
+  @Query(
+      value =
+          """
+          SELECT
+            count(*) FILTER (
+              WHERE is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL
+            ) AS "open",
+            count(*) FILTER (WHERE first_seen_at >= CURRENT_DATE) AS "newToday",
+            count(*) FILTER (
+              WHERE NOT is_always_open
+                AND application_deadline >= CURRENT_DATE
+                AND application_deadline <= CURRENT_DATE + 7
+            ) AS "closingSoon"
+          FROM opportunity
+          WHERE is_canonical
+          """,
+      nativeQuery = true)
+  StatsView stats();
 }

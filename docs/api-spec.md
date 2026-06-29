@@ -94,6 +94,17 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - 카드에 필요한 전부 포함(`screens.md` S1). `eligibilityDetail`은 프론트가 1줄 말줄임.
 - 결과 0건 → `200` + `"items": []` (AC-012).
 
+### GET /api/v1/opportunities/stats — 홈 지표
+홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` 기준 count. (literal 경로라 `/{id}`보다 우선 매칭)
+| 필드 | 정의 |
+|---|---|
+| `open` | 진행 중(상시·기간미상 포함, `CLOSED` 제외) |
+| `newToday` | `first_seen_at >= CURRENT_DATE` (오늘 처음 수집) |
+| `closingSoon` | 마감 ≤ 7일(상시 제외) — §0 `closingSoon` 산식과 동일 임계 |
+```json
+{ "open": 137, "newToday": 4, "closingSoon": 12 }
+```
+
 ---
 
 ## 2. GET /api/v1/opportunities/{id} — 상세

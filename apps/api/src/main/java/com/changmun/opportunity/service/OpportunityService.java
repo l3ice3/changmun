@@ -9,9 +9,11 @@ import com.changmun.opportunity.dto.OpportunityDetailResponse;
 import com.changmun.opportunity.dto.OpportunityListRequest;
 import com.changmun.opportunity.dto.OpportunityListResponse;
 import com.changmun.opportunity.dto.OpportunityResponse;
+import com.changmun.opportunity.dto.StatsResponse;
 import com.changmun.opportunity.repository.OpportunityRepository;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria.Filters;
+import com.changmun.opportunity.repository.StatsView;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,6 +37,12 @@ public class OpportunityService {
     this.repository = repository;
     this.glossaryService = glossaryService;
     this.clock = clock;
+  }
+
+  @Transactional(readOnly = true)
+  public StatsResponse stats() {
+    StatsView view = repository.stats();
+    return new StatsResponse(view.getOpen(), view.getNewToday(), view.getClosingSoon());
   }
 
   @Transactional(readOnly = true)

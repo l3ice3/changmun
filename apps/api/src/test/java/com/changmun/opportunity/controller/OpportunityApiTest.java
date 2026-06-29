@@ -7,7 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.changmun.opportunity.support.TestOpportunity;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -108,6 +110,29 @@ class OpportunityApiTest {
     result.andExpect(status().isOk());
     result.andExpect(jsonPath("$.items.length()").value(2));
     result.andExpect(jsonPath("$.items[0].title").value("찜B"));
+  }
+
+  @Test
+  @DisplayName("/stats — canonical 기준 진행 중·오늘 뜬·마감임박 공고 수를 센다")
+  void statsCountsCanonicalOpenNewTodayAndClosingSoon() throws Exception {
+    new TestOpportunity().deadline(today.plusDays(3)).insert(jdbc); // 진행 중 + 마감임박
+    new TestOpportunity().deadline(today.plusDays(30)).insert(jdbc); // 진행 중
+    new TestOpportunity().deadline(today.minusDays(1)).insert(jdbc); // 마감 — 진행 중 아님
+    new TestOpportunity()
+        .canonical(false)
+        .deadline(today.plusDays(3))
+        .insert(jdbc); // 비canonical — 제외
+    new TestOpportunity()
+        .deadline(today.plusDays(3))
+        .firstSeenAt(OffsetDateTime.now(ZoneOffset.UTC))
+        .insert(jdbc); // 진행 중 + 마감임박 + 오늘 뜬
+
+    ResultActions result = mockMvc.perform(get("/api/v1/opportunities/stats"));
+
+    result.andExpect(status().isOk());
+    result.andExpect(jsonPath("$.open").value(3));
+    result.andExpect(jsonPath("$.newToday").value(1));
+    result.andExpect(jsonPath("$.closingSoon").value(2));
   }
 
   @Test
