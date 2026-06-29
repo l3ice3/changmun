@@ -47,6 +47,40 @@
   color-scheme: light;
 }
 
+/*
+ * 나이트(다크) 모드 — html.dark에서 @theme 토큰만 재정의한다. 유틸리티는 var(--color-*)를
+ * 참조하므로 컴포넌트 수정 없이 전체 테마가 전환된다. 토글은 좌측 사이드바 하단(ThemeToggle).
+ */
+html.dark {
+  color-scheme: dark;
+  --color-bg: #0f1319;
+  --color-bg-alt: #151b23;
+  --color-surface: #1c232e;
+  --color-surface-blue: #1f2940;
+
+  --color-ink: #eef1f5;
+  --color-secondary: #b4bec9;
+  --color-muted: #828c98;
+  --color-dim: #5b6471;
+
+  --color-line: #283039;
+  --color-hair: #1c232c;
+  --color-strong: #3a4350;
+  --color-edge: #3d4762;
+
+  --color-accent: #7e8bf6;
+  --color-accent-hover: #97a1f8;
+  --color-accent-bright: #8e9af7;
+  --color-accent-soft: #1f2940;
+
+  --color-success: #34d399;
+  --color-success-soft: #122a22;
+  --color-danger: #f2748a;
+  --color-danger-soft: #2c1620;
+  --color-violet: #a98bf0;
+  --color-violet-soft: #231a34;
+}
+
 html {
   font-family: var(--font-sans);
   -webkit-text-size-adjust: 100%;
@@ -105,6 +139,20 @@ body {
 }
 .animate-pop-in {
   animation: changmun-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* 검색 팝업 — 아래에서 위로 슬라이드업(직행 스타일). fill 없음: 비재생 환경에선 평상시(보임) 상태. */
+@keyframes changmun-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-slide-up {
+  animation: changmun-slide-up 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /*

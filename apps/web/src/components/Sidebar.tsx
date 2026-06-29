@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./ThemeToggle";
 import { WindowMark } from "./WindowMark";
 
 function ExploreIcon() {
@@ -72,6 +73,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <ThemeToggle />
     </aside>
   );
 }

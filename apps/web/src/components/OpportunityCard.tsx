@@ -1,57 +1,58 @@
 import Link from "next/link";
-import type { OpportunityCard as Card } from "@/lib/api";
-import { sourceLabel } from "@/lib/labels";
-import { Badge } from "./Badge";
+import type { BadgeCode, OpportunityCard as Card } from "@/lib/api";
+import { BADGE_LABELS, sourceLabel } from "@/lib/labels";
 import { BookmarkButton } from "./BookmarkButton";
 import { DDay } from "./DDay";
+import { SourceBadge } from "./SourceBadge";
 
-function Tag({ children, tone = "blue" }: { children: React.ReactNode; tone?: "blue" | "muted" }) {
-  const cls =
-    tone === "blue" ? "bg-surface-blue text-accent" : "bg-surface text-secondary";
-  return (
-    <span className={`rounded-[5px] px-1.5 py-0.5 text-[10.5px] ${cls}`}>{children}</span>
-  );
+// D-day 알약이 이미 보여주는 배지는 해시태그에서 제외(중복 방지).
+const DDAY_BADGES: BadgeCode[] = ["CLOSING_SOON", "ALWAYS_OPEN"];
+
+function hashtags(item: Card): string[] {
+  const tags: string[] = [];
+  if (item.category) tags.push(item.category);
+  for (const region of item.region ?? []) tags.push(region);
+  for (const code of item.badges) {
+    if (!DDAY_BADGES.includes(code)) tags.push(BADGE_LABELS[code]);
+  }
+  return tags.map((tag) => tag.replace(/\s+/g, ""));
 }
 
 export function OpportunityCard({ item }: { item: Card }) {
   const organization = item.organization ?? "주관기관 미상";
+  const tags = hashtags(item);
   return (
-    <article className="press relative rounded-[14px] border-[0.5px] border-line bg-bg p-3.5 transition-transform hover:-translate-y-px hover:border-edge">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-wrap gap-1">
-          {item.badges.map((code) => (
-            <Badge key={code} code={code} />
-          ))}
+    <article className="press relative rounded-[14px] border-[0.5px] border-line bg-bg p-4 transition-transform hover:-translate-y-px hover:border-edge">
+      <div className="flex items-start gap-2.5">
+        <SourceBadge source={item.source} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold text-ink">{organization}</p>
+          <p className="mt-0.5 truncate text-[12px] font-medium text-accent">
+            {sourceLabel(item.source)}
+          </p>
         </div>
         <BookmarkButton id={item.id} className="relative z-10 -mr-1 -mt-1" />
       </div>
 
-      <div className="mt-2.5 flex items-center gap-1.5">
-        <span className="grid h-[18px] w-[18px] place-items-center rounded bg-surface-blue text-[10px] font-medium text-accent">
-          {organization.charAt(0)}
-        </span>
-        <span className="truncate text-[12px] text-muted">{organization}</span>
-      </div>
-
-      <h3 className="mt-1.5 line-clamp-2 text-[14px] font-medium leading-snug text-ink">
+      <h3 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
         {item.title}
       </h3>
 
-      <div className="mt-2 flex flex-wrap gap-1">
-        {item.category ? <Tag>{item.category}</Tag> : null}
-        {item.region?.length ? <Tag tone="muted">{item.region.join(", ")}</Tag> : null}
-        <Tag tone="muted">{sourceLabel(item.source)}</Tag>
-      </div>
-
-      {item.eligibilityDetail ? (
-        <p className="mt-2 line-clamp-1 text-[12px] text-secondary">{item.eligibilityDetail}</p>
+      {tags.length ? (
+        <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+          {tags.map((tag, index) => (
+            <span
+              key={`${tag}-${index}`}
+              className={`text-[12.5px] ${index === 0 ? "text-accent" : "text-muted"}`}
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
       ) : null}
 
-      <div className="mt-3 flex items-center justify-between border-t border-hair pt-2.5">
+      <div className="mt-3.5">
         <DDay item={item} />
-        <span className="text-[13px] text-dim" aria-hidden="true">
-          →
-        </span>
       </div>
 
       <Link

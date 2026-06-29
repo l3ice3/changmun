@@ -34,10 +34,11 @@ export function BookmarkButton({ id, className = "" }: Props) {
     >
       <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" aria-hidden="true">
         <path
-          d="M10 16.5l-1.1-1C5 11.9 2.7 9.8 2.7 7.2 2.7 5.2 4.3 3.7 6.3 3.7c1.1 0 2.2.5 2.9 1.4l.8.9.8-.9c.7-.9 1.8-1.4 2.9-1.4 2 0 3.6 1.5 3.6 3.5 0 2.6-2.3 4.7-6.2 8.3l-1.1 1z"
+          d="M6 3.5h8c.55 0 1 .45 1 1V16.5l-5-3-5 3V4.5c0-.55.45-1 1-1z"
           fill={saved ? "var(--color-accent)" : "none"}
           stroke={saved ? "var(--color-accent)" : "currentColor"}
           strokeWidth="1.4"
+          strokeLinejoin="round"
         />
       </svg>
     </button>
