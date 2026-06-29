@@ -30,6 +30,8 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
                OR region @> ARRAY[CAST(:#{#criteria.region} AS text)]::text[])
           AND (CAST(:#{#criteria.category} AS text) IS NULL
                OR category = CAST(:#{#criteria.category} AS text))
+          AND (CAST(:#{#criteria.source} AS text) IS NULL
+               OR source = CAST(:#{#criteria.source} AS text))
           AND (CAST(:#{#criteria.query} AS text) IS NULL
                OR title ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%' ESCAPE '\\'
                OR summary ILIKE '%' || CAST(:#{#criteria.query} AS text) || '%' ESCAPE '\\')

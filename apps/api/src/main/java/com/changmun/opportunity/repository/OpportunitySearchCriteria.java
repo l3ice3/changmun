@@ -15,6 +15,7 @@ public final class OpportunitySearchCriteria {
   private final String audience;
   private final String region;
   private final String category;
+  private final String source;
   private final String query;
   private final boolean onlyOpen;
 
@@ -23,6 +24,7 @@ public final class OpportunitySearchCriteria {
     this.audience = audienceOf(persona);
     this.region = filters.region();
     this.category = filters.category();
+    this.source = filters.source();
     this.query = filters.query();
     this.onlyOpen = filters.onlyOpen();
   }
@@ -65,6 +67,10 @@ public final class OpportunitySearchCriteria {
     return category;
   }
 
+  public String getSource() {
+    return source;
+  }
+
   /** 검색어는 LIKE 와일드카드(%, _)·escape 문자(\)를 리터럴로 이스케이프한다 — 입력이 패턴을 흔들지 않게 (AC-021). */
   public String getQuery() {
     return escapeLike(query);
@@ -81,6 +87,7 @@ public final class OpportunitySearchCriteria {
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
-  /** 보조 필터(지역·카테고리·검색어·진행상태) 운반용. */
-  public record Filters(String region, String category, String query, boolean onlyOpen) {}
+  /** 보조 필터(지역·카테고리·출처·검색어·진행상태) 운반용. */
+  public record Filters(
+      String region, String category, String source, String query, boolean onlyOpen) {}
 }
