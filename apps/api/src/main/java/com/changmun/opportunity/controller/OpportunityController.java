@@ -3,6 +3,7 @@ package com.changmun.opportunity.controller;
 import com.changmun.opportunity.dto.OpportunityDetailResponse;
 import com.changmun.opportunity.dto.OpportunityListRequest;
 import com.changmun.opportunity.dto.OpportunityListResponse;
+import com.changmun.opportunity.dto.StatsResponse;
 import com.changmun.opportunity.service.OpportunityService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,11 @@ public class OpportunityController {
   @GetMapping
   public OpportunityListResponse list(OpportunityListRequest request) {
     return service.list(request);
+  }
+
+  @GetMapping("/stats")
+  public StatsResponse stats() {
+    return service.stats();
   }
 
   @GetMapping("/{id}")

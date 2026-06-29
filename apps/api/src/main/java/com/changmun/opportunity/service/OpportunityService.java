@@ -9,6 +9,7 @@ import com.changmun.opportunity.dto.OpportunityDetailResponse;
 import com.changmun.opportunity.dto.OpportunityListRequest;
 import com.changmun.opportunity.dto.OpportunityListResponse;
 import com.changmun.opportunity.dto.OpportunityResponse;
+import com.changmun.opportunity.dto.StatsResponse;
 import com.changmun.opportunity.repository.OpportunityRepository;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria.Filters;
@@ -35,6 +36,12 @@ public class OpportunityService {
     this.repository = repository;
     this.glossaryService = glossaryService;
     this.clock = clock;
+  }
+
+  @Transactional(readOnly = true)
+  public StatsResponse stats() {
+    return new StatsResponse(
+        repository.countOpen(), repository.countNewToday(), repository.countClosingSoon());
   }
 
   @Transactional(readOnly = true)
