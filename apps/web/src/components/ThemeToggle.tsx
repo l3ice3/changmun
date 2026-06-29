@@ -46,10 +46,9 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-label={dark ? "라이트 모드로 전환" : "나이트 모드로 전환"}
-      className="press mt-auto flex w-[64px] flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] text-muted hover:bg-surface hover:text-secondary"
+      className="press mt-auto grid w-[64px] place-items-center rounded-xl py-3 text-muted hover:bg-surface hover:text-secondary"
     >
       {dark ? <SunIcon /> : <MoonIcon />}
-      {dark ? "낮" : "밤"}
     </button>
   );
 }

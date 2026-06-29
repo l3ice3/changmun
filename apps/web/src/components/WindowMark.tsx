@@ -2,7 +2,7 @@
 export function WindowMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 28 28" className={className} aria-hidden="true">
-      <rect x="2" y="2" width="24" height="24" rx="7" fill="var(--color-hero)" />
+      <rect x="2" y="2" width="24" height="24" rx="7" fill="var(--color-mark)" />
       <rect
         x="8"
         y="6.5"
