@@ -163,7 +163,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 }
 ```
 - `eventType` 화이트리스트: `list_view` · `detail_view` · `outbound_click` · `bookmark_add` · `bookmark_remove` · `search`
-- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
+- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `source`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
 - `occurredAt` 생략 시 서버 수신 시각.
 
 ### 응답 `202`
