@@ -12,7 +12,12 @@ const SOURCE_MARK: Record<string, { text: string; style: CSSProperties }> = {
   },
 };
 
-export function SourceBadge({ source }: { source: string }) {
+const SIZE_CLASS = {
+  sm: "h-6 w-6 rounded-[7px] text-[10px]",
+  md: "h-11 w-11 rounded-[12px] text-[14px]",
+};
+
+export function SourceBadge({ source, size = "md" }: { source: string; size?: "sm" | "md" }) {
   const mark = SOURCE_MARK[source] ?? {
     text: source.slice(0, 2).toUpperCase(),
     style: { background: "var(--color-surface-blue)", color: "var(--color-accent)" },
@@ -21,7 +26,7 @@ export function SourceBadge({ source }: { source: string }) {
     <span
       aria-label={sourceLabel(source)}
       style={mark.style}
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] text-[14px] font-bold leading-none tracking-tight"
+      className={`grid shrink-0 place-items-center font-bold leading-none tracking-tight ${SIZE_CLASS[size]}`}
     >
       {mark.text}
     </span>

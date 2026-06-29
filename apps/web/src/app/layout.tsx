@@ -14,10 +14,10 @@ export const metadata: Metadata = {
     template: "%s · 창문",
   },
   description:
-    "예비·극초기 창업자와 대학생을 위한, 내 단계에 맞는 정부 지원금만 골라주는 지원금 전담 비서. 가입 없이 페르소나 탭 한 번으로.",
+    "K-Startup·기업마당·온통청년에 흩어진 창업 지원사업을 한곳에 모아, 예비·초기 창업자와 대학생 단계에 맞는 것만 골라주는 지원금 전담 비서.",
   openGraph: {
     title: "창문 — 창업 지원금 큐레이션",
-    description: "내 단계에 맞는 정부 지원금만, 가입 없이.",
+    description: "내 단계에 맞는 정부 지원금만, 한눈에.",
     type: "website",
   },
 };
