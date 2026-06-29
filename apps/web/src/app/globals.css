@@ -22,8 +22,9 @@
   --color-accent-bright: #6473f2;
   --color-accent-soft: #eceefb;
 
-  --color-hero: #1a2348;
-  /* WindowMark(로고 사각형) 전용 — 워드마크 텍스트(hero)와 분리. 라이트/다크 동일한 밝은 블루베리. */
+  /* 워드마크 글자 — 라이트/다크 모두 밝은 블루베리(나이트 톤 통일). */
+  --color-hero: #6b78f0;
+  /* WindowMark(로고 사각형) 전용 토큰(워드마크와 분리 유지). 밝은 블루베리. */
   --color-mark: #6b78f0;
   --color-hero-text: #ffffff;
   --color-hero-label: #8a97cc;
