@@ -107,7 +107,12 @@ public class OpportunityService {
 
   private static OpportunitySearchCriteria criteriaOf(OpportunityListRequest request) {
     Filters filters =
-        new Filters(request.region(), request.category(), request.searchTerm(), request.onlyOpen());
+        new Filters(
+            request.region(),
+            request.category(),
+            request.source(),
+            request.searchTerm(),
+            request.onlyOpen());
     return OpportunitySearchCriteria.of(request.persona(), filters);
   }
 }

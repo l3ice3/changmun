@@ -54,6 +54,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `persona` | enum | (없음) | 페르소나 탭. 잘못된 값 → 400 (AC-014) |
 | `region` | string | (없음) | 시도 필터 |
 | `category` | string | (없음) | 카테고리 필터 |
+| `source` | enum | (없음) | 출처 필터: `k-startup` · `bizinfo` · `ontong-youth`. 잘못된 값 → 400 (AC-014) |
 | `status` | enum | `open` | `open`=진행중(상시·기간미상 포함) / `all` |
 | `q` | string | (없음) | 부분일치 검색(title+summary, pg_trgm). **최소 2글자**, 1글자 → 400 (AC-020) |
 | `ids` | csv | (없음) | 찜 조회. 최대 50개. **지정 시 다른 필터 무시**, 요청 순서대로 반환, 없는 id는 누락(에러 아님 — AC-023) |
@@ -162,7 +163,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 }
 ```
 - `eventType` 화이트리스트: `list_view` · `detail_view` · `outbound_click` · `bookmark_add` · `bookmark_remove` · `search`
-- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
+- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `source`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
 - `occurredAt` 생략 시 서버 수신 시각.
 
 ### 응답 `202`

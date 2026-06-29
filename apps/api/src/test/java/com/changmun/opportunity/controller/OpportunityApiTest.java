@@ -145,4 +145,27 @@ class OpportunityApiTest {
     result.andExpect(status().isOk());
     result.andExpect(jsonPath("$.items").isEmpty());
   }
+
+  @Test
+  @DisplayName("source 필터는 해당 출처 공고만 반환한다")
+  void sourceFilterReturnsOnlyThatSource() throws Exception {
+    new TestOpportunity().source("k-startup").deadline(today.plusDays(5)).insert(jdbc);
+    new TestOpportunity().source("ontong-youth").deadline(today.plusDays(5)).insert(jdbc);
+    new TestOpportunity().source("bizinfo").deadline(today.plusDays(5)).insert(jdbc);
+
+    ResultActions result = getOpportunities("source", "ontong-youth");
+
+    result.andExpect(status().isOk());
+    result.andExpect(jsonPath("$.items.length()").value(1));
+    result.andExpect(jsonPath("$.items[0].source").value("ontong-youth"));
+  }
+
+  @Test
+  @DisplayName("잘못된 source는 400 INVALID_PARAM이다 (AC-014)")
+  void invalidSourceReturnsBadRequest() throws Exception {
+    ResultActions result = getOpportunities("source", "naver");
+
+    result.andExpect(status().isBadRequest());
+    result.andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+  }
 }

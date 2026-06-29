@@ -6,6 +6,7 @@ import com.changmun.opportunity.domain.SortOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.web.bind.annotation.BindParam;
 
 /**
@@ -19,6 +20,7 @@ public record OpportunityListRequest(
     @BindParam("persona") String personaParam,
     @BindParam("region") String regionParam,
     @BindParam("category") String categoryParam,
+    @BindParam("source") String sourceParam,
     @BindParam("status") String statusParam,
     @BindParam("q") String queryParam,
     @BindParam("ids") String idsParam,
@@ -32,6 +34,7 @@ public record OpportunityListRequest(
   private static final int MAX_PAGE_SIZE = 50;
   private static final int DEFAULT_PAGE_SIZE = 20;
   private static final int MAX_BOOKMARK_IDS = 50;
+  private static final Set<String> VALID_SOURCES = Set.of("k-startup", "bizinfo", "ontong-youth");
 
   public Persona persona() {
     if (isBlank(personaParam)) {
@@ -46,6 +49,18 @@ public record OpportunityListRequest(
 
   public String category() {
     return blankToNull(categoryParam);
+  }
+
+  /** 출처 필터 — k-startup·bizinfo·ontong-youth만 허용, 그 외 값은 400 INVALID_PARAM. */
+  public String source() {
+    if (isBlank(sourceParam)) {
+      return null;
+    }
+    String value = sourceParam.trim().toLowerCase(Locale.ROOT);
+    if (!VALID_SOURCES.contains(value)) {
+      throw new InvalidParameterException("source", sourceParam);
+    }
+    return value;
   }
 
   public String searchTerm() {

@@ -22,6 +22,7 @@ public record EventRequest(
           "persona",
           "region",
           "category",
+          "source",
           "statusFilter",
           "q",
           "page",
