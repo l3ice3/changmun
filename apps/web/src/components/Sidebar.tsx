@@ -8,9 +8,11 @@ import { WindowMark } from "./WindowMark";
 function ExploreIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6">
-      <path d="M4 10.5 12 4l8 6.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5.5 9.5V20h13V9.5" strokeLinejoin="round" />
-      <path d="M10 20v-5.5h4V20" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="8.5" />
+      <path
+        d="M12 6.5 13.5 10.5 17.5 12 13.5 13.5 12 17.5 10.5 13.5 6.5 12 10.5 10.5z"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
