@@ -13,6 +13,7 @@ import com.changmun.opportunity.dto.StatsResponse;
 import com.changmun.opportunity.repository.OpportunityRepository;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria;
 import com.changmun.opportunity.repository.OpportunitySearchCriteria.Filters;
+import com.changmun.opportunity.repository.StatsView;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -40,8 +41,8 @@ public class OpportunityService {
 
   @Transactional(readOnly = true)
   public StatsResponse stats() {
-    return new StatsResponse(
-        repository.countOpen(), repository.countNewToday(), repository.countClosingSoon());
+    StatsView view = repository.stats();
+    return new StatsResponse(view.getOpen(), view.getNewToday(), view.getClosingSoon());
   }
 
   @Transactional(readOnly = true)

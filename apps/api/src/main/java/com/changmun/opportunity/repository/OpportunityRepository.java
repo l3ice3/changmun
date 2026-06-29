@@ -72,33 +72,26 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
       nativeQuery = true)
   List<Opportunity> findByIdsInOrder(@Param("ids") Long[] ids);
 
-  /** 진행 중(canonical, status=open) 공고 수 — 홈 지표용. */
+  /**
+   * 홈 지표(진행 중·오늘 뜬·마감임박) — canonical 기준. 세 값을 한 SELECT 조건부 집계로 계산해 동일 스냅샷에서 반환한다(open ⊇ closingSoon
+   * 부분집합 관계가 동시 수집 커밋에도 깨지지 않게).
+   */
   @Query(
       value =
           """
-          SELECT count(*) FROM opportunity
+          SELECT
+            count(*) FILTER (
+              WHERE is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL
+            ) AS "open",
+            count(*) FILTER (WHERE first_seen_at >= CURRENT_DATE) AS "newToday",
+            count(*) FILTER (
+              WHERE NOT is_always_open
+                AND application_deadline >= CURRENT_DATE
+                AND application_deadline <= CURRENT_DATE + 7
+            ) AS "closingSoon"
+          FROM opportunity
           WHERE is_canonical
-            AND (is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)
           """,
       nativeQuery = true)
-  long countOpen();
-
-  /** 오늘 수집된(canonical, first_seen_at가 오늘) 공고 수. */
-  @Query(
-      value =
-          "SELECT count(*) FROM opportunity WHERE is_canonical AND first_seen_at >= CURRENT_DATE",
-      nativeQuery = true)
-  long countNewToday();
-
-  /** 마감임박(canonical, OPEN이며 dDay 0~7) 공고 수. */
-  @Query(
-      value =
-          """
-          SELECT count(*) FROM opportunity
-          WHERE is_canonical AND NOT is_always_open
-            AND application_deadline >= CURRENT_DATE
-            AND application_deadline <= CURRENT_DATE + 7
-          """,
-      nativeQuery = true)
-  long countClosingSoon();
+  StatsView stats();
 }
