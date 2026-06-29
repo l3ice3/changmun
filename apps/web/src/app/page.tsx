@@ -5,7 +5,14 @@ import { Hero } from "@/components/Hero";
 import { ListViewTracker } from "@/components/ListViewTracker";
 import { OpportunityGrid } from "@/components/OpportunityGrid";
 import { PersonaTabs } from "@/components/PersonaTabs";
-import { fetchOpportunities, fetchStats, type OpportunityList, type Stats } from "@/lib/api";
+import { SourceBrowse } from "@/components/SourceBrowse";
+import {
+  fetchOpportunities,
+  fetchStats,
+  type OpportunityCard,
+  type OpportunityList,
+  type Stats,
+} from "@/lib/api";
 import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
 
 const EMPTY = {
@@ -14,6 +21,24 @@ const EMPTY = {
   ctaHref: "/",
   ctaLabel: "전체 공고 보기",
 };
+
+const SOURCE_KEYS = ["k-startup", "bizinfo", "ontong-youth"];
+
+// 출처별 둘러보기 섹션용 — 출처별 최신 6건을 서버에서 미리 fetch(ISR 캐시). 실패한 출처는 빈 배열.
+async function fetchSourceGroups(): Promise<Record<string, OpportunityCard[]>> {
+  const entries = await Promise.all(
+    SOURCE_KEYS.map(async (source) => {
+      try {
+        const query = new URLSearchParams({ source, size: "6", sort: "latest" });
+        const result = await fetchOpportunities(query);
+        return [source, result.items] as const;
+      } catch {
+        return [source, [] as OpportunityCard[]] as const;
+      }
+    }),
+  );
+  return Object.fromEntries(entries);
+}
 
 export default async function Home({
   searchParams,
@@ -28,6 +53,7 @@ export default async function Home({
     list = null;
   }
   const stats: Stats | null = await fetchStats();
+  const sourceGroups = await fetchSourceGroups();
 
   return (
     <div>
@@ -54,6 +80,7 @@ export default async function Home({
             <ErrorState retryHref="/" />
           )}
         </div>
+        <SourceBrowse groups={sourceGroups} />
       </div>
     </div>
   );
