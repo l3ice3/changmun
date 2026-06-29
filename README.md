@@ -12,6 +12,7 @@
 | `docs/data-model.md` | DB 스키마(LOCKED) + 3소스 매핑 + dedup 설계 |
 | `docs/data-overview.md` | 데이터 큰 그림 (팀원용 개요) |
 | `docs/screens.md` | 화면 4종 + 페르소나 4탭 + 배지 규칙 |
+| `docs/DESIGN.md` | 디자인 시스템(색·타이포·로고·모션·grain) — 코드 주석이 참조 |
 | `docs/api-spec.md` | API 5 엔드포인트 계약 |
 | `CLAUDE.md` | Claude Code용 가드레일 + Java 코딩 규칙 core |
 | `.claude/rules/` | 앱별 상세 규칙 (ingest/api/web) |

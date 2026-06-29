@@ -29,6 +29,9 @@
 | FR-006 | 찜(익명·로컬) | AC-022 ~ AC-024 | 구현(서버) — ids= 순서보존·없는 id 누락·canonical 무관. AC-023·024 Pass(슬라이스), 엔드포인트 라우팅 E2E. localStorage·AC-022 UI는 프론트 |
 | FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 
+> **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
+> **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
+
 ---
 
 ## 2. Acceptance Criteria
