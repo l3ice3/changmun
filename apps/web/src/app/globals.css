@@ -73,6 +73,9 @@ html.dark {
   --color-accent-bright: #8e9af7;
   --color-accent-soft: #1f2940;
 
+  /* 워드마크 텍스트 + WindowMark 사각형 공용. 다크 배경에서 글자가 읽히고 흰 창살도 보이는 중간 블루베리. */
+  --color-hero: #6b78f0;
+
   --color-success: #34d399;
   --color-success-soft: #122a22;
   --color-danger: #f2748a;

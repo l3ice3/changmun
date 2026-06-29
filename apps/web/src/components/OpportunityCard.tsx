@@ -51,7 +51,13 @@ export function OpportunityCard({ item }: { item: Card }) {
         </div>
       ) : null}
 
-      <div className="mt-3.5">
+      {item.eligibilityDetail ? (
+        <p className="mt-2.5 line-clamp-1 text-[12px] leading-relaxed text-secondary">
+          {item.eligibilityDetail}
+        </p>
+      ) : null}
+
+      <div className="mt-3">
         <DDay item={item} />
       </div>
 
