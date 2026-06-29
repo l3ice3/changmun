@@ -7,6 +7,7 @@ import { DetailViewTracker } from "@/components/DetailViewTracker";
 import { ErrorState } from "@/components/ErrorState";
 import { GlossaryText } from "@/components/GlossaryText";
 import { OutboundLink } from "@/components/OutboundLink";
+import { SourceBadge } from "@/components/SourceBadge";
 import { fetchOpportunity, type OpportunityDetail } from "@/lib/api";
 import { periodLabel, sourceLabel, targetLabels } from "@/lib/labels";
 
@@ -86,9 +87,7 @@ export default async function DetailPage({ params }: Params) {
       </div>
 
       <div className="mt-3 flex items-center gap-2 text-[13px] text-muted">
-        <span className="grid h-5 w-5 place-items-center rounded bg-surface-blue text-[11px] font-medium text-accent">
-          {organization.charAt(0)}
-        </span>
+        <SourceBadge source={opportunity.source} size="sm" />
         <span>{organization}</span>
         {opportunity.organizationType ? (
           <span className="text-dim">· {opportunity.organizationType}</span>

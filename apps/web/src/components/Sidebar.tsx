@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./ThemeToggle";
 import { WindowMark } from "./WindowMark";
 
 function ExploreIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M15.5 8.5l-2.2 4.8-4.8 2.2 2.2-4.8z" strokeLinejoin="round" />
+      <path d="M4 10.5 12 4l8 6.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 9.5V20h13V9.5" strokeLinejoin="round" />
+      <path d="M10 20v-5.5h4V20" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -22,13 +24,10 @@ function SearchIcon() {
   );
 }
 
-function HeartIcon() {
+function BookmarkIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6">
-      <path
-        d="M12 20.2l-1.3-1.2C6.3 15 4 12.9 4 10.2 4 8 5.7 6.3 7.8 6.3c1.2 0 2.4.6 3.2 1.5l1 1.1 1-1.1c.8-.9 2-1.5 3.2-1.5 2.1 0 3.8 1.7 3.8 3.9 0 2.7-2.3 4.8-6.7 8.8z"
-        strokeLinejoin="round"
-      />
+      <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-3.5L5 20V5a1 1 0 0 1 1-1z" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -36,7 +35,7 @@ function HeartIcon() {
 const ITEMS = [
   { href: "/", label: "탐색", Icon: ExploreIcon },
   { href: "/search", label: "검색", Icon: SearchIcon },
-  { href: "/bookmarks", label: "찜", Icon: HeartIcon },
+  { href: "/bookmarks", label: "찜", Icon: BookmarkIcon },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -72,6 +71,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <ThemeToggle />
     </aside>
   );
 }

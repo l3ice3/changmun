@@ -90,28 +90,28 @@ export function HeroSearch() {
 
       {open
         ? createPortal(
-            <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-[12vh]">
+            <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:pt-[18vh]">
               <button
                 type="button"
                 aria-label="닫기"
                 onClick={() => setOpen(false)}
-                className="animate-fade-in absolute inset-0 cursor-default bg-ink/40"
+                className="animate-fade-in absolute inset-0 cursor-default bg-black/50 backdrop-blur-sm"
               />
-              <div className="animate-pop-in relative w-full max-w-xl rounded-[16px] bg-bg p-4 text-left shadow-[0_12px_44px_rgba(25,31,40,0.2)]">
+              <div className="animate-slide-up relative max-h-[72vh] w-full max-w-3xl overflow-y-auto rounded-[20px] bg-bg p-5 text-left shadow-[0_24px_64px_rgba(25,31,40,0.3)]">
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
                     go(value);
                   }}
                 >
-                  <div className="flex items-center gap-2 rounded-[12px] border border-edge bg-surface px-3.5 focus-within:border-accent">
-                    <SearchIcon className="h-5 w-5 text-muted" />
+                  <div className="flex items-center gap-2.5 rounded-[14px] border border-edge bg-surface px-4 focus-within:border-accent">
+                    <SearchIcon className="h-[22px] w-[22px] text-muted" />
                     <input
                       autoFocus
                       value={value}
                       onChange={(event) => setValue(event.target.value)}
                       placeholder="어떤 공고를 찾으시나요?"
-                      className="h-12 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-muted"
+                      className="h-14 flex-1 bg-transparent text-[16px] text-ink outline-none placeholder:text-muted"
                     />
                   </div>
                 </form>

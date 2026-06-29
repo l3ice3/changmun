@@ -2,9 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CATEGORIES, REGIONS } from "@/lib/labels";
-
-const SELECT_CLASS =
-  "h-8 rounded-lg border border-line bg-surface px-2.5 text-[13px] text-secondary";
+import { Dropdown } from "./Dropdown";
 
 export function FilterBar() {
   const router = useRouter();
@@ -26,33 +24,21 @@ export function FilterBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <select
-        aria-label="지역"
+      <Dropdown
+        label="지역"
+        allLabel="전체 지역"
         value={region}
-        onChange={(event) => update("region", event.target.value)}
-        className={SELECT_CLASS}
-      >
-        <option value="">전체 지역</option>
-        {REGIONS.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
+        options={REGIONS}
+        onSelect={(value) => update("region", value)}
+      />
 
-      <select
-        aria-label="카테고리"
+      <Dropdown
+        label="카테고리"
+        allLabel="전체 분야"
         value={category}
-        onChange={(event) => update("category", event.target.value)}
-        className={SELECT_CLASS}
-      >
-        <option value="">전체 분야</option>
-        {CATEGORIES.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
+        options={CATEGORIES}
+        onSelect={(value) => update("category", value)}
+      />
 
       <button
         type="button"
