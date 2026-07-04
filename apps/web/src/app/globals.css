@@ -26,6 +26,9 @@
   --color-hero: #6b78f0;
   /* WindowMark(로고 사각형) 전용 토큰(워드마크와 분리 유지). 밝은 블루베리. */
   --color-mark: #6b78f0;
+  /* mark 계열의 살짝 짙은 톤 — 흰 13px 텍스트 채움 버튼용. 흰 텍스트 대비 ~4.9:1로
+     WCAG AA(4.5:1) 충족(#6b78f0은 3.77:1로 미달 — Codex #45). */
+  --color-mark-deep: #5462e6;
   --color-hero-text: #ffffff;
   --color-hero-label: #8a97cc;
   --color-hero-sub: #aab6e0;
