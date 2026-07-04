@@ -2,7 +2,7 @@
 
 export type RawParams = Record<string, string | string[] | undefined>;
 
-const PASS_KEYS = ["persona", "region", "category", "status", "q", "sort", "page"] as const;
+const PASS_KEYS = ["persona", "source", "region", "category", "status", "q", "sort", "page"] as const;
 
 function first(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];

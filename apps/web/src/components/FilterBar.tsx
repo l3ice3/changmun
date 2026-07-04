@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CATEGORIES, REGIONS } from "@/lib/labels";
+import { CATEGORIES, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
 import { Dropdown } from "./Dropdown";
 
 export function FilterBar() {
@@ -17,6 +17,7 @@ export function FilterBar() {
     router.push(`${pathname}?${next.toString()}`);
   }
 
+  const source = params.get("source") ?? "";
   const region = params.get("region") ?? "";
   const category = params.get("category") ?? "";
   const showClosed = params.get("status") === "all";
@@ -24,12 +25,13 @@ export function FilterBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* 우선순위 순서: 출처(지원 단체) → 분야 → 지역. 지원 대상은 상단 페르소나 탭. */}
       <Dropdown
-        label="지역"
-        allLabel="전체 지역"
-        value={region}
-        options={REGIONS}
-        onSelect={(value) => update("region", value)}
+        label="출처"
+        allLabel="전체 출처"
+        value={source}
+        options={SOURCE_OPTIONS}
+        onSelect={(value) => update("source", value)}
       />
 
       <Dropdown
@@ -38,6 +40,14 @@ export function FilterBar() {
         value={category}
         options={CATEGORIES}
         onSelect={(value) => update("category", value)}
+      />
+
+      <Dropdown
+        label="지역"
+        allLabel="전체 지역"
+        value={region}
+        options={REGIONS}
+        onSelect={(value) => update("region", value)}
       />
 
       {/* 우측 = 보기 방식(마감 포함 토글 + 정렬). 좌측 = 결과를 좁히는 조건(지역·분야). */}

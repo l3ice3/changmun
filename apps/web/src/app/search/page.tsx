@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ErrorState } from "@/components/ErrorState";
 import { FilterBar } from "@/components/FilterBar";
@@ -58,13 +57,13 @@ export default async function SearchPage({
         <SearchBar initial={query} />
       </div>
 
+      {/* /search는 searchParams를 읽는 동적 라우트 — useSearchParams용 Suspense 불필요.
+          (dev HMR에서 Suspense 경계가 hidden으로 고착되는 문제의 원인이기도 했다.) */}
       <div className="mt-6">
-        <Suspense fallback={null}>
-          <PersonaTabs />
-          <div className="mt-4">
-            <FilterBar />
-          </div>
-        </Suspense>
+        <PersonaTabs />
+        <div className="mt-4">
+          <FilterBar />
+        </div>
       </div>
 
       <div className="mt-6">
