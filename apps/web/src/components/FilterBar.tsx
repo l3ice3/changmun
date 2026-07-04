@@ -40,22 +40,25 @@ export function FilterBar() {
         onSelect={(value) => update("category", value)}
       />
 
-      <button
-        type="button"
-        onClick={() => update("status", showClosed ? "" : "all")}
-        aria-pressed={showClosed}
-        className={`press h-9 rounded-full px-3.5 text-[14px] ${
-          showClosed
-            ? "bg-surface-blue font-medium text-accent"
-            : "bg-surface text-secondary"
-        }`}
-      >
-        마감 포함
-      </button>
-
-      <div className="ml-auto flex items-center gap-1 text-[14px]">
-        <SortChip current={sort} value="deadline" label="마감임박순" onPick={update} />
-        <SortChip current={sort} value="latest" label="최신순" onPick={update} />
+      {/* 우측 = 보기 방식(마감 포함 토글 + 정렬). 좌측 = 결과를 좁히는 조건(지역·분야). */}
+      <div className="ml-auto flex items-center gap-2 text-[14px]">
+        <button
+          type="button"
+          onClick={() => update("status", showClosed ? "" : "all")}
+          aria-pressed={showClosed}
+          className={`press h-9 rounded-full px-3.5 text-[14px] ${
+            showClosed
+              ? "bg-surface-blue font-medium text-accent"
+              : "bg-surface text-secondary"
+          }`}
+        >
+          마감 포함
+        </button>
+        <span aria-hidden="true" className="h-4 w-px bg-line" />
+        <div className="flex items-center gap-1">
+          <SortChip current={sort} value="deadline" label="마감임박순" onPick={update} />
+          <SortChip current={sort} value="latest" label="최신순" onPick={update} />
+        </div>
       </div>
     </div>
   );
