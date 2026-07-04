@@ -38,7 +38,7 @@ export default async function Home() {
   const [stats, personaItems, sourceItems, categoryItems, regionItems] = await Promise.all([
     fetchStats(),
     fetchSection({ persona: DEFAULT_BROWSE_PERSONA }),
-    fetchSection({ source: DEFAULT_SOURCE, sort: "latest" }),
+    fetchSection({ source: DEFAULT_SOURCE }),
     fetchSection({ category: DEFAULT_CATEGORY }),
     fetchSection({ region: DEFAULT_REGION }),
   ]);
@@ -48,8 +48,9 @@ export default async function Home() {
     <div>
       <Hero stats={typedStats} />
       <div className="mx-auto max-w-[1400px] px-3.5 py-7">
+        {/* 수식어는 분류 성격에 맞게 통일(시간 수식어 X) — 대상·출처·분야·지역 (QA #19). */}
         <BrowseSection
-          prefix="마감이 가까운"
+          prefix="내 단계에 맞는"
           ariaLabel="지원 대상"
           options={PERSONA_OPTIONS}
           defaultValue={DEFAULT_BROWSE_PERSONA}
@@ -57,16 +58,15 @@ export default async function Home() {
           initialItems={personaItems}
         />
         <BrowseSection
-          prefix="새로 올라온"
+          prefix="한곳에 모아 본"
           ariaLabel="출처"
           options={SOURCE_OPTIONS}
           defaultValue={DEFAULT_SOURCE}
           queryKey="source"
-          extraQuery={{ sort: "latest" }}
           initialItems={sourceItems}
         />
         <BrowseSection
-          prefix="분야별로 보는"
+          prefix="분야별로 골라 보는"
           ariaLabel="분야"
           options={CATEGORY_OPTIONS}
           defaultValue={DEFAULT_CATEGORY}

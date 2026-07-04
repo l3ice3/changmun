@@ -1,8 +1,14 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CATEGORIES, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
+import { CATEGORIES, PERSONA_TABS, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
 import { Dropdown } from "./Dropdown";
+
+// 지원 대상 옵션 — "전체"는 allLabel이 담당하므로 키 있는 항목만.
+const PERSONA_OPTIONS = PERSONA_TABS.filter((tab) => tab.key).map((tab) => ({
+  value: tab.key,
+  label: tab.label,
+}));
 
 export function FilterBar() {
   const router = useRouter();
@@ -17,6 +23,7 @@ export function FilterBar() {
     router.push(`${pathname}?${next.toString()}`);
   }
 
+  const persona = params.get("persona") ?? "";
   const source = params.get("source") ?? "";
   const region = params.get("region") ?? "";
   const category = params.get("category") ?? "";
@@ -25,13 +32,13 @@ export function FilterBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* 우선순위 순서: 출처(지원 단체) → 분야 → 지역. 지원 대상은 상단 페르소나 탭. */}
+      {/* 필터 순서: 지역 → 분야 → 지원 대상 → 출처 (QA #19 — 페르소나 탭을 필터 행으로 편입). */}
       <Dropdown
-        label="출처"
-        allLabel="전체 출처"
-        value={source}
-        options={SOURCE_OPTIONS}
-        onSelect={(value) => update("source", value)}
+        label="지역"
+        allLabel="전체 지역"
+        value={region}
+        options={REGIONS}
+        onSelect={(value) => update("region", value)}
       />
 
       <Dropdown
@@ -43,11 +50,19 @@ export function FilterBar() {
       />
 
       <Dropdown
-        label="지역"
-        allLabel="전체 지역"
-        value={region}
-        options={REGIONS}
-        onSelect={(value) => update("region", value)}
+        label="지원 대상"
+        allLabel="전체 대상"
+        value={persona}
+        options={PERSONA_OPTIONS}
+        onSelect={(value) => update("persona", value)}
+      />
+
+      <Dropdown
+        label="출처"
+        allLabel="전체 출처"
+        value={source}
+        options={SOURCE_OPTIONS}
+        onSelect={(value) => update("source", value)}
       />
 
       {/* 우측 = 보기 방식(마감 포함 토글 + 정렬). 좌측 = 결과를 좁히는 조건(지역·분야). */}

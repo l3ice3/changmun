@@ -3,7 +3,6 @@ import { ErrorState } from "@/components/ErrorState";
 import { FilterBar } from "@/components/FilterBar";
 import { ListViewTracker } from "@/components/ListViewTracker";
 import { OpportunityGrid } from "@/components/OpportunityGrid";
-import { PersonaTabs } from "@/components/PersonaTabs";
 import { SearchBar } from "@/components/SearchBar";
 import { fetchOpportunities, type OpportunityList } from "@/lib/api";
 import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
@@ -14,7 +13,7 @@ export const metadata: Metadata = { title: "공고 탐색" };
 // 빈 상태 문구는 검색(q)과 탐색(필터)을 구분한다 — AC-012는 탐색 쪽 문구 기준.
 const BROWSE_EMPTY = {
   title: "조건에 맞는 공고가 없어요",
-  message: "필터를 줄이거나 전체 탭에서 둘러보세요.",
+  message: "필터를 줄여서 다시 둘러보세요.",
   ctaHref: "/search",
   ctaLabel: "전체 공고 보기",
 };
@@ -57,13 +56,10 @@ export default async function SearchPage({
         <SearchBar initial={query} />
       </div>
 
-      {/* /search는 searchParams를 읽는 동적 라우트 — useSearchParams용 Suspense 불필요.
-          (dev HMR에서 Suspense 경계가 hidden으로 고착되는 문제의 원인이기도 했다.) */}
+      {/* 지원 대상은 탭이 아닌 필터 행의 드롭다운(QA #19). /search는 searchParams를 읽는
+          동적 라우트 — useSearchParams용 Suspense 불필요(dev HMR hidden 고착 원인이기도 했다). */}
       <div className="mt-6">
-        <PersonaTabs />
-        <div className="mt-4">
-          <FilterBar />
-        </div>
+        <FilterBar />
       </div>
 
       <div className="mt-6">

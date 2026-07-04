@@ -151,7 +151,7 @@
 > 예비창업자로서, 가입 없이 탭 한 번으로 내가 자격이 되는 공고만 보고 싶다.
 
 **상세 동작**
-1. 탭 4개: 예비(`PRE_STARTUP`) / 대학생(`UNIV_STUDENT`) / 초기(`LT_1Y~LT_3Y`) / 전체
+1. 지원 대상 선택 4종: 예비(`PRE_STARTUP`) / 대학생(`UNIV_STUDENT`) / 초기(`LT_1Y~LT_3Y`) / 전체 — UI는 필터 드롭다운(탭 → 드롭다운, 2026-07-04 QA. 무가입·선택 한 번은 동일)
 2. 보조 필터: 지역 · 카테고리(11종+기타) · 진행상태. 정렬: 마감임박순(기본)/최신순
 3. 카드: title·organization·category·region·D-day·"사업자 불필요" 배지·출처. `WHERE is_canonical` + status는 조회 시 계산
 
