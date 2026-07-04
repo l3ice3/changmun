@@ -1,26 +1,7 @@
-import { Suspense } from "react";
-import { ErrorState } from "@/components/ErrorState";
-import { FilterBar } from "@/components/FilterBar";
+import Link from "next/link";
 import { Hero } from "@/components/Hero";
-import { ListViewTracker } from "@/components/ListViewTracker";
-import { OpportunityGrid } from "@/components/OpportunityGrid";
-import { PersonaTabs } from "@/components/PersonaTabs";
 import { SourceBrowse } from "@/components/SourceBrowse";
-import {
-  fetchOpportunities,
-  fetchStats,
-  type OpportunityCard,
-  type OpportunityList,
-  type Stats,
-} from "@/lib/api";
-import { listViewPayload, paramsRecord, toApiQuery, type RawParams } from "@/lib/query";
-
-const EMPTY = {
-  title: "조건에 맞는 공고가 없어요",
-  message: "필터를 줄이거나 전체 탭에서 둘러보세요.",
-  ctaHref: "/",
-  ctaLabel: "전체 공고 보기",
-};
+import { fetchOpportunities, fetchStats, type OpportunityCard, type Stats } from "@/lib/api";
 
 const SOURCE_KEYS = ["k-startup", "bizinfo", "ontong-youth"];
 
@@ -40,18 +21,9 @@ async function fetchSourceGroups(): Promise<Record<string, OpportunityCard[]>> {
   return Object.fromEntries(entries);
 }
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<RawParams>;
-}) {
-  const sp = await searchParams;
-  let list: OpportunityList | null = null;
-  try {
-    list = await fetchOpportunities(toApiQuery(sp));
-  } catch {
-    list = null;
-  }
+// S1 탐색 홈 — 히어로 + 출처별 둘러보기. 페르소나 탭·필터·전체 리스트는 S3(/search)로 분리
+// (직행식 IA, 팀 합의 — screens.md S1·S3, PRD FR-003).
+export default async function Home() {
   const stats: Stats | null = await fetchStats();
   const sourceGroups = await fetchSourceGroups();
 
@@ -59,28 +31,16 @@ export default async function Home({
     <div>
       <Hero stats={stats} />
       <div className="mx-auto max-w-[1400px] px-3.5 py-7">
-        <Suspense fallback={null}>
-          <PersonaTabs />
-          <div className="mt-4">
-            <FilterBar />
-          </div>
-        </Suspense>
-        <div className="mt-6">
-          {list ? (
-            <>
-              <ListViewTracker payload={listViewPayload(sp, list.totalItems)} />
-              <OpportunityGrid
-                list={list}
-                basePath="/"
-                params={paramsRecord(sp)}
-                empty={EMPTY}
-              />
-            </>
-          ) : (
-            <ErrorState retryHref="/" />
-          )}
-        </div>
         <SourceBrowse groups={sourceGroups} />
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/search"
+            className="press inline-flex h-12 items-center rounded-full bg-surface-blue px-7 text-[15px] font-medium text-accent hover:bg-accent hover:text-white"
+          >
+            전체 공고 모두 보기
+          </Link>
+        </div>
       </div>
     </div>
   );
