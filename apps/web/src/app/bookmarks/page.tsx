@@ -26,7 +26,7 @@ export default function BookmarksPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[1200px] px-3.5 py-7">
+    <div className="mx-auto max-w-[1400px] px-3.5 py-7">
       <h1 className="text-[21px] font-semibold tracking-tight">찜한 공고</h1>
       {fallback ? (
         <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-[12px] text-muted">
