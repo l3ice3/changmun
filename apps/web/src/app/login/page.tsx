@@ -22,21 +22,21 @@ export default function LoginPage() {
   return (
     <div className="fixed inset-0 z-50">
       <div className="hero-sea h-full w-full overflow-y-auto">
-        <Link href="/" className="absolute left-5 top-5 z-10 flex items-center gap-2">
-          <WindowMark className="h-8 w-8" />
-          <span className="brand-logo text-[20px] text-hero">창문</span>
+        <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
+          <WindowMark className="h-10 w-10" />
+          <span className="brand-logo text-[25px] text-hero">창문</span>
         </Link>
 
-        <div className="flex min-h-full items-center justify-center px-4 py-16">
-          <section className="w-full max-w-[360px] rounded-[22px] border border-white/12 bg-white/[0.07] px-6 py-10 text-center backdrop-blur-xl sm:px-8">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white shadow-lg">
-              <WindowMark className="h-9 w-9" />
+        <div className="flex min-h-full items-center justify-center px-4 py-20">
+          <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-14 text-center backdrop-blur-xl sm:px-14 sm:py-16">
+            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white shadow-lg">
+              <WindowMark className="h-10 w-10" />
             </span>
 
-            <p className="mt-6 text-[12px] font-medium tracking-wide text-hero-label">
+            <p className="mt-8 text-[13px] font-medium tracking-wide text-hero-label">
               K-Startup·기업마당·온통청년의 모든 공고
             </p>
-            <h1 className="mt-2 text-[24px] font-semibold leading-snug tracking-tight text-hero-text">
+            <h1 className="mt-2.5 text-[27px] font-semibold leading-snug tracking-tight text-hero-text sm:text-[32px]">
               흩어진 창업 지원금,
               <br />
               한번에 한곳에서
@@ -44,18 +44,18 @@ export default function LoginPage() {
 
             <a
               href={loginUrl("google")}
-              className="press mt-9 flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-white text-[14px] font-semibold text-[#191f28] hover:bg-white/90"
+              className="press mx-auto mt-12 flex h-[52px] w-full max-w-[400px] items-center justify-center gap-2.5 rounded-xl bg-white text-[15px] font-semibold text-[#191f28] hover:bg-white/90"
             >
               <ProviderIcon id="google" plain />
               Google로 계속하기
             </a>
 
-            <div className="mt-5 flex items-center justify-center divide-x divide-white/15">
+            <div className="mt-7 flex items-center justify-center divide-x divide-white/15">
               {secondary.map((provider) => (
                 <a
                   key={provider.id}
                   href={loginUrl(provider.id)}
-                  className="press flex items-center gap-2 whitespace-nowrap px-3.5 text-[13px] font-medium text-hero-sub hover:text-hero-text"
+                  className="press flex items-center gap-2.5 whitespace-nowrap px-5 text-[14px] font-medium text-hero-sub hover:text-hero-text"
                 >
                   <ProviderIcon id={provider.id} size="md" />
                   {provider.label}
@@ -63,7 +63,7 @@ export default function LoginPage() {
               ))}
             </div>
 
-            <p className="mt-9 text-[11px] leading-relaxed text-hero-label">
+            <p className="mt-12 text-[12px] leading-relaxed text-hero-label">
               로그인 시 이메일·계정 식별 정보만 저장하며,
               <br />
               자세한 내용은 개인정보처리방침을 따릅니다.
