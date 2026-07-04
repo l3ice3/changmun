@@ -1,5 +1,6 @@
 package com.changmun.user.service;
 
+import com.changmun.user.domain.AppUser;
 import java.util.List;
 import java.util.Map;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -39,10 +40,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     SocialUser social =
         resolveEmailIfMissing(provider, SocialUser.from(provider, raw.getAttributes()), request);
     requireEmail(social);
-    appUserService.upsert(social.provider(), social.uid(), social.email());
+    AppUser user = appUserService.upsert(social.provider(), social.uid(), social.email());
     Map<String, Object> attributes =
         Map.of(
-            "provider", social.provider(), NAME_ATTRIBUTE, social.uid(), "email", social.email());
+            "provider",
+            social.provider(),
+            NAME_ATTRIBUTE,
+            social.uid(),
+            "email",
+            social.email(),
+            "user_id",
+            user.getId());
     return new DefaultOAuth2User(
         List.of(new SimpleGrantedAuthority("ROLE_USER")), attributes, NAME_ATTRIBUTE);
   }

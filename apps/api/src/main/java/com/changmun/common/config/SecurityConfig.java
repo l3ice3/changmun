@@ -2,13 +2,20 @@ package com.changmun.common.config;
 
 import com.changmun.user.service.CustomOAuth2UserService;
 import com.changmun.user.service.OAuth2LoginSuccessHandler;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
+import org.springframework.security.config.annotation.web.configurers.oauth2.client.OAuth2LoginConfigurer;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -16,38 +23,64 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * 시큐리티 — 서빙 API는 공개(permitAll) 유지, OAuth2 로그인만 추가한다(로그인은 선택 기능이며 아직 게이트하는 엔드포인트 없음).
+ * 시큐리티 — 서빙 API는 공개(permitAll), 서버측 찜(/api/v1/bookmarks/**)만 인증 필요. OAuth2 로그인은 선택 기능.
  *
- * <p>세션 기반(HttpOnly 쿠키). CSRF는 비활성 — 쿠키 SameSite로 방어하고, 유일한 쓰기(POST /events)는 비인증 공개다. 인증 쓰기(서버 찜)가
- * 붙는 후속 PR에서 CSRF·인가를 재검토한다.
+ * <p>세션 기반(HttpOnly + SameSite=Lax 쿠키). CSRF는 비활성 — SameSite=Lax로 크로스사이트 요청에 쿠키가 안 실려 인증 쓰기(찜)의
+ * CSRF 기본 방어가 된다. 미인증 API 요청은 리다이렉트가 아니라 401.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+  private static final String LOGOUT_URL = "/api/v1/auth/logout";
+
+  private final CustomOAuth2UserService oauth2UserService;
+  private final OAuth2LoginSuccessHandler successHandler;
+
+  public SecurityConfig(
+      CustomOAuth2UserService oauth2UserService, OAuth2LoginSuccessHandler successHandler) {
+    this.oauth2UserService = oauth2UserService;
+    this.successHandler = successHandler;
+  }
+
   @Bean
   public SecurityFilterChain securityFilterChain(
-      HttpSecurity http,
-      CustomOAuth2UserService oauth2UserService,
-      OAuth2LoginSuccessHandler successHandler,
-      CorsConfigurationSource corsConfigurationSource)
-      throws Exception {
+      HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
     http.csrf(csrf -> csrf.disable())
         .cors(cors -> cors.configurationSource(corsConfigurationSource))
-        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-        .oauth2Login(
-            oauth ->
-                oauth
-                    .userInfoEndpoint(info -> info.userService(oauth2UserService))
-                    .successHandler(successHandler))
-        .logout(
-            logout ->
-                logout
-                    .logoutUrl("/api/v1/auth/logout")
-                    .logoutSuccessHandler(
-                        (request, response, authentication) ->
-                            response.setStatus(HttpServletResponse.SC_OK)));
+        .authorizeHttpRequests(this::authorize)
+        .exceptionHandling(
+            handling -> handling.authenticationEntryPoint(SecurityConfig::unauthorized))
+        .oauth2Login(this::configureLogin)
+        .logout(this::configureLogout);
     return http.build();
+  }
+
+  private void authorize(
+      AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry
+          registry) {
+    registry.requestMatchers("/api/v1/bookmarks/**").authenticated().anyRequest().permitAll();
+  }
+
+  private void configureLogin(OAuth2LoginConfigurer<HttpSecurity> oauth) {
+    oauth
+        .userInfoEndpoint(info -> info.userService(oauth2UserService))
+        .successHandler(successHandler);
+  }
+
+  private void configureLogout(LogoutConfigurer<HttpSecurity> logout) {
+    logout.logoutUrl(LOGOUT_URL).logoutSuccessHandler(SecurityConfig::logoutOk);
+  }
+
+  private static void unauthorized(
+      HttpServletRequest request, HttpServletResponse response, AuthenticationException ex)
+      throws IOException {
+    response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+  }
+
+  private static void logoutOk(
+      HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+    response.setStatus(HttpServletResponse.SC_OK);
   }
 
   @Bean
@@ -55,7 +88,7 @@ public class SecurityConfig {
       @Value("${changmun.web.allowed-origins}") String allowedOrigins) {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
-    config.setAllowedMethods(List.of("GET", "POST"));
+    config.setAllowedMethods(List.of("GET", "POST", "DELETE"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

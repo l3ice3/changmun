@@ -43,7 +43,7 @@ class DetailAndGlossaryApiTest {
   @BeforeEach
   void setUp() {
     jdbc = new JdbcTemplate(dataSource);
-    jdbc.update("TRUNCATE opportunity");
+    jdbc.update("TRUNCATE opportunity CASCADE");
     today = LocalDate.now(ZoneId.of("Asia/Seoul"));
   }
 
