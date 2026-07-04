@@ -21,12 +21,13 @@ const secondary = PROVIDERS.filter((p) => p.id !== "google")
 export default function LoginPage() {
   return (
     <div className="fixed inset-0 z-50">
+      {/* 로고 링크는 hero-sea 밖(형제)에 — .hero-sea > *가 position/z-index를 덮어써
+          카드 래퍼가 클릭을 가로채는 버그 방지(홈 복귀가 안 되던 원인). */}
+      <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
+        <WindowMark className="h-10 w-10" />
+        <span className="brand-logo text-[25px] text-hero">창문</span>
+      </Link>
       <div className="hero-sea h-full w-full overflow-y-auto">
-        <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
-          <WindowMark className="h-10 w-10" />
-          <span className="brand-logo text-[25px] text-hero">창문</span>
-        </Link>
-
         <div className="flex min-h-full items-center justify-center px-4 py-20">
           <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-14 text-center backdrop-blur-xl sm:px-14 sm:py-16">
             <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white shadow-lg">
@@ -34,12 +35,11 @@ export default function LoginPage() {
             </span>
 
             <p className="mt-8 text-[13px] font-medium tracking-wide text-hero-label">
-              K-Startup·기업마당·온통청년의 모든 공고
+              K-Startup·기업마당·온통청년을 한곳에
             </p>
             <h1 className="mt-2.5 text-[27px] font-semibold leading-snug tracking-tight text-hero-text sm:text-[32px]">
-              흩어진 창업 지원금,
-              <br />
-              한번에 한곳에서
+              창업의 문을 여는 창,
+              <br />내 단계에 맞는 지원금만
             </h1>
 
             <a
