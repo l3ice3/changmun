@@ -28,7 +28,7 @@ function FooterLink({ link }: { link: SiteLink }) {
 export function Footer() {
   return (
     <footer className="mt-16 border-t border-hair bg-bg-alt">
-      <div className="mx-auto max-w-[1200px] px-4 py-12">
+      <div className="mx-auto max-w-[1400px] px-4 py-12">
         <div className="flex items-center gap-2.5">
           <WindowMark className="h-7 w-7" />
           <span className="brand-logo text-[22px] text-hero">창문</span>
@@ -64,7 +64,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-hair">
-        <div className="mx-auto max-w-[1200px] px-4 py-4 text-[11px] text-dim">
+        <div className="mx-auto max-w-[1400px] px-4 py-4 text-[11px] text-dim">
           공고 정보는 공공 API에서 수집한 참고용입니다. 신청 자격·합격 여부는 각 공고 원문과 주관기관 안내를
           확인하세요.
         </div>

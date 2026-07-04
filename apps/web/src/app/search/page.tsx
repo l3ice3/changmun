@@ -43,7 +43,7 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-3.5 py-7">
+    <div className="mx-auto max-w-[1400px] px-3.5 py-7">
       <h1 className="text-[21px] font-semibold tracking-tight">검색</h1>
       <div className="mt-4 max-w-xl">
         <SearchBar initial={query} />

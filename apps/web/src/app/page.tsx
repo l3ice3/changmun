@@ -58,7 +58,7 @@ export default async function Home({
   return (
     <div>
       <Hero stats={stats} />
-      <div className="mx-auto max-w-[1200px] px-3.5 py-7">
+      <div className="mx-auto max-w-[1400px] px-3.5 py-7">
         <Suspense fallback={null}>
           <PersonaTabs />
           <div className="mt-4">

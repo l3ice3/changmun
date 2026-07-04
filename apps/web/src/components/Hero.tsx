@@ -4,10 +4,10 @@ import { HeroSearch } from "./HeroSearch";
 
 const POPULAR = ["예비창업패키지", "청년창업사관학교", "R&D", "바우처", "글로벌"];
 
-// 단 하나의 딥 네이비 히어로 블록 — frosted grain, 중앙 정렬. 콘텐츠와 동일 폭(max-w-[1200px]) 셸.
+// 단 하나의 딥 네이비 히어로 블록 — frosted grain, 중앙 정렬. 콘텐츠와 동일 폭(max-w-[1400px]) 셸.
 export function Hero({ stats }: { stats: Stats | null }) {
   return (
-    <section className="mx-auto max-w-[1200px] px-3.5 pt-4">
+    <section className="mx-auto max-w-[1400px] px-3.5 pt-4">
       <div className="hero-sea rounded-[18px] px-6 py-12 text-center sm:px-10 sm:py-16">
         <p className="text-[12px] font-medium tracking-wide text-hero-label">창업의 문을 여는 창</p>
         <h1 className="mt-2 text-[22px] font-semibold leading-tight tracking-tight text-hero-text sm:text-[32px]">

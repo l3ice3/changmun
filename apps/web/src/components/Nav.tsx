@@ -20,7 +20,7 @@ export function Nav() {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-40 border-b border-hair bg-bg/90 backdrop-blur lg:hidden">
-      <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4">
         <Link href="/" className="press flex items-center gap-2">
           <WindowMark className="h-7 w-7" />
           <span className="brand-logo text-[20px] text-hero">창문</span>

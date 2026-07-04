@@ -170,10 +170,24 @@ body {
   isolation: isolate;
   overflow: hidden;
   background-color: #18234d;
+  /* 빛 레이어: 사선 광 반사 2줄 + 하단 블루 글로우. 어둡게 깔던 radial은 제거(칙칙함 원인). */
   background-image:
-    radial-gradient(115% 85% at 22% -12%, rgba(140, 184, 242, 0.42), transparent 52%),
-    radial-gradient(85% 70% at 86% 4%, rgba(86, 202, 214, 0.2), transparent 58%),
-    radial-gradient(100% 120% at 50% 125%, rgba(7, 12, 34, 0.55), transparent 60%),
+    linear-gradient(
+      112deg,
+      transparent 38%,
+      rgba(255, 255, 255, 0.07) 46%,
+      rgba(255, 255, 255, 0.02) 50%,
+      transparent 60%
+    ),
+    linear-gradient(112deg, transparent 62%, rgba(160, 200, 255, 0.07) 68%, transparent 76%),
+    radial-gradient(
+      70% 95% at 50% 118%,
+      rgba(56, 140, 255, 0.5),
+      rgba(56, 140, 255, 0.15) 45%,
+      transparent 68%
+    ),
+    radial-gradient(115% 85% at 22% -12%, rgba(140, 184, 242, 0.45), transparent 52%),
+    radial-gradient(85% 70% at 86% 4%, rgba(86, 202, 214, 0.28), transparent 58%),
     linear-gradient(165deg, #243663 0%, #1a2348 48%, #121839 100%);
 }
 .hero-sea::before {
