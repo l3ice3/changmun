@@ -30,7 +30,7 @@ export function AuthMenu() {
     return (
       <Link
         href="/login"
-        className="press rounded-full bg-mark-deep px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-accent"
+        className="press rounded-full bg-mark-deep px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent"
       >
         로그인
       </Link>
@@ -51,7 +51,7 @@ export function AuthMenu() {
       <button
         type="button"
         onClick={onLogout}
-        className="press rounded-full bg-surface px-3 py-1.5 text-[13px] text-muted hover:text-secondary"
+        className="press rounded-full bg-surface px-4 py-2.5 text-[14px] text-muted hover:text-secondary"
       >
         로그아웃
       </button>

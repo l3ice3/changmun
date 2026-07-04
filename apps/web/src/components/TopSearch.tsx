@@ -13,9 +13,9 @@ export function TopSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="공고 검색"
-        className="press flex h-9 w-[260px] items-center gap-2.5 rounded-full bg-surface pl-3 pr-3.5 text-left text-[13px] text-muted hover:bg-surface-blue/60"
+        className="press flex h-11 w-[320px] items-center gap-2.5 rounded-full bg-surface pl-4 pr-4 text-left text-[14px] text-muted hover:bg-surface-blue/60"
       >
-        <SearchIcon className="h-[18px] w-[18px]" />
+        <SearchIcon className="h-5 w-5" />
         공고 검색
       </button>
 

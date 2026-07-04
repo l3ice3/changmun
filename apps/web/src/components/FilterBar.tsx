@@ -44,7 +44,7 @@ export function FilterBar() {
         type="button"
         onClick={() => update("status", showClosed ? "" : "all")}
         aria-pressed={showClosed}
-        className={`press h-8 rounded-full px-3 text-[13px] ${
+        className={`press h-9 rounded-full px-3.5 text-[14px] ${
           showClosed
             ? "bg-surface-blue font-medium text-accent"
             : "bg-surface text-secondary"
@@ -53,7 +53,7 @@ export function FilterBar() {
         마감 포함
       </button>
 
-      <div className="ml-auto flex items-center gap-1 text-[13px]">
+      <div className="ml-auto flex items-center gap-1 text-[14px]">
         <SortChip current={sort} value="deadline" label="마감임박순" onPick={update} />
         <SortChip current={sort} value="latest" label="최신순" onPick={update} />
       </div>
@@ -77,7 +77,7 @@ function SortChip({
     <button
       type="button"
       onClick={() => onPick("sort", value)}
-      className={`press rounded-full px-2.5 py-1 ${
+      className={`press rounded-full px-3 py-1.5 ${
         active ? "bg-surface-blue font-medium text-accent" : "text-muted hover:text-secondary"
       }`}
     >

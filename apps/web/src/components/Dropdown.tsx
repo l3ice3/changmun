@@ -68,7 +68,7 @@ export function Dropdown({ label, allLabel, value, options, onSelect }: Dropdown
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={`press flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[13px] ${
+        className={`press flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[14px] ${
           active
             ? "border-edge bg-surface-blue font-medium text-accent"
             : "border-line bg-surface text-secondary hover:border-strong"
@@ -109,7 +109,7 @@ function Option({
       role="option"
       aria-selected={selected}
       onClick={onPick}
-      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] ${
+      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] ${
         selected ? "bg-surface-blue font-medium text-accent" : "text-secondary hover:bg-surface"
       }`}
     >

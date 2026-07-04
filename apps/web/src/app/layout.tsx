@@ -35,6 +35,11 @@ export default function RootLayout({
               "try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}",
           }}
         />
+        {/* 서비스 전용 본문 폰트 — SUIT Variable(기하학적·단정, Pretendard 대비 창문만의 인상). */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css"
+        />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
