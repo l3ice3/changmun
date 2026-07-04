@@ -19,20 +19,25 @@ import org.springframework.stereotype.Service;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
   private static final String NAME_ATTRIBUTE = "provider_uid";
+  private static final String GITHUB = "github";
 
   private final AppUserService appUserService;
+  private final GithubEmailResolver githubEmailResolver;
 
-  public CustomOAuth2UserService(AppUserService appUserService) {
+  public CustomOAuth2UserService(
+      AppUserService appUserService, GithubEmailResolver githubEmailResolver) {
     this.appUserService = appUserService;
+    this.githubEmailResolver = githubEmailResolver;
   }
 
   @Override
   @SuppressWarnings(
-      "PMD.LawOfDemeter") // getClientRegistration().getRegistrationId()는 Spring OAuth2 API 형태.
+      "PMD.LawOfDemeter") // getClientRegistration()·getAccessToken() 체인은 Spring OAuth2 API 형태.
   public OAuth2User loadUser(OAuth2UserRequest request) {
     OAuth2User raw = super.loadUser(request);
     String provider = request.getClientRegistration().getRegistrationId();
-    SocialUser social = SocialUser.from(provider, raw.getAttributes());
+    SocialUser social =
+        resolveEmailIfMissing(provider, SocialUser.from(provider, raw.getAttributes()), request);
     requireEmail(social);
     appUserService.upsert(social.provider(), social.uid(), social.email());
     Map<String, Object> attributes =
@@ -40,6 +45,20 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             "provider", social.provider(), NAME_ATTRIBUTE, social.uid(), "email", social.email());
     return new DefaultOAuth2User(
         List.of(new SimpleGrantedAuthority("ROLE_USER")), attributes, NAME_ATTRIBUTE);
+  }
+
+  /** GitHub는 공개 이메일을 숨기면 email이 null이라 /user/emails에서 primary·verified로 보완 조회한다. */
+  @SuppressWarnings("PMD.LawOfDemeter")
+  private SocialUser resolveEmailIfMissing(
+      String provider, SocialUser social, OAuth2UserRequest request) {
+    if (!GITHUB.equals(provider)) {
+      return social;
+    }
+    if (social.email() != null && !social.email().isBlank()) {
+      return social;
+    }
+    String token = request.getAccessToken().getTokenValue();
+    return social.withEmail(githubEmailResolver.resolvePrimaryEmail(token));
   }
 
   private static void requireEmail(SocialUser social) {

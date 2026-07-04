@@ -28,6 +28,11 @@ public record SocialUser(String provider, String uid, String email) {
     throw new IllegalStateException("지원하지 않는 OAuth provider: " + provider);
   }
 
+  /** 보완 조회한 이메일로 교체한 사본. */
+  public SocialUser withEmail(String resolvedEmail) {
+    return new SocialUser(provider, uid, resolvedEmail);
+  }
+
   private static String string(Object value) {
     if (value == null) {
       return null;

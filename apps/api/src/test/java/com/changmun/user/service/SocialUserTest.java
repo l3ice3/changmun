@@ -41,6 +41,36 @@ class SocialUserTest {
   }
 
   @Test
+  @DisplayName("github — id·email 평문 추출")
+  void github() {
+    SocialUser user = SocialUser.from("github", Map.of("id", 999, "email", "gh@example.com"));
+
+    assertThat(user.uid()).isEqualTo("999");
+    assertThat(user.email()).isEqualTo("gh@example.com");
+  }
+
+  @Test
+  @DisplayName("github — 공개 이메일 숨김이면 email이 null이다(이후 보완 조회 대상)")
+  void githubHiddenEmail() {
+    SocialUser user = SocialUser.from("github", Map.of("id", 999));
+
+    assertThat(user.uid()).isEqualTo("999");
+    assertThat(user.email()).isNull();
+  }
+
+  @Test
+  @DisplayName("withEmail은 uid·provider는 두고 이메일만 교체한 사본을 만든다")
+  void withEmail() {
+    SocialUser resolved =
+        SocialUser.from("github", Map.of("id", "1", "email", "old@example.com"))
+            .withEmail("new@example.com");
+
+    assertThat(resolved.uid()).isEqualTo("1");
+    assertThat(resolved.provider()).isEqualTo("github");
+    assertThat(resolved.email()).isEqualTo("new@example.com");
+  }
+
+  @Test
   @DisplayName("지원하지 않는 provider는 예외다")
   void unsupported() {
     assertThatThrownBy(() -> SocialUser.from("facebook", Map.of()))

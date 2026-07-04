@@ -45,13 +45,8 @@ public class AppUser {
     this.email = email;
   }
 
-  /** 로그인 시 신규 사용자 생성 — provider 식별 + 이메일. */
+  /** 로그인 시 신규 사용자 생성 — provider 식별 + 이메일. (갱신은 리포지토리 upsert가 담당) */
   public static AppUser of(String provider, String providerUid, String email) {
     return new AppUser(provider, providerUid, email);
-  }
-
-  /** 재로그인 시 provider가 준 이메일이 바뀌었으면 갱신. */
-  public void updateEmail(String email) {
-    this.email = email;
   }
 }
