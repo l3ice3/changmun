@@ -28,7 +28,7 @@ export function PersonaTabs() {
             role="tab"
             aria-selected={active}
             onClick={() => select(tab.key)}
-            className={`press -mb-px whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[14px] ${
+            className={`press -mb-px whitespace-nowrap border-b-2 px-4 py-3 text-[15px] ${
               active
                 ? "border-accent font-medium text-accent"
                 : "border-transparent text-secondary hover:text-ink"

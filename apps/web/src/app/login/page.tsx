@@ -30,11 +30,14 @@ export default function LoginPage() {
           카드 래퍼가 클릭을 가로채는 버그 방지(홈 복귀가 안 되던 원인). */}
       <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
         <WindowMark className="h-10 w-10" />
-        <span className="brand-logo text-[25px] text-hero">창문</span>
+        {/* 밝은 물결 배경에서 블루베리 글자가 묻혀 흰색 + 은은한 섀도로 (QA #17). */}
+        <span className="brand-logo text-[25px] text-hero-text [text-shadow:0_1px_12px_rgba(10,20,50,0.55)]">
+          창문
+        </span>
       </Link>
       {/* pt-24 = 상단 로고 영역(≈68px) 예약 — 저높이 모바일에서 카드와 로고 겹침 방지 (Codex #46). */}
       <div className="hero-sea flex min-h-full w-full items-center justify-center px-4 pb-14 pt-24">
-          <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-10 text-center backdrop-blur-xl sm:px-14 sm:py-16">
+          <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-12 text-center backdrop-blur-xl sm:px-14 sm:py-24">
             <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white shadow-lg">
               <WindowMark className="h-10 w-10" />
             </span>
@@ -55,12 +58,12 @@ export default function LoginPage() {
               Google로 계속하기
             </a>
 
-            <div className="mt-7 flex items-center justify-center divide-x divide-white/15">
+            <div className="mt-9 flex items-center justify-center divide-x divide-white/15">
               {secondary.map((provider) => (
                 <a
                   key={provider.id}
                   href={loginUrl(provider.id)}
-                  className="press flex items-center gap-2.5 whitespace-nowrap px-5 text-[14px] font-medium text-hero-sub hover:text-hero-text"
+                  className="press flex items-center gap-2.5 whitespace-nowrap px-6 text-[14px] font-medium text-hero-sub hover:text-hero-text"
                 >
                   <ProviderIcon id={provider.id} size="md" />
                   {provider.label}
@@ -68,7 +71,7 @@ export default function LoginPage() {
               ))}
             </div>
 
-            <p className="mt-12 text-[12px] leading-relaxed text-hero-label">
+            <p className="mt-14 text-[12px] leading-relaxed text-hero-label">
               로그인 시 이메일·계정 식별 정보만 저장하며,
               <br />
               자세한 내용은 개인정보처리방침을 따릅니다.
