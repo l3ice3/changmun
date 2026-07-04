@@ -1,32 +1,31 @@
 import Link from "next/link";
+import { BrowseSection, type BrowseOption } from "@/components/BrowseSection";
 import { Hero } from "@/components/Hero";
-import { HomeBrowse } from "@/components/HomeBrowse";
-import { SourceBrowse } from "@/components/SourceBrowse";
 import { fetchOpportunities, fetchStats, type OpportunityCard, type Stats } from "@/lib/api";
-import { DEFAULT_BROWSE_PERSONA } from "@/lib/labels";
+import {
+  CATEGORIES,
+  DEFAULT_BROWSE_PERSONA,
+  PERSONA_TABS,
+  REGIONS,
+  SOURCE_OPTIONS,
+} from "@/lib/labels";
 
-const SOURCE_KEYS = ["k-startup", "bizinfo", "ontong-youth"];
+// 분류별 섹션 옵션 — 각 섹션은 칩 1개(직행식). 모든 조합 필터는 S3(공고 탐색)에서.
+const PERSONA_OPTIONS: BrowseOption[] = PERSONA_TABS.filter((tab) => tab.key).map((tab) => ({
+  value: tab.key,
+  label: tab.label,
+}));
+const CATEGORY_OPTIONS: BrowseOption[] = CATEGORIES.map((name) => ({ value: name, label: name }));
+const REGION_OPTIONS: BrowseOption[] = REGIONS.map((name) => ({ value: name, label: name }));
 
-// 출처별 둘러보기 섹션용 — 출처별 최신 6건을 서버에서 미리 fetch(ISR 캐시). 실패한 출처는 빈 배열.
-async function fetchSourceGroups(): Promise<Record<string, OpportunityCard[]>> {
-  const entries = await Promise.all(
-    SOURCE_KEYS.map(async (source) => {
-      try {
-        const query = new URLSearchParams({ source, size: "6", sort: "latest" });
-        const result = await fetchOpportunities(query);
-        return [source, result.items] as const;
-      } catch {
-        return [source, [] as OpportunityCard[]] as const;
-      }
-    }),
-  );
-  return Object.fromEntries(entries);
-}
+const DEFAULT_SOURCE = "k-startup";
+const DEFAULT_CATEGORY = CATEGORIES[0]; // 사업화
+const DEFAULT_REGION = REGIONS[0]; // 전국
 
-// 맞춤 둘러보기 기본 조합(예비창업자, 마감임박순 6건) — 서버 프리페치. 칩 변경은 클라 fetch.
-async function fetchBrowseDefault(): Promise<OpportunityCard[]> {
+// 섹션 기본 조합을 서버에서 미리 fetch(ISR 캐시). 실패는 빈 배열 — 섹션이 홈을 깨지 않는다.
+async function fetchSection(params: Record<string, string>): Promise<OpportunityCard[]> {
   try {
-    const query = new URLSearchParams({ size: "6", persona: DEFAULT_BROWSE_PERSONA });
+    const query = new URLSearchParams({ size: "6", ...params });
     const result = await fetchOpportunities(query);
     return result.items;
   } catch {
@@ -34,23 +33,56 @@ async function fetchBrowseDefault(): Promise<OpportunityCard[]> {
   }
 }
 
-// S1 탐색 홈 — 히어로 + 출처별 둘러보기. 페르소나 탭·필터·전체 리스트는 S3(/search)로 분리
-// (직행식 IA, 팀 합의 — screens.md S1·S3, PRD FR-003).
+// S1 탐색 홈 — 히어로 + 분류별 문장형 섹션 4개(지원 대상 → 출처 → 분야 → 지역, 우선순위 순).
 export default async function Home() {
-  const [stats, browseDefault, sourceGroups] = await Promise.all([
+  const [stats, personaItems, sourceItems, categoryItems, regionItems] = await Promise.all([
     fetchStats(),
-    fetchBrowseDefault(),
-    fetchSourceGroups(),
+    fetchSection({ persona: DEFAULT_BROWSE_PERSONA }),
+    fetchSection({ source: DEFAULT_SOURCE, sort: "latest" }),
+    fetchSection({ category: DEFAULT_CATEGORY }),
+    fetchSection({ region: DEFAULT_REGION }),
   ]);
+  const typedStats: Stats | null = stats;
 
   return (
     <div>
-      <Hero stats={stats} />
+      <Hero stats={typedStats} />
       <div className="mx-auto max-w-[1400px] px-3.5 py-7">
-        <HomeBrowse initialItems={browseDefault} />
-        <SourceBrowse groups={sourceGroups} />
+        <BrowseSection
+          prefix="마감이 가까운"
+          ariaLabel="지원 대상"
+          options={PERSONA_OPTIONS}
+          defaultValue={DEFAULT_BROWSE_PERSONA}
+          queryKey="persona"
+          initialItems={personaItems}
+        />
+        <BrowseSection
+          prefix="새로 올라온"
+          ariaLabel="출처"
+          options={SOURCE_OPTIONS}
+          defaultValue={DEFAULT_SOURCE}
+          queryKey="source"
+          extraQuery={{ sort: "latest" }}
+          initialItems={sourceItems}
+        />
+        <BrowseSection
+          prefix="분야별로 보는"
+          ariaLabel="분야"
+          options={CATEGORY_OPTIONS}
+          defaultValue={DEFAULT_CATEGORY}
+          queryKey="category"
+          initialItems={categoryItems}
+        />
+        <BrowseSection
+          prefix="우리 지역"
+          ariaLabel="지역"
+          options={REGION_OPTIONS}
+          defaultValue={DEFAULT_REGION}
+          queryKey="region"
+          initialItems={regionItems}
+        />
 
-        <div className="mt-10 text-center">
+        <div className="mt-12 text-center">
           <Link
             href="/search"
             className="press inline-flex h-12 items-center rounded-full bg-surface-blue px-7 text-[15px] font-medium text-accent hover:bg-accent hover:text-white"
