@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isBookmarked, toggleBookmark } from "@/lib/bookmarks";
+import { loadBookmarkIds, toggleBookmark } from "@/lib/bookmarks";
 import { track } from "@/lib/events";
 
 interface Props {
@@ -13,15 +13,27 @@ export function BookmarkButton({ id, className = "" }: Props) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setSaved(isBookmarked(id));
+    let active = true;
+    loadBookmarkIds().then((ids) => {
+      if (active) setSaved(ids.includes(id));
+    });
+    return () => {
+      active = false;
+    };
   }, [id]);
 
-  function onClick(event: React.MouseEvent) {
+  // 낙관적 업데이트 — 실패 시 롤백. 로그인 시 서버, 아니면 localStorage (lib/bookmarks).
+  async function onClick(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    const next = toggleBookmark(id);
+    const next = !saved;
     setSaved(next);
-    track(next ? "bookmark_add" : "bookmark_remove", { opportunityId: id });
+    try {
+      await toggleBookmark(id, saved);
+      track(next ? "bookmark_add" : "bookmark_remove", { opportunityId: id });
+    } catch {
+      setSaved(!next);
+    }
   }
 
   return (

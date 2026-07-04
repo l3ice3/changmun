@@ -4,22 +4,25 @@ import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { fetchByIds, type OpportunityCard as Card } from "@/lib/api";
-import { getBookmarks, usesSessionFallback } from "@/lib/bookmarks";
+import { getMe } from "@/lib/auth";
+import { loadBookmarkIds, usesSessionFallback } from "@/lib/bookmarks";
 
 export default function BookmarksPage() {
   const [items, setItems] = useState<Card[] | null>(null);
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
-    setFallback(usesSessionFallback());
-    const ids = getBookmarks();
-    if (ids.length === 0) {
-      setItems([]);
-      return;
-    }
-    fetchByIds(ids)
-      .then(setItems)
-      .catch(() => setItems([]));
+    loadBookmarkIds().then((ids) => {
+      if (ids.length === 0) {
+        setItems([]);
+        return;
+      }
+      fetchByIds(ids)
+        .then(setItems)
+        .catch(() => setItems([]));
+    });
+    // 로컬 저장 안내는 비로그인 + 저장소 폴백일 때만(로그인은 서버 동기화).
+    getMe().then((me) => setFallback(!me.authenticated && usesSessionFallback()));
   }, []);
 
   return (

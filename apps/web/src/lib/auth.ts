@@ -32,6 +32,20 @@ export async function fetchMe(): Promise<Me> {
   }
 }
 
+// 세션당 /me를 한 번만 조회하도록 캐시(여러 컴포넌트 공유). 로그아웃 시 resetMe로 무효화.
+let cachedMe: Promise<Me> | null = null;
+
+export function getMe(): Promise<Me> {
+  if (!cachedMe) {
+    cachedMe = fetchMe();
+  }
+  return cachedMe;
+}
+
+export function resetMe(): void {
+  cachedMe = null;
+}
+
 // 브라우저 최상위 이동으로 시작해야 한다(fetch 아님) — provider 리다이렉트 흐름.
 export function loginUrl(provider: string): string {
   return `${API_ORIGIN}/oauth2/authorization/${provider}`;
@@ -43,4 +57,5 @@ export async function logout(): Promise<void> {
   } catch {
     /* 실패 무시 — 세션은 만료로도 정리된다. */
   }
+  resetMe();
 }
