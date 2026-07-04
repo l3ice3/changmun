@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { loginUrl, PROVIDERS } from "@/lib/auth";
+import { InertBackground } from "@/components/InertBackground";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { WindowMark } from "@/components/WindowMark";
 
@@ -20,26 +21,30 @@ const secondary = PROVIDERS.filter((p) => p.id !== "google")
 // hero-sea(딥 네이비)는 항상-어두움 영역이라 카드의 white/* 고정색 허용(web.md 8).
 export default function LoginPage() {
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="hero-sea h-full w-full overflow-y-auto">
-        <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
-          <WindowMark className="h-10 w-10" />
-          <span className="brand-logo text-[25px] text-hero">창문</span>
-        </Link>
-
-        <div className="flex min-h-full items-center justify-center px-4 py-20">
-          <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-14 text-center backdrop-blur-xl sm:px-14 sm:py-16">
+    // 스크롤은 fixed 래퍼가 담당 — .hero-sea의 overflow:hidden이 같은 요소의
+    // overflow-y-auto를 덮어써 저높이 화면에서 스크롤이 막히던 문제 방지 (Codex #44).
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* 오버레이 뒤 사이드바·네비·푸터를 tab order에서 제외 (Codex #44). */}
+      <InertBackground />
+      {/* 로고 링크는 hero-sea 밖(형제)에 — .hero-sea > *가 position/z-index를 덮어써
+          카드 래퍼가 클릭을 가로채는 버그 방지(홈 복귀가 안 되던 원인). */}
+      <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
+        <WindowMark className="h-10 w-10" />
+        <span className="brand-logo text-[25px] text-hero">창문</span>
+      </Link>
+      {/* pt-24 = 상단 로고 영역(≈68px) 예약 — 저높이 모바일에서 카드와 로고 겹침 방지 (Codex #46). */}
+      <div className="hero-sea flex min-h-full w-full items-center justify-center px-4 pb-14 pt-24">
+          <section className="w-full max-w-[560px] rounded-[24px] border border-white/12 bg-white/[0.07] px-6 py-10 text-center backdrop-blur-xl sm:px-14 sm:py-16">
             <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white shadow-lg">
               <WindowMark className="h-10 w-10" />
             </span>
 
             <p className="mt-8 text-[13px] font-medium tracking-wide text-hero-label">
-              K-Startup·기업마당·온통청년의 모든 공고
+              K-Startup·기업마당·온통청년을 한곳에
             </p>
             <h1 className="mt-2.5 text-[27px] font-semibold leading-snug tracking-tight text-hero-text sm:text-[32px]">
-              흩어진 창업 지원금,
-              <br />
-              한번에 한곳에서
+              창업의 문을 여는 창,
+              <br />내 단계에 맞는 지원금만
             </h1>
 
             <a
@@ -69,7 +74,6 @@ export default function LoginPage() {
               자세한 내용은 개인정보처리방침을 따릅니다.
             </p>
           </section>
-        </div>
       </div>
     </div>
   );
