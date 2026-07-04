@@ -74,7 +74,11 @@ export default function LoginPage() {
             <p className="mt-14 text-[12px] leading-relaxed text-hero-label">
               로그인 시 이메일·계정 식별 정보만 저장하며,
               <br />
-              자세한 내용은 개인정보처리방침을 따릅니다.
+              자세한 내용은{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-hero-text">
+                개인정보처리방침
+              </Link>
+              을 따릅니다.
             </p>
           </section>
       </div>

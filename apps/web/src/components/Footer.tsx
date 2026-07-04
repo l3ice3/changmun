@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { COMPANY, FOOTER_LINKS, type SiteLink } from "@/lib/links";
 import { WindowMark } from "./WindowMark";
 
@@ -11,6 +12,14 @@ function FooterLink({ link }: { link: SiteLink }) {
       <span className="cursor-default text-muted/70" title="준비 중">
         {link.label}
       </span>
+    );
+  }
+  // 내부 페이지("/" 시작)는 같은 탭 내비게이션, 외부(노션 등)는 새 탭.
+  if (link.url.startsWith("/")) {
+    return (
+      <Link href={link.url} className="text-secondary hover:text-accent">
+        {link.label}
+      </Link>
     );
   }
   return (
