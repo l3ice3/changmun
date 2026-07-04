@@ -4,7 +4,7 @@ import { WindowMark } from "@/components/WindowMark";
 
 export const metadata: Metadata = {
   title: "로그인",
-  description: "창문 로그인 — 로그인하면 찜이 기기 간에 동기화됩니다.",
+  description: "창문 로그인 — 로그인은 선택이며, 로그인 없이도 모든 기능을 사용할 수 있어요.",
 };
 
 export default function LoginPage() {
@@ -13,7 +13,7 @@ export default function LoginPage() {
       <WindowMark className="mx-auto h-12 w-12" />
       <h1 className="brand-logo mt-4 text-[26px] text-hero">창문</h1>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">
-        로그인하면 찜한 공고가 기기 간에 동기화돼요.
+        로그인은 선택이에요.
         <br />
         로그인 없이도 모든 기능을 그대로 사용할 수 있어요.
       </p>

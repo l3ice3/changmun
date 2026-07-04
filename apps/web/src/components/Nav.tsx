@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AuthMenu } from "./AuthMenu";
 import { WindowMark } from "./WindowMark";
 
 const LINKS = [
@@ -24,21 +25,24 @@ export function Nav() {
           <WindowMark className="h-7 w-7" />
           <span className="brand-logo text-[20px] text-hero">창문</span>
         </Link>
-        <nav className="flex items-center gap-1 text-[14px]">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-lg px-3 py-1.5 ${
-                isActive(pathname, link.href)
-                  ? "font-medium text-accent"
-                  : "text-secondary hover:text-ink"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="flex items-center gap-1.5">
+          <nav className="flex items-center gap-1 text-[14px]">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`rounded-lg px-2.5 py-1.5 ${
+                  isActive(pathname, link.href)
+                    ? "font-medium text-accent"
+                    : "text-secondary hover:text-ink"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <AuthMenu />
+        </div>
       </div>
     </header>
   );

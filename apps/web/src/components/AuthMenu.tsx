@@ -43,7 +43,9 @@ export function AuthMenu() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="max-w-[160px] truncate text-[13px] text-secondary">{me.email}</span>
+      <span className="hidden max-w-[160px] truncate text-[13px] text-secondary sm:inline">
+        {me.email}
+      </span>
       <button
         type="button"
         onClick={onLogout}
