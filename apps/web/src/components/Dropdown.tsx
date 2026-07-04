@@ -2,11 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 
+interface OptionItem {
+  value: string;
+  label: string;
+}
+
 interface DropdownProps {
   label: string;
   allLabel: string;
   value: string;
-  options: string[];
+  /** 문자열이면 값=라벨, 값과 라벨이 다르면 {value,label} 쌍(예: 출처). */
+  options: readonly (string | OptionItem)[];
   onSelect: (value: string) => void;
 }
 
@@ -36,8 +42,12 @@ function CheckIcon() {
 export function Dropdown({ label, allLabel, value, options, onSelect }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const items: OptionItem[] = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option,
+  );
   const selected = value || "";
   const active = selected !== "";
+  const selectedLabel = items.find((item) => item.value === selected)?.label ?? "";
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +84,7 @@ export function Dropdown({ label, allLabel, value, options, onSelect }: Dropdown
             : "border-line bg-surface text-secondary hover:border-strong"
         }`}
       >
-        {selected || allLabel}
+        {selectedLabel || allLabel}
         <ChevronIcon open={open} />
       </button>
 
@@ -85,8 +95,13 @@ export function Dropdown({ label, allLabel, value, options, onSelect }: Dropdown
           className="animate-pop-in absolute left-0 z-30 mt-1.5 max-h-[300px] min-w-[200px] overflow-y-auto rounded-xl border border-line bg-bg p-1.5 shadow-[0_10px_34px_rgba(25,31,40,0.14)]"
         >
           <Option label={allLabel} selected={selected === ""} onPick={() => pick("")} />
-          {options.map((name) => (
-            <Option key={name} label={name} selected={selected === name} onPick={() => pick(name)} />
+          {items.map((item) => (
+            <Option
+              key={item.value}
+              label={item.label}
+              selected={selected === item.value}
+              onPick={() => pick(item.value)}
+            />
           ))}
         </div>
       ) : null}

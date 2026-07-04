@@ -15,7 +15,7 @@ src/
     opportunities/[id]/page.tsx   # S2 상세 — SSG/ISR (revalidate = 수집 주기와 동기, 일 1회)
     search/            # S3 공고 탐색·검색(페르소나 탭 + 필터 + 리스트) — ?page=N URL 유지
     bookmarks/         # S4 (클라이언트 전용)
-  components/          # OpportunityCard, PersonaTabs, Badge, GlossaryTerm, EmptyState
+  components/          # OpportunityCard, BrowseSection, FilterBar(지원 대상 포함), Badge, GlossaryTerm, EmptyState
   lib/
     api.ts             # api-spec.md 타입 그대로 (응답 타입 수동 정의, 필드명 일치)
     bookmarks.ts       # localStorage (시크릿 모드 폴백 — AC-022)
