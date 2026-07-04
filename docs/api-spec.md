@@ -191,6 +191,16 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - provider client id/secret은 환경변수(`OAUTH_{PROVIDER}_ID/SECRET`) — 코드 커밋 금지.
 - 이메일 미제공(동의 거부 등) 시 로그인 거부(`email_required`).
 
+### 서버측 찜 (로그인 필요 — data-model §8 `bookmark`)
+로그인 사용자의 찜을 서버에 보관(기기 간 동기화). **미인증 요청은 `401`.** 비로그인은 계속 localStorage 찜을 쓴다.
+
+| 메서드 · 경로 | 역할 |
+|---|---|
+| `GET /api/v1/bookmarks` | 내 찜 공고 id 목록(최근순). `{ "opportunityIds": [123, 45] }`. 카드는 프론트가 `?ids=`로 이어 조회 |
+| `POST /api/v1/bookmarks/{opportunityId}` | 찜 추가(멱등 — 이미 있으면 무시). `204` |
+| `DELETE /api/v1/bookmarks/{opportunityId}` | 찜 삭제. `204` |
+- CSRF 미사용 — 세션 쿠키 `SameSite=Lax`로 크로스사이트 방어. 인증은 세션(로그인) 기반.
+
 ---
 
 ## 6. AC 교차 참조 (판정용 요약)

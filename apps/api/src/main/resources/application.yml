@@ -75,3 +75,9 @@ changmun:
 
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        # 세션 쿠키: HttpOnly + SameSite=Lax. 크로스사이트 요청엔 쿠키가 안 실려 인증 쓰기(찜)의 CSRF 기본 방어가 된다.
+        http-only: true
+        same-site: lax
