@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchMe, logout, type Me } from "@/lib/auth";
+import { getMe, logout, type Me } from "@/lib/auth";
 import { resetBookmarkIds } from "@/lib/bookmarks";
 
 const ANONYMOUS: Me = { authenticated: false, email: null, provider: null };
@@ -13,7 +13,7 @@ export function AuthMenu() {
 
   useEffect(() => {
     let active = true;
-    fetchMe().then((result) => {
+    getMe().then((result) => {
       if (active) setMe(result);
     });
     return () => {

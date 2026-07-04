@@ -54,10 +54,15 @@ async function serverGetIds(): Promise<number[]> {
 }
 
 async function serverSet(id: number, on: boolean): Promise<void> {
-  await fetch(`${API_BASE}/bookmarks/${id}`, {
+  const res = await fetch(`${API_BASE}/bookmarks/${id}`, {
     method: on ? "POST" : "DELETE",
     credentials: "include",
   });
+  // fetch는 HTTP 오류(401 세션만료·404 등)에 reject 안 하므로 직접 확인.
+  // throw해야 호출부(BookmarkButton)의 낙관적 UI가 롤백된다 — 서버와 어긋남 방지.
+  if (!res.ok) {
+    throw new Error(`bookmark ${on ? "add" : "remove"} failed: ${res.status}`);
+  }
 }
 
 // ── 공개 API (로그인 여부에 따라 서버/로컬 선택) ──────────────────
