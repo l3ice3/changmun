@@ -43,7 +43,7 @@
 5. 공고 상세 페이지가 **검색엔진에 색인**됨(SSG/ISR, 메타태그 완비).
 
 ### 2.2 Non-Goals ⚠️
-1. **회원가입/로그인 없음** — 익명 사용이 원칙(개인화는 Phase 3).
+1. **로그인(OAuth) 지원 — In-Scope로 확장**(팀 3인 합의). 단 **익명 사용도 계속 기본** — 로그인은 서버측 찜 동기화 등 선택 기능이며 로그인 없이도 전 기능을 쓸 수 있다. 개인화·추천은 여전히 Phase 3.
 2. **AI 추천 없음** — MVP는 규칙 기반 필터만.
 3. **민간 공고 수집 없음** — 크롤링·수작업 등록은 Phase 2.
 4. **공공기관 추가 소스 탐색 없음** — 표본 검증으로 3대 API가 공공 영역을 닫음을 확인(기획서 §6). R&D(SMTECH·과기부)·중소벤처24는 Phase 2.
@@ -64,9 +64,10 @@
 - [ ] 찜(익명·로컬) (FR-006)
 - [ ] 행동 로그 적재 (FR-007)
 - [ ] SEO: 상세 페이지 SSG/ISR + sitemap
+- [ ] 로그인(OAuth: Google·GitHub·Kakao·Naver) + 서버측 찜 동기화 — 익명 사용 유지(스코프 확장, 팀 3인 합의)
 
 ### 3.2 Out-of-Scope ⚠️
-- 회원/로그인/프로필, 서버측 찜 동기화
+- 프로필 편집·계정 설정 화면(로그인은 지원하되 프로필 관리 UI는 후속)
 - 추천 피드, 단계 전환 안내(비서 기능 전부)
 - 관리자 웹 UI(수동 작업은 스크립트로 대체)
 - 민간 공고 등록 화면
@@ -74,6 +75,8 @@
 - 다국어
 
 > ※ **다크(나이트) 모드는 지원**한다(Phase 1에서 Out-of-Scope → In-Scope로 변경, 스코프 확장 승인). 좌측 사이드바 토글 + `html.dark` 색 토큰. 구현 규칙: `.claude/rules/web.md` §8.
+>
+> ※ **로그인(OAuth: Google·GitHub·Kakao·Naver)은 지원**한다(Out-of-Scope → In-Scope, 팀 3인 합의). 익명 사용이 계속 기본이고 로그인은 **서버측 찜 동기화** 등 선택 기능. 스키마 `app_user`(data-model §8), **PII 최소 수집**(이메일·provider 식별만) + 개인정보처리방침 필요.
 
 ---
 
@@ -259,7 +262,7 @@
 |---|---|
 | 로깅 API 실패 | **UX를 절대 막지 않음** — fire-and-forget, 재시도 없음 허용 |
 | 봇/크롤러 트래픽 | UA 기반 최소 필터(완벽 불요, 분석 시 보정) |
-| 개인정보 | 수집 금지 — 익명 ID·행동만 (이메일·이름 없음) |
+| 개인정보 | 비로그인은 익명(이메일·이름 없음). 로그인 사용자만 **최소 PII**(이메일·provider 식별) — 개인정보처리방침. event_log는 항상 익명 |
 
 ---
 
@@ -268,7 +271,7 @@
 | 분류 | 요구사항 |
 |---|---|
 | 성능 | **미정(제안: 리스트/상세 p95 < 1초, LCP < 2.5초)** — 데이터 ~수만 건·읽기 전용이라 인덱스로 충분 |
-| 보안 | 비로그인·개인정보 미수집. HTTPS 필수. 검색 파라미터 바인딩(인젝션 방지). API 키는 환경변수(코드 커밋 금지) |
+| 보안 | 비로그인 기본 + **선택적 로그인(OAuth)**. 로그인 시 최소 PII(이메일·provider)·개인정보처리방침, event_log는 익명 유지. HTTPS 필수. 검색 파라미터 바인딩(인젝션 방지). API 키·OAuth 시크릿은 환경변수(코드 커밋 금지) |
 | 접근성 | 미정 (최소: 시맨틱 마크업, 키보드 포커스 — SEO와 겹침) |
 | 지원 환경 | **데스크톱 우선**(반응형으로 모바일 지원). Chrome/Safari 최신. 출시 후 event_log 디바이스 비율로 우선순위 재검증 |
 
@@ -286,7 +289,7 @@
 | 스키마 관리 | **Flyway = 단일 진실.** Spring `ddl-auto=validate` 고정. Python·Java 공유물은 DB 스키마뿐 |
 | 배포 환경 | **AWS 단일 클라우드 통합** — RDS(PostgreSQL) · Spring API 서버(EC2/ECS) · Python 배치(cron/EventBridge 스케줄) · Next.js 호스팅(동일 계정). 세부 서비스 구성은 구현 시 확정 |
 | 사용할 라이브러리 | pg_trgm(검색·dedup 유사도), (프론트) Tailwind 권장 |
-| 금지 | MVP에서 크롤링 라이브러리(Selenium 등) 도입 금지 · ORM 자동 스키마 생성 금지(`ddl-auto=update` 금지) · `status` 컬럼 저장 금지(조회 시 계산) · raw 가공 저장 금지(원본 보존) · 개인정보 수집 금지 |
+| 금지 | MVP에서 크롤링 라이브러리(Selenium 등) 도입 금지 · ORM 자동 스키마 생성 금지(`ddl-auto=update` 금지) · `status` 컬럼 저장 금지(조회 시 계산) · raw 가공 저장 금지(원본 보존) · 개인정보 수집은 로그인 `app_user`의 최소 범위(이메일·provider)만, 그 외 금지 |
 | 기존 코드베이스 | 신규 프로젝트(통합 조건 없음) |
 
 ---
@@ -297,7 +300,7 @@
 - **opportunity**: 공고 원장. `(source, external_id)` UNIQUE. 페르소나 컬럼 `target_startup_stage[]`·`target_audience_type[]`, dedup 컬럼 `dedup_group_id`·`is_canonical`, 원본 `raw JSONB`
 - **glossary**: 용어 사전 (term, description)
 - **event_log**: 행동 로그 (append-only)
-- (Phase 3) app_user, user_stage_history
+- `app_user` — 로그인 In-Scope로 당김(data-model §8, 구현). (Phase 3) user_stage_history
 
 **관계**: opportunity 1:N event_log(약결합, FK 강제 안 함) / glossary는 독립(텍스트 매칭)
 
@@ -359,7 +362,7 @@ status·D-day·배지 플래그는 **서버가 계산해 응답에 포함**(프�
 |---|---|---|
 | **Phase 1 (MVP, 3~4주)** | FR-001~007 전부 | 3소스 일 1회 수집 가동 · 4탭 정확 작동 · dedup 표본검수 오합치 0 · 상세 페이지 색인 · event_log 적재 시작 → **출시 후 "사람이 오는가" 검증** |
 | Phase 2 (민간/소스 확장) | 민간 수작업 30~50건(무명+적합 기준) · R&D/중소벤처24 중복률 실측 후 결정 | 민간 공고 노출 + 페르소나 수동 태깅 |
-| Phase 3 (AI 비서) | 프로필·단계 동행·추천(규칙→AI) · 익명→로그인 전환 | event_log 기반 추천 가동 |
+| Phase 3 (AI 비서) | 프로필·단계 동행·추천(규칙→AI) | event_log 기반 추천 가동 |
 
 ---
 
