@@ -128,11 +128,11 @@ Then:  두 레코드의 dedup_group_id가 다르거나 둘 다 NULL이다(병합
 Given: 그룹에 속하지 않고 trgetNm·제목에 키워드 신호도 없는 bizinfo 단독 레코드
 When:  페르소나 부여 단계가 실행된다
 Then:  target_startup_stage·target_audience_type 모두 NULL이고,
-       이 공고는 페르소나 탭 쿼리에 잡히지 않으며 전체 탭에서 "조건 미상" 표기로 노출된다
+       이 공고는 persona 필터 쿼리에 잡히지 않으며 지원 대상 미지정(전체) 조회에서 "조건 미상" 표기로 노출된다
 ```
 **검증**
 - [ ] 자동: `test_persona_unknown` — NULL 유지 assert
-- [ ] 수동: 전체 탭에서 해당 카드에 "조건 미상" 표기 확인
+- [ ] 수동: 지원 대상 미지정(전체) 조회에서 해당 카드에 "조건 미상" 표기 확인
 
 #### AC-010: canonical이 마감되면 진행 중 레코드로 승격된다 (Edge / Must)
 ```gherkin
@@ -162,7 +162,7 @@ Then:  200 응답, 항목은 정확히 3건(PRE_STARTUP 포함 + canonical만),
 ```gherkin
 Given: 조건에 맞는 공고가 없는 필터 조합(예: persona=UNIV_STUDENT & region=세종)
 When:  리스트를 조회한다
-Then:  API는 200 + items=[] (에러 아님), 화면은 "조건에 맞는 공고가 없어요" + 전체 탭 유도 버튼을 보여준다
+Then:  API는 200 + items=[] (에러 아님), 화면은 "조건에 맞는 공고가 없어요" + "전체 공고 보기"(필터 초기화) 버튼을 보여준다
 ```
 **검증**
 - [ ] 자동: `#emptyResult` — 200 + 빈 배열 assert

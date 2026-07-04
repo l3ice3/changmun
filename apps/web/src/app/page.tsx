@@ -1,20 +1,16 @@
 import Link from "next/link";
 import { BrowseSection, type BrowseOption } from "@/components/BrowseSection";
 import { Hero } from "@/components/Hero";
-import { fetchOpportunities, fetchStats, type OpportunityCard, type Stats } from "@/lib/api";
+import { fetchOpportunities, fetchStats, type OpportunityCard } from "@/lib/api";
 import {
   CATEGORIES,
   DEFAULT_BROWSE_PERSONA,
-  PERSONA_TABS,
+  PERSONA_OPTIONS,
   REGIONS,
   SOURCE_OPTIONS,
 } from "@/lib/labels";
 
 // 분류별 섹션 옵션 — 각 섹션은 칩 1개(직행식). 모든 조합 필터는 S3(공고 탐색)에서.
-const PERSONA_OPTIONS: BrowseOption[] = PERSONA_TABS.filter((tab) => tab.key).map((tab) => ({
-  value: tab.key,
-  label: tab.label,
-}));
 const CATEGORY_OPTIONS: BrowseOption[] = CATEGORIES.map((name) => ({ value: name, label: name }));
 const REGION_OPTIONS: BrowseOption[] = REGIONS.map((name) => ({ value: name, label: name }));
 
@@ -42,11 +38,10 @@ export default async function Home() {
     fetchSection({ category: DEFAULT_CATEGORY }),
     fetchSection({ region: DEFAULT_REGION }),
   ]);
-  const typedStats: Stats | null = stats;
 
   return (
     <div>
-      <Hero stats={typedStats} />
+      <Hero stats={stats} />
       <div className="mx-auto max-w-[1400px] px-3.5 py-7">
         {/* 수식어는 분류 성격에 맞게 통일(시간 수식어 X) — 대상·출처·분야·지역 (QA #19). */}
         <BrowseSection

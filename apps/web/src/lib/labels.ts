@@ -74,6 +74,12 @@ export const SOURCE_LABELS: Record<string, string> = {
 // "use client" 모듈의 상수는 서버 컴포넌트에서 값으로 못 쓰므로 여기(lib)에 둔다.
 export const DEFAULT_BROWSE_PERSONA = "PRE_STARTUP";
 
+// 지원 대상 필터 옵션 — "전체"는 각 UI의 allLabel/기본값이 담당하므로 키 있는 항목만.
+export const PERSONA_OPTIONS = PERSONA_TABS.filter((tab) => tab.key).map((tab) => ({
+  value: tab.key,
+  label: tab.label,
+}));
+
 // 출처 필터 옵션 — API 값(key)과 표시 라벨이 달라 쌍으로 제공.
 export const SOURCE_OPTIONS = Object.entries(SOURCE_LABELS).map(([value, label]) => ({
   value,

@@ -1,14 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CATEGORIES, PERSONA_TABS, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
+import { CATEGORIES, PERSONA_OPTIONS, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
 import { Dropdown } from "./Dropdown";
-
-// 지원 대상 옵션 — "전체"는 allLabel이 담당하므로 키 있는 항목만.
-const PERSONA_OPTIONS = PERSONA_TABS.filter((tab) => tab.key).map((tab) => ({
-  value: tab.key,
-  label: tab.label,
-}));
 
 export function FilterBar() {
   const router = useRouter();
