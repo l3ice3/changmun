@@ -347,7 +347,13 @@ K-Startup 검색 UI의 실제 지원분야 = **사업화 · 기술개발(R&D) ·
 
 ---
 
-## 8. 인증·북마크 (Phase 2): `V2__create_user_and_bookmark.sql`
+## 8. 인증·북마크 (구현 — 로그인 In-Scope 확장, 팀 3인 합의)
+
+> 원래 Phase 2였으나 **로그인을 In-Scope로 확장**(팀 3인 합의)해 구현한다. 아래 스키마는 그대로 유효하되, 마이그레이션 파일명은 `V2__`가 이미 점유(glossary·event_log)라 **타임스탬프 버전**으로 나눠 적재한다:
+> - `app_user` → `V20260630_1000__create_app_user.sql` (로그인 기반, 구현됨).
+> - `bookmark` → 서버측 찜 동기화 기능 PR에서 추가(opportunity FK가 기존 테스트 TRUNCATE와 얽혀 함께 처리).
+>
+> **PII 최소 수집**(절대규칙 6 취지): 이메일 + provider 식별자만 저장. 액세스 토큰·프로필 사진 등 미저장. 소셜 제공자별 1행(계정 연결은 후속).
 
 ```sql
 CREATE TABLE app_user (
