@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { loginUrl, PROVIDERS } from "@/lib/auth";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import { WindowMark } from "@/components/WindowMark";
 
 export const metadata: Metadata = {
@@ -23,8 +24,9 @@ export default function LoginPage() {
           <a
             key={provider.id}
             href={loginUrl(provider.id)}
-            className="press flex h-12 items-center justify-center rounded-xl border border-line bg-surface text-[14px] font-medium text-secondary hover:border-edge hover:text-ink"
+            className="press flex h-12 items-center justify-center gap-2.5 rounded-xl border border-line bg-surface text-[14px] font-medium text-secondary hover:border-edge hover:text-ink"
           >
+            <ProviderIcon id={provider.id} />
             {provider.label}로 계속하기
           </a>
         ))}
