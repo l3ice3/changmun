@@ -1,6 +1,8 @@
 package com.changmun.bookmark.service;
 
 import com.changmun.bookmark.repository.BookmarkRepository;
+import com.changmun.common.web.NotFoundException;
+import com.changmun.opportunity.repository.OpportunityRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,13 +12,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookmarkService {
 
   private final BookmarkRepository repository;
+  private final OpportunityRepository opportunityRepository;
 
-  public BookmarkService(BookmarkRepository repository) {
+  public BookmarkService(
+      BookmarkRepository repository, OpportunityRepository opportunityRepository) {
     this.repository = repository;
+    this.opportunityRepository = opportunityRepository;
   }
 
   @Transactional
   public void add(Long userId, Long opportunityId) {
+    if (!opportunityRepository.existsById(opportunityId)) {
+      throw new NotFoundException("공고를 찾을 수 없습니다: " + opportunityId);
+    }
     repository.add(userId, opportunityId);
   }
 

@@ -78,4 +78,13 @@ class BookmarkApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.opportunityIds[0]").value(opportunityId));
   }
+
+  @Test
+  @DisplayName("없는 공고 찜 추가는 404 NOT_FOUND다(FK 위반 500 아님)")
+  void addingNonexistentOpportunityIsNotFound() throws Exception {
+    mockMvc
+        .perform(post("/api/v1/bookmarks/{id}", 999_999).with(loginAsUser()))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+  }
 }
