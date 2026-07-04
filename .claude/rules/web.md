@@ -11,9 +11,9 @@ paths:
 ```
 src/
   app/                 # App Router
-    page.tsx           # S1 메인(페르소나 탭 + 리스트) — ?page=N URL 유지
+    page.tsx           # S1 탐색 홈(히어로 + 출처별 둘러보기) — 리스트는 S3로 분리(2026-07-04 IA)
     opportunities/[id]/page.tsx   # S2 상세 — SSG/ISR (revalidate = 수집 주기와 동기, 일 1회)
-    search/            # S3
+    search/            # S3 공고 탐색·검색(페르소나 탭 + 필터 + 리스트) — ?page=N URL 유지
     bookmarks/         # S4 (클라이언트 전용)
   components/          # OpportunityCard, PersonaTabs, Badge, GlossaryTerm, EmptyState
   lib/

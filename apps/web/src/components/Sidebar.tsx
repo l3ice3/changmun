@@ -52,7 +52,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-screen w-[84px] shrink-0 flex-col items-center border-r border-hair bg-bg py-4 lg:flex">
       {/* 로고와 메뉴·아이템 사이 간격은 넉넉하게 — 촘촘함 해소 (QA #17). */}
       <Link href="/" aria-label="창문 홈" className="press mb-10">
-        <WindowMark className="h-8 w-8" />
+        <WindowMark className="h-10 w-10" />
       </Link>
       <nav className="flex flex-col gap-4">
         {ITEMS.map(({ href, label, Icon }) => {
