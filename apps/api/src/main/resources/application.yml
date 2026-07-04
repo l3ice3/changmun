@@ -1,6 +1,6 @@
 # 절대 규칙 (CLAUDE.md):
 # - ddl-auto=validate 고정 — ORM이 스키마를 만들지 않는다. 스키마 변경은 /db/migrations Flyway SQL로만.
-# - DB 접속 정보는 환경변수 우선 (기본값은 로컬 docker compose 기준).
+# - DB 접속 정보·OAuth 시크릿은 환경변수 우선 (기본값은 로컬 개발 편의용, 실값은 env 주입).
 spring:
   application:
     name: changmun-api
@@ -26,6 +26,52 @@ spring:
   mvc:
     problemdetails:
       enabled: true   # 미처리 예외도 RFC7807 ProblemDetail로 통일 (api-spec §0)
+
+  # OAuth2 로그인 (선택 기능). client-id/secret은 env 주입 — 기본값(changeme)은 컨텍스트 기동용 더미이며 실제 로그인은 실값 필요.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${OAUTH_GOOGLE_ID:changeme}
+            client-secret: ${OAUTH_GOOGLE_SECRET:changeme}
+            scope: profile,email
+          github:
+            client-id: ${OAUTH_GITHUB_ID:changeme}
+            client-secret: ${OAUTH_GITHUB_SECRET:changeme}
+            scope: read:user,user:email
+          kakao:
+            client-id: ${OAUTH_KAKAO_ID:changeme}
+            client-secret: ${OAUTH_KAKAO_SECRET:changeme}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
+            scope: account_email
+            client-name: Kakao
+          naver:
+            client-id: ${OAUTH_NAVER_ID:changeme}
+            client-secret: ${OAUTH_NAVER_SECRET:changeme}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/naver"
+            scope: name,email
+            client-name: Naver
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+          naver:
+            authorization-uri: https://nid.naver.com/oauth2.0/authorize
+            token-uri: https://nid.naver.com/oauth2.0/token
+            user-info-uri: https://openapi.naver.com/v1/nid/me
+            user-name-attribute: response
+
+# 프론트 오리진(CORS·로그인 후 리다이렉트). 배포 시 env로 교체.
+changmun:
+  web:
+    allowed-origins: ${CHANGMUN_ALLOWED_ORIGINS:http://localhost:3000}
+    frontend-url: ${CHANGMUN_FRONTEND_URL:http://localhost:3000}
 
 server:
   port: 8080

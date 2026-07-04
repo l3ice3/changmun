@@ -9,7 +9,7 @@
 
 | 항목 | 규칙 |
 |---|---|
-| Base | `/api/v1` · JSON · UTF-8 · 모든 엔드포인트 **비인증(공개)** |
+| Base | `/api/v1` · JSON · UTF-8 · 서빙(리스트·상세·검색·glossary·events)은 **비인증(공개)**. **로그인(OAuth2)** 관련 엔드포인트만 세션 기반(§5) — 로그인은 선택 기능 |
 | 네이밍 | **camelCase** (예: `applicationDeadline`, `dDay`) |
 | 날짜 | `YYYY-MM-DD` (date) / `ISO 8601` (datetime) |
 | 계산 필드 | `status`·`dDay`·`closingSoon`·`badges`는 **서버가 계산해 포함** — 프론트 재계산 금지 (AC-013) |
@@ -174,7 +174,26 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 5. AC 교차 참조 (판정용 요약)
+## 5. 인증 (OAuth2 로그인 — 선택 기능)
+로그인은 선택 기능이며 비로그인도 전 기능 사용 가능(익명 유지). Spring Security OAuth2 로그인, **세션 쿠키(HttpOnly)** 기반. 프론트는 `credentials: include` + CORS(allowCredentials). PII 최소 수집: 이메일·provider 식별만(data-model §8 `app_user`).
+
+| 메서드 · 경로 | 역할 |
+|---|---|
+| `GET /oauth2/authorization/{provider}` | 로그인 시작 — 브라우저를 provider로 리다이렉트. `provider` ∈ `google`·`github`·`kakao`·`naver`. (Spring Security 제공) |
+| `GET /login/oauth2/code/{provider}` | 콜백(Spring 내부 처리) → `app_user` upsert → 세션 생성 → 프론트로 리다이렉트 |
+| `GET /api/v1/auth/me` | 로그인 상태. 비로그인이면 `{ "authenticated": false, "email": null, "provider": null }` |
+| `POST /api/v1/auth/logout` | 세션 종료 → `200` |
+
+```json
+// GET /api/v1/auth/me (로그인 상태)
+{ "authenticated": true, "email": "user@example.com", "provider": "google" }
+```
+- provider client id/secret은 환경변수(`OAUTH_{PROVIDER}_ID/SECRET`) — 코드 커밋 금지.
+- 이메일 미제공(동의 거부 등) 시 로그인 거부(`email_required`).
+
+---
+
+## 6. AC 교차 참조 (판정용 요약)
 | AC | 이 문서의 근거 |
 |---|---|
 | AC-011 | §1 persona 파라미터 + canonical 노출 + 정렬 규칙 |
