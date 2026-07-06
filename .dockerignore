@@ -1,0 +1,13 @@
+# 빌드 컨텍스트 축소 + 시크릿 유출 방지. 각 앱 소스는 남기고 생성물·비밀만 제외.
+**/.git
+**/node_modules
+**/build
+**/.gradle
+**/.next
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/*.log
+**/.env
+**/.env.*
+**/.DS_Store

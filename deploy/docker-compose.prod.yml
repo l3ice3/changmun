@@ -1,0 +1,76 @@
+# EC2 단일 인스턴스 배포 — Postgres + api + Caddy(HTTPS) 한 번에.
+# RDS/ALB 없이 한 대에서 다 돈다(deployment-architecture 결정).
+#
+# 사용(EC2에서):
+#   cd deploy
+#   cp .env.example .env   &&  vi .env      # 값 채우기(커밋 금지)
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# 전제: DNS에서 api.changmun.com → EC2 퍼블릭 IP, 보안그룹 80·443 개방(Caddy 인증서 발급).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: changmun-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..                      # 레포 루트(db/migrations 포함 위함)
+      dockerfile: apps/api/Dockerfile
+    container_name: changmun-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # DB 주소는 컨테이너 서비스명(postgres). localhost 아님.
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # 프론트 오리진(CORS·로그인 후 리다이렉트)
+      CHANGMUN_ALLOWED_ORIGINS: ${CHANGMUN_ALLOWED_ORIGINS}
+      CHANGMUN_FRONTEND_URL: ${CHANGMUN_FRONTEND_URL}
+      # Caddy(프록시) 뒤 https 인식 → OAuth 리다이렉트/Secure 쿠키 정상화
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      # OAuth (provider 콘솔 실제 값)
+      OAUTH_GOOGLE_ID: ${OAUTH_GOOGLE_ID}
+      OAUTH_GOOGLE_SECRET: ${OAUTH_GOOGLE_SECRET}
+      OAUTH_GITHUB_ID: ${OAUTH_GITHUB_ID}
+      OAUTH_GITHUB_SECRET: ${OAUTH_GITHUB_SECRET}
+      OAUTH_KAKAO_ID: ${OAUTH_KAKAO_ID}
+      OAUTH_KAKAO_SECRET: ${OAUTH_KAKAO_SECRET}
+      OAUTH_NAVER_ID: ${OAUTH_NAVER_ID}
+      OAUTH_NAVER_SECRET: ${OAUTH_NAVER_SECRET}
+    expose:
+      - "8080"                         # 호스트 노출 안 함 — Caddy만 접근
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: changmun-caddy
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data                # 발급받은 인증서 보존
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,5 @@
+# api.changmun.com HTTPS 리버스 프록시.
+# Caddy가 Let's Encrypt 인증서를 자동 발급·갱신(무료). 전제: DNS A레코드 → EC2 IP, 80·443 개방.
+api.changmun.com {
+	reverse_proxy api:8080
+}
