@@ -20,7 +20,7 @@ export const COMPANY = {
   legalName: "주식회사 창문",
   status: "법인 설립 준비 중 🪟",
   rep: "창문지기",
-  email: "hello@changmun.app",
+  email: "hello@changmun.com",
   address: "서울 어딘가, 햇살 잘 드는 창가 자리",
   bizNo: "000-00-00000 (발급 예정)",
 };
