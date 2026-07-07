@@ -43,7 +43,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
         </p>
         <ul>
           <li>공고 정보는 참고용이며, 신청 전 반드시 원문 링크의 최신 내용을 확인해야 합니다.</li>
-          <li>서비스가 표시하는 D-day·상태 등은 수집 시점 기준의 계산값입니다.</li>
+          <li>서비스가 표시하는 D-day·상태 등은 조회 시점 기준으로 서버가 계산한 값입니다.</li>
         </ul>
       </>
     ),
