@@ -74,7 +74,7 @@ export default function AboutPage() {
       </div>
 
       <p className="mt-10 text-[13px] leading-relaxed text-muted">
-        팀 ICE가 만듭니다. 질문이 있으신가요?{" "}
+        질문이 있으신가요?{" "}
         <a href={`mailto:${COMPANY.email}`} className="text-accent underline underline-offset-2">
           {COMPANY.email}
         </a>
