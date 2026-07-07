@@ -10,8 +10,8 @@ export interface SiteLink {
 export const FOOTER_LINKS: SiteLink[] = [
   { label: "서비스 소개", url: "/about" },
   { label: "공지사항", url: "/notices" },
-  { label: "문의하기", url: "" },
-  { label: "이용약관", url: "" },
+  { label: "광고문의", url: "/ads" },
+  { label: "이용약관", url: "/terms" },
   { label: "개인정보처리방침", url: "/privacy" },
 ];
 
