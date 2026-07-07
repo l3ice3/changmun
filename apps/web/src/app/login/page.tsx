@@ -71,8 +71,9 @@ export default function LoginPage() {
               ))}
             </div>
 
+            {/* 만 14세 고지 — privacy 제13조("로그인 화면에 고지")와 1:1 대응 (Codex #56 P2). */}
             <p className="mt-14 text-[12px] leading-relaxed text-hero-label">
-              로그인 시 이메일·계정 식별 정보만 저장하며,
+              로그인은 만 14세 이상만 가능합니다. 로그인 시 이메일·계정 식별 정보만 저장하며,
               <br />
               자세한 내용은{" "}
               <Link href="/privacy" className="underline underline-offset-2 hover:text-hero-text">
