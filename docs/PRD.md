@@ -289,7 +289,7 @@
 | 수집 | **Python + poetry** (상시 서버 아님, 일 1회 실행). `apps/ingest` |
 | 데이터베이스 | **PostgreSQL** (JSONB, pg_trgm 필수. 장기 pgvector 옵션) |
 | 스키마 관리 | **Flyway = 단일 진실.** Spring `ddl-auto=validate` 고정. Python·Java 공유물은 DB 스키마뿐 |
-| 배포 환경 | **AWS 단일 클라우드 통합** — RDS(PostgreSQL) · Spring API 서버(EC2/ECS) · Python 배치(cron/EventBridge 스케줄) · Next.js 호스팅(동일 계정). 세부 서비스 구성은 구현 시 확정 |
+| 배포 환경 | **하이브리드** (2026-07 배포 결정) — web=Vercel(Next.js SSG/ISR), api+DB=**AWS EC2 단일 인스턴스**(Postgres 컨테이너 · Caddy 자동 HTTPS). Python 배치는 EC2 cron. **RDS 대신 EC2 Postgres 컨테이너**(비용 최소화, MVP) — 정기 `pg_dump` 백업(로컬+S3)으로 DR 보완, 트래픽·데이터 확장 시 RDS·AWS 통합 이전 검토. 도메인 changmun.com(Cloudflare) |
 | 사용할 라이브러리 | pg_trgm(검색·dedup 유사도), (프론트) Tailwind 권장 |
 | 금지 | MVP에서 크롤링 라이브러리(Selenium 등) 도입 금지 · ORM 자동 스키마 생성 금지(`ddl-auto=update` 금지) · `status` 컬럼 저장 금지(조회 시 계산) · raw 가공 저장 금지(원본 보존) · 개인정보 수집은 로그인 `app_user`의 최소 범위(이메일·provider)만, 그 외 금지 |
 | 기존 코드베이스 | 신규 프로젝트(통합 조건 없음) |
