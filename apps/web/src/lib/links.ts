@@ -8,8 +8,8 @@ export interface SiteLink {
 
 // 나중에 노션 주소가 생기면 각 url에 붙여넣기만 하면 된다.
 export const FOOTER_LINKS: SiteLink[] = [
-  { label: "서비스 소개", url: "" },
-  { label: "공지사항", url: "" },
+  { label: "서비스 소개", url: "/about" },
+  { label: "공지사항", url: "/notices" },
   { label: "문의하기", url: "" },
   { label: "이용약관", url: "" },
   { label: "개인정보처리방침", url: "/privacy" },
