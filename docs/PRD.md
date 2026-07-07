@@ -283,7 +283,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 레포 구조 | **모노레포 1개**: `apps/web`(Next.js) + `apps/api`(Spring) + `apps/ingest`(Python) + `/docs`(계약 문서) + `/db/migrations`(Flyway). 기존 "프론트 별도 레포" 결정을 AWS 통합 확정에 따라 변경 |
+| 레포 구조 | **모노레포 1개**: `apps/web`(Next.js) + `apps/api`(Spring) + `apps/ingest`(Python) + `/docs`(계약 문서) + `/db/migrations`(Flyway). 기존 "프론트 별도 레포" 결정을 통합 레포로 변경(계약 문서·DB 스키마 공유) |
 | 프론트엔드 | **Next.js + TypeScript** (SSG/ISR — SEO 핵심). `apps/web` |
 | 백엔드(서빙) | **Spring Boot (Java) + Gradle(Kotlin DSL)** — REST API. `apps/api` |
 | 수집 | **Python + poetry** (상시 서버 아님, 일 1회 실행). `apps/ingest` |
@@ -372,8 +372,8 @@ status·D-day·배지 플래그는 **서버가 계산해 응답에 포함**(프�
 
 | # | 이슈 | 상태 | 결정 기한 |
 |---|---|---|---|
-| 1 | 서비스명 **창문 확정** / 로마자 표기 **changmun 확정** / 도메인 | 도메인만 미정(구매 시 확정) | 배포 전 |
-| 2 | ~~배포 환경~~ | **확정: AWS 단일 통합** (§6) | — |
+| 1 | 서비스명 **창문 확정** / 로마자 표기 **changmun 확정** / 도메인 | **확정: changmun.com**(Cloudflare 등록) | — |
+| 2 | ~~배포 환경~~ | **확정: 하이브리드**(web=Vercel, api+DB=EC2 단일 Postgres 컨테이너) (§6) | — |
 | 3 | ~~1차 타깃 디바이스~~ | **확정: 데스크톱 우선**(반응형, 출시 후 디바이스 비율로 재검증) | — |
 | 4 | ~~리스트 UX~~ | **확정: 페이지 번호** (SEO — 페이지별 고유 URL 색인) | — |
 | 5 | 성능 목표 수치(§5 제안값: p95<1초·LCP<2.5초) | 제안값 채택, 이의 시 변경 | 개발 착수 전 |

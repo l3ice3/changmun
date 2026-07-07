@@ -88,5 +88,5 @@ cd apps/web && pnpm build                   # SSG/ISR 빌드 검증
 - 로마자 표기: **changmun 확정** (Java 패키지 `com.changmun`, DB명 `changmun`).
 - **기업마당(bizinfo) 수집기 미구현** — 추가 예정(현재 수집은 K-Startup·온통청년).
 - API 키 3종 발급 — 실수집 전 필요(코드는 env 주입 준비됨).
-- 배포(AWS RDS + EC2/ECS + 배치 스케줄) 미구성.
+- 배포: **하이브리드 완료** — web=Vercel(www.changmun.com), api+DB=EC2 단일(Postgres 컨테이너·Caddy HTTPS, api.changmun.com). DB는 pg_dump 백업(로컬+S3).
 - GitHub: branch protection(`static-analysis` required) + Codex 클라우드 코드 리뷰 활성화.

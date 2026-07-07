@@ -70,4 +70,4 @@ cd apps/web && pnpm build               # SSG/ISR 빌드 검증
 ## 환경
 - DB: PostgreSQL (JSONB, pg_trgm 필수). 로컬은 docker compose.
 - API 키(K-Startup·기업마당·온통청년)는 환경변수 — 코드·레포 커밋 절대 금지.
-- 배포: AWS 단일 통합 (RDS + EC2/ECS + 배치 스케줄).
+- 배포: 하이브리드 — web=Vercel, api+DB=EC2 단일 인스턴스(Postgres 컨테이너·Caddy 자동 HTTPS). Python 배치=EC2 cron. RDS 대신 EC2 Postgres(비용 최소화, MVP) — pg_dump 백업(로컬+S3)으로 DR 보완, 확장 시 RDS·통합 이전 검토. 도메인 changmun.com(Cloudflare).
