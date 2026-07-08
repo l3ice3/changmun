@@ -7,7 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { fetchByIds, type OpportunityCard as Card } from "@/lib/api";
 import { getMe, logout, resetMe, type Me } from "@/lib/auth";
-import { loadBookmarkIds, resetBookmarkIds } from "@/lib/bookmarks";
+import { BOOKMARKS_UPDATED_EVENT, loadBookmarkIds, resetBookmarkIds } from "@/lib/bookmarks";
 import {
   removeProfileImage,
   uploadProfileImage,
@@ -45,30 +45,36 @@ export default function MyPage() {
   }, []);
 
   // 찜한 공고 미리보기 — 서버 찜(로그인)에서 최근 N개만, 전체는 /bookmarks.
+  // 하트 해제 등 찜 변경 이벤트를 구독해 카드·개수를 실제 상태와 동기화 (Codex #61).
   useEffect(() => {
     if (!me?.authenticated) return;
     let active = true;
-    loadBookmarkIds()
-      .then((ids) => {
-        if (!active) return;
-        setBookmarkCount(ids.length);
-        if (ids.length === 0) {
-          setBookmarks([]);
-          return;
-        }
-        fetchByIds(ids.slice(0, BOOKMARK_PREVIEW_COUNT))
-          .then((items) => {
-            if (active) setBookmarks(items);
-          })
-          .catch(() => {
-            if (active) setBookmarks([]);
-          });
-      })
-      .catch(() => {
-        if (active) setBookmarks([]);
-      });
+    function loadPreview() {
+      loadBookmarkIds()
+        .then((ids) => {
+          if (!active) return;
+          setBookmarkCount(ids.length);
+          if (ids.length === 0) {
+            setBookmarks([]);
+            return;
+          }
+          fetchByIds(ids.slice(0, BOOKMARK_PREVIEW_COUNT))
+            .then((items) => {
+              if (active) setBookmarks(items);
+            })
+            .catch(() => {
+              if (active) setBookmarks([]);
+            });
+        })
+        .catch(() => {
+          if (active) setBookmarks([]);
+        });
+    }
+    loadPreview();
+    window.addEventListener(BOOKMARKS_UPDATED_EVENT, loadPreview);
     return () => {
       active = false;
+      window.removeEventListener(BOOKMARKS_UPDATED_EVENT, loadPreview);
     };
   }, [me]);
 

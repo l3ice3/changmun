@@ -83,6 +83,15 @@ export function resetBookmarkIds(): void {
   cachedIds = null;
 }
 
+// 찜 변경 시 구독 화면(마이페이지 미리보기 등)이 재조회하도록 쏘는 전역 이벤트 (Codex #61).
+export const BOOKMARKS_UPDATED_EVENT = "changmun:bookmarks-updated";
+
+function notifyBookmarksUpdated(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(BOOKMARKS_UPDATED_EVENT));
+  }
+}
+
 /** 찜 토글 → 새 상태(true=찜됨) 반환. 로그인 시 서버, 아니면 localStorage. */
 export async function toggleBookmark(id: number, current: boolean): Promise<boolean> {
   const next = !current;
@@ -93,6 +102,7 @@ export async function toggleBookmark(id: number, current: boolean): Promise<bool
     localSet(id, next);
   }
   resetBookmarkIds();
+  notifyBookmarksUpdated();
   return next;
 }
 
