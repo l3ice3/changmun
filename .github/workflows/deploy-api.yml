@@ -34,6 +34,10 @@ env:
 
 jobs:
   build-push:
+    # main ref에서만 빌드·push. 수동 실행(workflow_dispatch)은 아무 브랜치나 고를 수 있는데,
+    # 가드가 없으면 머지 안 된 브랜치를 :latest로 밀어 EC2가 자동 pull → 미검증 코드가 프로덕션 배포됨.
+    # push 트리거는 이미 main 한정이지만 이 가드가 수동 실행까지 막는다.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04-arm        # 네이티브 arm64(EC2 t4g/Graviton과 동일 아키텍처)
     permissions:
       contents: read
