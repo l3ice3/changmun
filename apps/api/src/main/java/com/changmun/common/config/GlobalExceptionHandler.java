@@ -13,6 +13,7 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 전역 에러 변환 — RFC7807 ProblemDetail + 확장 필드 code (api-spec.md §0). 에러 JSON을 직접 조립하지 않고 여기 한 곳에서만
@@ -44,6 +45,13 @@ public class GlobalExceptionHandler {
   public ProblemDetail handleUnreadableBody(HttpMessageNotReadableException exception) {
     log.debug("요청 본문 파싱 실패", exception);
     return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "요청 본문을 읽을 수 없습니다");
+  }
+
+  // 멀티파트 한도(1MB) 초과 — 서비스 검증 전에 컨테이너가 던지므로 여기서 같은 400으로 통일.
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException exception) {
+    log.debug("업로드 한도 초과", exception);
+    return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "프로필 이미지는 1MB 이하만 업로드 가능합니다");
   }
 
   @ExceptionHandler(NotFoundException.class)

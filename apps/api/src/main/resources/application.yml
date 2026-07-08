@@ -27,6 +27,12 @@ spring:
     problemdetails:
       enabled: true   # 미처리 예외도 RFC7807 ProblemDetail로 통일 (api-spec §0)
 
+  servlet:
+    multipart:
+      # 프로필 이미지 업로드 한도(1MB) — 초과는 전역 핸들러가 400 INVALID_PARAM 변환. 서비스 검증과 다중 방어.
+      max-file-size: 1MB
+      max-request-size: 2MB
+
   # OAuth2 로그인 (선택 기능). client-id/secret은 env 주입 — 기본값(changeme)은 컨텍스트 기동용 더미이며 실제 로그인은 실값 필요.
   security:
     oauth2:

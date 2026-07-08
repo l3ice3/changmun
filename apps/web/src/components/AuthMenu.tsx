@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/Avatar";
 import { getMe, logout, type Me } from "@/lib/auth";
 import { resetBookmarkIds } from "@/lib/bookmarks";
 
@@ -43,11 +44,12 @@ export function AuthMenu() {
     setMe(ANONYMOUS);
   }
 
+  // 이메일 텍스트 대신 프로필 아바타 — 클릭하면 마이페이지(QA #24).
   return (
-    <div className="flex items-center gap-2">
-      <span className="hidden max-w-[160px] truncate text-[13px] text-secondary sm:inline">
-        {me.email}
-      </span>
+    <div className="flex items-center gap-2.5">
+      <Link href="/me" aria-label="마이페이지" className="press rounded-full">
+        <Avatar size={36} />
+      </Link>
       <button
         type="button"
         onClick={onLogout}

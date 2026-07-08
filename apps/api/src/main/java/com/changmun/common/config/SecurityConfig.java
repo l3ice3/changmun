@@ -59,7 +59,11 @@ public class SecurityConfig {
   private void authorize(
       AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry
           registry) {
-    registry.requestMatchers("/api/v1/bookmarks/**").authenticated().anyRequest().permitAll();
+    registry
+        .requestMatchers("/api/v1/bookmarks/**", "/api/v1/users/me/**")
+        .authenticated()
+        .anyRequest()
+        .permitAll();
   }
 
   private void configureLogin(OAuth2LoginConfigurer<HttpSecurity> oauth) {
@@ -88,7 +92,7 @@ public class SecurityConfig {
       @Value("${changmun.web.allowed-origins}") String allowedOrigins) {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
-    config.setAllowedMethods(List.of("GET", "POST", "DELETE"));
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(true);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

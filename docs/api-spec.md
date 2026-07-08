@@ -201,6 +201,15 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `DELETE /api/v1/bookmarks/{opportunityId}` | 찜 삭제. `204` |
 - CSRF 미사용 — 세션 쿠키 `SameSite=Lax`로 크로스사이트 방어. 인증은 세션(로그인) 기반.
 
+### 프로필 이미지 (로그인 필요 — 마이페이지, 팀 합의 스코프 확장)
+사용자가 업로드한 프로필 이미지. **1MB 이하 · JPEG/PNG/WebP만** 허용(서버 검증 + 멀티파트 한도). 저장은 `app_user` BYTEA 컬럼(data-model §8). **미인증 요청은 `401`.**
+
+| 메서드 · 경로 | 역할 |
+|---|---|
+| `GET /api/v1/users/me/profile-image` | 내 프로필 이미지 바이너리(저장된 Content-Type으로 응답). 미설정이면 `404`(프론트는 디폴트 아바타 렌더) |
+| `PUT /api/v1/users/me/profile-image` | 업로드 — multipart 필드명 `image`. 성공 `204`. 1MB 초과·비이미지 형식은 `400 INVALID_PARAM` |
+| `DELETE /api/v1/users/me/profile-image` | 삭제(기본 이미지 상태로). `204` |
+
 ---
 
 ## 6. AC 교차 참조 (판정용 요약)

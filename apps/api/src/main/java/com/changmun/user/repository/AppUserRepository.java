@@ -29,4 +29,40 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
       @Param("email") String email,
       @Param("provider") String provider,
       @Param("providerUid") String providerUid);
+
+  /** 프로필 이미지 조회 — 미설정이면 empty (컨트롤러에서 404). */
+  @Query(
+      value =
+          """
+          SELECT profile_image AS image, profile_image_type AS contentType
+          FROM app_user
+          WHERE id = :userId AND profile_image IS NOT NULL
+          """,
+      nativeQuery = true)
+  Optional<ProfileImageRow> findProfileImage(@Param("userId") Long userId);
+
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          """
+          UPDATE app_user
+          SET profile_image = :image, profile_image_type = :contentType
+          WHERE id = :userId
+          """,
+      nativeQuery = true)
+  int updateProfileImage(
+      @Param("userId") Long userId,
+      @Param("image") byte[] image,
+      @Param("contentType") String contentType);
+
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query(
+      value =
+          """
+          UPDATE app_user
+          SET profile_image = NULL, profile_image_type = NULL
+          WHERE id = :userId
+          """,
+      nativeQuery = true)
+  void clearProfileImage(@Param("userId") Long userId);
 }

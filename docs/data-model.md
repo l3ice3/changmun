@@ -353,7 +353,9 @@ K-Startup 검색 UI의 실제 지원분야 = **사업화 · 기술개발(R&D) ·
 > - `app_user` → `V20260630_1000__create_app_user.sql` (로그인 기반, 구현됨).
 > - `bookmark` → 서버측 찜 동기화 기능 PR에서 추가(opportunity FK가 기존 테스트 TRUNCATE와 얽혀 함께 처리).
 >
-> **PII 최소 수집**(절대규칙 6 취지): 이메일 + provider 식별자만 저장. 액세스 토큰·프로필 사진 등 미저장. 소셜 제공자별 1행(계정 연결은 후속).
+> **PII 최소 수집**(절대규칙 6 취지): 이메일 + provider 식별자만 저장. 액세스 토큰·소셜 프로필 등 미수집. 소셜 제공자별 1행(계정 연결은 후속).
+>
+> **프로필 이미지 컬럼 추가**(2026-07-08, 팀 3인 합의 — 마이페이지 스코프 확장): `profile_image BYTEA` + `profile_image_type VARCHAR(30)` — `V20260708_1000__add_profile_image_to_app_user.sql`. 사용자가 **직접 업로드**한 이미지(1MB 이하, JPEG/PNG/WebP)만 저장 — 소셜 프로필 사진을 가져오지 않는 원칙은 유지. 1MB 제한이라 별도 스토리지 없이 DB 저장, 엔티티에 매핑하지 않고(native 조회) 로그인 경로가 바이너리를 싣지 않게 한다.
 
 ```sql
 CREATE TABLE app_user (
