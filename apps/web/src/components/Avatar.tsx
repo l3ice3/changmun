@@ -16,11 +16,9 @@ export function DefaultAvatar({ size }: { size: number }) {
       </defs>
       <g clipPath={`url(#${clipId})`}>
         <circle cx="20" cy="20" r="20" fill="#6b78f0" />
-        <circle cx="20" cy="16" r="6.4" fill="#ffffff" />
-        <path
-          d="M20 25.4c-7.2 0-11.8 4.6-12.8 10.2h25.6c-1-5.6-5.6-10.2-12.8-10.2z"
-          fill="#ffffff"
-        />
+        <circle cx="20" cy="15.2" r="6.6" fill="#ffffff" />
+        {/* 어깨는 원 바닥을 관통시켜 클리핑 — 하단이 비지 않는 클래식 실루엣 (QA #25). */}
+        <ellipse cx="20" cy="42.2" rx="13.2" ry="17" fill="#ffffff" />
       </g>
     </svg>
   );

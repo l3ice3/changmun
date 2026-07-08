@@ -4,13 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { OpportunityCard } from "@/components/OpportunityCard";
+import { fetchByIds, type OpportunityCard as Card } from "@/lib/api";
 import { getMe, logout, resetMe, type Me } from "@/lib/auth";
-import { resetBookmarkIds } from "@/lib/bookmarks";
+import { loadBookmarkIds, resetBookmarkIds } from "@/lib/bookmarks";
 import {
   removeProfileImage,
   uploadProfileImage,
   validateProfileImage,
 } from "@/lib/profile";
+
+const BOOKMARK_PREVIEW_COUNT = 4;
 
 const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
@@ -26,6 +30,8 @@ export default function MyPage() {
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [bookmarks, setBookmarks] = useState<Card[] | null>(null);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,6 +43,34 @@ export default function MyPage() {
       active = false;
     };
   }, []);
+
+  // 찜한 공고 미리보기 — 서버 찜(로그인)에서 최근 N개만, 전체는 /bookmarks.
+  useEffect(() => {
+    if (!me?.authenticated) return;
+    let active = true;
+    loadBookmarkIds()
+      .then((ids) => {
+        if (!active) return;
+        setBookmarkCount(ids.length);
+        if (ids.length === 0) {
+          setBookmarks([]);
+          return;
+        }
+        fetchByIds(ids.slice(0, BOOKMARK_PREVIEW_COUNT))
+          .then((items) => {
+            if (active) setBookmarks(items);
+          })
+          .catch(() => {
+            if (active) setBookmarks([]);
+          });
+      })
+      .catch(() => {
+        if (active) setBookmarks([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [me]);
 
   async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -152,6 +186,44 @@ export default function MyPage() {
             <dd className="text-ink">{PROVIDER_LABELS[me.provider ?? ""] ?? me.provider}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="mt-8">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-[16.5px] font-semibold tracking-tight">
+            찜한 공고 {bookmarkCount > 0 ? <span className="text-muted">({bookmarkCount})</span> : null}
+          </h2>
+          {bookmarkCount > 0 ? (
+            <Link href="/bookmarks" className="press text-[13px] font-medium text-muted hover:text-accent">
+              전체 보기 →
+            </Link>
+          ) : null}
+        </div>
+
+        {bookmarks === null ? (
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {[0, 1].map((index) => (
+              <div
+                key={index}
+                className="h-36 animate-pulse rounded-[14px] border-[0.5px] border-line bg-surface"
+              />
+            ))}
+          </div>
+        ) : bookmarks.length === 0 ? (
+          <p className="mt-3 rounded-[14px] border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">
+            아직 찜한 공고가 없어요.{" "}
+            <Link href="/search" className="text-accent underline underline-offset-2">
+              공고 탐색
+            </Link>
+            에서 마음에 드는 공고를 찜해 보세요.
+          </p>
+        ) : (
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {bookmarks.map((item) => (
+              <OpportunityCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="mt-8 text-center">
