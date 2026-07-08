@@ -6,4 +6,9 @@ public class InvalidParameterException extends RuntimeException {
   public InvalidParameterException(String name, String value) {
     super("허용되지 않는 파라미터 값입니다: " + name + "=" + value);
   }
+
+  /** 이름=값 형태가 아닌 자유 메시지용(업로드 검증 등). */
+  public InvalidParameterException(String message) {
+    super(message);
+  }
 }
