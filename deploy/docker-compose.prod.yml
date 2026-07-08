@@ -4,8 +4,10 @@
 # 사용(EC2에서):
 #   cd deploy
 #   cp .env.example .env   &&  vi .env      # 값 채우기(커밋 금지)
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml pull   # api 이미지는 GHCR에서 받음(빌드 X)
+#   docker compose -f docker-compose.prod.yml up -d
 #
+# api 이미지는 GitHub Actions(deploy-api.yml)가 빌드→GHCR push. 일상 배포는 EC2 cron이 pull+up(자동).
 # 전제: DNS에서 api.changmun.com → EC2 퍼블릭 IP, 보안그룹 80·443 개방(Caddy 인증서 발급).
 
 services:
@@ -26,9 +28,9 @@ services:
       retries: 10
 
   api:
-    build:
-      context: ..                      # 레포 루트(db/migrations 포함 위함)
-      dockerfile: apps/api/Dockerfile
+    # 이미지는 GitHub Actions(deploy-api.yml)가 빌드해 GHCR에 올린 것을 pull(프로덕션에서 빌드 X).
+    # 롤백: .env에 API_IMAGE_TAG=<옛 커밋 sha> 지정 후 up -d (기본은 latest).
+    image: ghcr.io/l3ice3/changmun-api:${API_IMAGE_TAG:-latest}
     container_name: changmun-api
     restart: unless-stopped
     depends_on:
