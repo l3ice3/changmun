@@ -9,6 +9,7 @@ import { fetchByIds, type OpportunityCard as Card } from "@/lib/api";
 import { getMe, logout, resetMe, type Me } from "@/lib/auth";
 import { BOOKMARKS_UPDATED_EVENT, loadBookmarkIds, resetBookmarkIds } from "@/lib/bookmarks";
 import {
+  hasProfileImage,
   removeProfileImage,
   uploadProfileImage,
   validateProfileImage,
@@ -29,7 +30,8 @@ export default function MyPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
+  const [hasImage, setHasImage] = useState(false);
   const [bookmarks, setBookmarks] = useState<Card[] | null>(null);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -43,6 +45,18 @@ export default function MyPage() {
       active = false;
     };
   }, []);
+
+  // 업로드된 이미지 존재 여부 — "기본 이미지로" 버튼 활성 판단(이미 기본이면 비활성).
+  useEffect(() => {
+    if (!me?.authenticated) return;
+    let active = true;
+    hasProfileImage().then((exists) => {
+      if (active) setHasImage(exists);
+    });
+    return () => {
+      active = false;
+    };
+  }, [me]);
 
   // 찜한 공고 미리보기 — 서버 찜(로그인)에서 최근 N개만, 전체는 /bookmarks.
   // 하트 해제 등 찜 변경 이벤트를 구독해 카드·개수를 실제 상태와 동기화 (Codex #61).
@@ -84,7 +98,7 @@ export default function MyPage() {
     if (!file) return;
     const invalid = validateProfileImage(file);
     if (invalid) {
-      setMessage(invalid);
+      setMessage({ text: invalid, tone: "error" });
       return;
     }
     setBusy(true);
@@ -92,9 +106,13 @@ export default function MyPage() {
     try {
       await uploadProfileImage(file);
       setVersion((v) => v + 1);
-      setMessage("프로필 이미지가 변경됐어요.");
+      setHasImage(true);
+      setMessage({ text: "프로필 이미지가 변경됐어요.", tone: "ok" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "업로드에 실패했습니다.");
+      setMessage({
+        text: error instanceof Error ? error.message : "업로드에 실패했습니다.",
+        tone: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -106,9 +124,13 @@ export default function MyPage() {
     try {
       await removeProfileImage();
       setVersion((v) => v + 1);
-      setMessage("기본 이미지로 되돌렸어요.");
+      setHasImage(false);
+      setMessage({ text: "기본 이미지로 되돌렸어요.", tone: "ok" });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "요청에 실패했습니다.");
+      setMessage({
+        text: error instanceof Error ? error.message : "요청에 실패했습니다.",
+        tone: "error",
+      });
     } finally {
       setBusy(false);
     }
@@ -162,7 +184,8 @@ export default function MyPage() {
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !hasImage}
+              title={hasImage ? undefined : "이미 기본 이미지예요"}
               onClick={onReset}
               className="press rounded-full bg-bg px-4 py-2 text-[13.5px] text-secondary hover:text-ink disabled:opacity-50"
             >
@@ -170,7 +193,13 @@ export default function MyPage() {
             </button>
           </div>
           <p className="mt-3 text-[12px] text-muted">JPEG·PNG·WebP, 1MB 이하</p>
-          {message ? <p className="mt-2 text-[12.5px] text-accent">{message}</p> : null}
+          {message ? (
+            <p
+              className={`mt-2 text-[12.5px] ${message.tone === "error" ? "text-danger" : "text-accent"}`}
+            >
+              {message.text}
+            </p>
+          ) : null}
           <input
             ref={fileInput}
             type="file"

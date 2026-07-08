@@ -27,14 +27,31 @@ export function validateProfileImage(file: File): string | null {
   return null;
 }
 
+// 네트워크 단절·CORS 차단 등 fetch 자체가 실패하면 "Failed to fetch" 같은 원문 대신 한국어 안내로.
+const NETWORK_ERROR_MESSAGE = "서버에 연결하지 못했어요. 네트워크 상태를 확인하고 잠시 후 다시 시도해주세요.";
+
+async function requestProfileImage(init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(profileImageUrl(0), { ...init, credentials: "include" });
+  } catch {
+    throw new Error(NETWORK_ERROR_MESSAGE);
+  }
+}
+
+/** 서버에 업로드된 프로필 이미지가 있는지 — "기본 이미지로" 버튼 활성 판단용. */
+export async function hasProfileImage(): Promise<boolean> {
+  try {
+    const res = await fetch(profileImageUrl(Date.now()), { credentials: "include" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function uploadProfileImage(file: File): Promise<void> {
   const form = new FormData();
   form.append("image", file);
-  const res = await fetch(profileImageUrl(0), {
-    method: "PUT",
-    body: form,
-    credentials: "include",
-  });
+  const res = await requestProfileImage({ method: "PUT", body: form });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail ?? "업로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
@@ -43,7 +60,7 @@ export async function uploadProfileImage(file: File): Promise<void> {
 }
 
 export async function removeProfileImage(): Promise<void> {
-  const res = await fetch(profileImageUrl(0), { method: "DELETE", credentials: "include" });
+  const res = await requestProfileImage({ method: "DELETE" });
   if (!res.ok) {
     throw new Error("기본 이미지로 되돌리지 못했습니다. 잠시 후 다시 시도해주세요.");
   }
