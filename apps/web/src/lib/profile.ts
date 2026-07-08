@@ -4,6 +4,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080/api/
 export const MAX_PROFILE_IMAGE_BYTES = 1_048_576; // 1MB — 서버 한도와 동일
 export const PROFILE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+// 업로드/삭제 성공 시 모든 Avatar 인스턴스(헤더 포함)가 재조회하도록 쏘는 전역 이벤트.
+export const PROFILE_IMAGE_UPDATED_EVENT = "changmun:profile-image-updated";
+
+function notifyProfileImageUpdated(): void {
+  window.dispatchEvent(new Event(PROFILE_IMAGE_UPDATED_EVENT));
+}
+
 export function profileImageUrl(version: number): string {
   // 캐시 버스터 — 업로드/삭제 직후 브라우저 캐시가 이전 이미지를 보여주지 않게.
   return `${API_BASE}/users/me/profile-image?v=${version}`;
@@ -32,6 +39,7 @@ export async function uploadProfileImage(file: File): Promise<void> {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail ?? "업로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
   }
+  notifyProfileImageUpdated();
 }
 
 export async function removeProfileImage(): Promise<void> {
@@ -39,4 +47,5 @@ export async function removeProfileImage(): Promise<void> {
   if (!res.ok) {
     throw new Error("기본 이미지로 되돌리지 못했습니다. 잠시 후 다시 시도해주세요.");
   }
+  notifyProfileImageUpdated();
 }

@@ -1,25 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { profileImageUrl } from "@/lib/profile";
+import { useEffect, useId, useState } from "react";
+import { PROFILE_IMAGE_UPDATED_EVENT, profileImageUrl } from "@/lib/profile";
 
-// 디폴트 프로필 — 브랜드 창문(窓) 모티프: 블루베리 원 + 흰 창살. 업로드 전·삭제 후 기본값.
+// 디폴트 프로필 — "프로필"이 읽히는 사람 실루엣 + 브랜드 블루베리 배경.
+// (로고 재사용은 프로필 의미가 안 살아서 교체 — QA #24 피드백)
 export function DefaultAvatar({ size }: { size: number }) {
+  const clipId = useId();
   return (
     <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
-      <circle cx="20" cy="20" r="20" fill="#6b78f0" />
-      <rect
-        x="13"
-        y="11.5"
-        width="14"
-        height="17"
-        rx="2.4"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="1.9"
-      />
-      <line x1="20" y1="11.5" x2="20" y2="28.5" stroke="#ffffff" strokeWidth="1.9" />
-      <line x1="13" y1="19" x2="27" y2="19" stroke="#ffffff" strokeWidth="1.9" />
+      <defs>
+        <clipPath id={clipId}>
+          <circle cx="20" cy="20" r="20" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`}>
+        <circle cx="20" cy="20" r="20" fill="#6b78f0" />
+        <circle cx="20" cy="16" r="6.4" fill="#ffffff" />
+        <path
+          d="M20 25.4c-7.2 0-11.8 4.6-12.8 10.2h25.6c-1-5.6-5.6-10.2-12.8-10.2z"
+          fill="#ffffff"
+        />
+      </g>
     </svg>
   );
 }
@@ -31,16 +33,25 @@ interface Props {
 }
 
 // 로그인 사용자 아바타 — 서버 프로필 이미지를 세션 쿠키와 함께 로드, 없으면(404) 디폴트로 폴백.
-// 클라이언트 전용(비로그인·SSR에서는 렌더하지 않음 — AuthMenu가 로그인 확인 후 마운트).
+// 업로드/삭제 성공 시 lib/profile이 쏘는 전역 이벤트를 구독해, 헤더 등 다른 아바타 인스턴스도
+// 즉시 재조회한다(Codex #59 — failed 고착·스테일 캐시 방지). 클라이언트 전용.
 export function Avatar({ size = 32, version = 0 }: Props) {
   const [failed, setFailed] = useState(false);
-  // 마운트·버전 변경 시 캐시 버스터 갱신 — 업로드 직후 이전 이미지가 남지 않게.
   const [bust, setBust] = useState(() => Date.now());
 
   useEffect(() => {
     setFailed(false);
     setBust(Date.now());
   }, [version]);
+
+  useEffect(() => {
+    function refresh() {
+      setFailed(false);
+      setBust(Date.now());
+    }
+    window.addEventListener(PROFILE_IMAGE_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(PROFILE_IMAGE_UPDATED_EVENT, refresh);
+  }, []);
 
   if (failed) {
     return <DefaultAvatar size={size} />;

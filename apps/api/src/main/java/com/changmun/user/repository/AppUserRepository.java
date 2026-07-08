@@ -34,7 +34,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
   @Query(
       value =
           """
-          SELECT profile_image AS image, profile_image_type AS contentType
+          SELECT profile_image AS "image", profile_image_type AS "contentType"
           FROM app_user
           WHERE id = :userId AND profile_image IS NOT NULL
           """,

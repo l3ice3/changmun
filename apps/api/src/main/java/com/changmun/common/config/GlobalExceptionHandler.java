@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * 전역 에러 변환 — RFC7807 ProblemDetail + 확장 필드 code (api-spec.md §0). 에러 JSON을 직접 조립하지 않고 여기 한 곳에서만
@@ -52,6 +53,14 @@ public class GlobalExceptionHandler {
   public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException exception) {
     log.debug("업로드 한도 초과", exception);
     return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "프로필 이미지는 1MB 이하만 업로드 가능합니다");
+  }
+
+  // 필수 multipart 파트(image) 누락 — catch-all의 ErrorResponse 통과 경로는 code 확장 필드가 빠지므로
+  // 여기서 INVALID_PARAM으로 변환해 api-spec §0 계약(code 분기)을 지킨다.
+  @ExceptionHandler(MissingServletRequestPartException.class)
+  public ProblemDetail handleMissingPart(MissingServletRequestPartException exception) {
+    log.debug("multipart 파트 누락. name={}", exception.getRequestPartName());
+    return problem(HttpStatus.BAD_REQUEST, INVALID_PARAM, "업로드 파일(image)이 누락됐습니다");
   }
 
   @ExceptionHandler(NotFoundException.class)
