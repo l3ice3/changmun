@@ -29,7 +29,7 @@ web은 Vercel, api+DB는 EC2 한 대. RDS·ALB 없이 비용 최소화(MVP).
 | 구성 | 위치 | 도메인 | 비고 |
 |---|---|---|---|
 | web | Vercel | `www.changmun.com` | Next.js. git push→main 시 **자동 배포** |
-| api | EC2 Docker | `api.changmun.com` | Spring Boot. 배포는 **수동**(§5) |
+| api | EC2 Docker | `api.changmun.com` | Spring Boot. push→main **자동배포**(CI/CD §5) |
 | DB | EC2 Docker | (외부 미노출) | Postgres 16. 컨테이너 내부, Caddy/호스트로 노출 안 함 |
 | 도메인·DNS | Cloudflare | `changmun.com` | 레지스트라 겸 DNS |
 
@@ -93,11 +93,13 @@ EC2 한 대에서 `caddy` + `api` + `postgres`를 compose로 함께 띄운다.
 ```
 push→main (apps/api 또는 db/migrations 변경)
   → GitHub Actions(.github/workflows/deploy-api.yml): arm64 이미지 빌드 → GHCR push
-  → EC2 cron(~2분): git pull(compose 갱신) + docker compose pull + up -d  → 교체
+  → EC2 cron(2분): git fetch+reset --hard(compose·Caddyfile 갱신) + docker compose pull + up -d  → 교체
 ```
 - **빌드는 GitHub Actions에서**(프로덕션 EC2에서 빌드 X). EC2는 완성된 이미지를 pull만.
 - 이미지: `ghcr.io/l3ice3/changmun-api:latest` (+ `:<커밋 sha>`). GHCR 패키지는 **public**(EC2가 인증 없이 pull).
 - EC2 배포 스크립트: `~/deploy.sh`, cron `*/2 * * * *`, 로그 `~/deploy.log`.
+  - `~/changmun`은 main의 git 클론. deploy.sh는 `git reset --hard origin/main`으로 강제 동기화(EC2에서 직접 수정 금지 — 덮어씀). `.env`는 gitignore라 보존.
+  - 변경 없으면 조용히 종료(no-op) → 로그엔 **동기화·배포·에러만** 남는다(빈 로그 = 정상).
 
 **롤백** (EC2에서):
 ```bash
@@ -110,7 +112,7 @@ docker compose -f docker-compose.prod.yml pull api && docker compose -f docker-c
 **수동 강제 재배포** (급할 때, cron 안 기다리고):
 ```bash
 ssh -i <changmun-key.pem> ubuntu@<EC2-IP>   # 키·IP는 팀 비공개 노트
-~/deploy.sh                                  # git pull + 이미지 pull + up -d
+~/deploy.sh                                  # git fetch+reset + 이미지 pull + up -d
 ```
 
 - **`.env`의 OAUTH_* 8개는 하나라도 비면 api 기동 실패**(Spring이 빈 client-id 거부). 4개 provider 값 전부 채울 것.

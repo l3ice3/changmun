@@ -71,3 +71,4 @@ cd apps/web && pnpm build               # SSG/ISR 빌드 검증
 - DB: PostgreSQL (JSONB, pg_trgm 필수). 로컬은 docker compose.
 - API 키(K-Startup·기업마당·온통청년)는 환경변수 — 코드·레포 커밋 절대 금지.
 - 배포: 하이브리드 — web=Vercel, api+DB=EC2 단일 인스턴스(Postgres 컨테이너·Caddy 자동 HTTPS). Python 배치=EC2 cron. RDS 대신 EC2 Postgres(비용 최소화, MVP) — pg_dump 백업(로컬+S3)으로 DR 보완, 확장 시 RDS·통합 이전 검토. 도메인 changmun.com(Cloudflare).
+- **`main` 머지 = 프로덕션 자동배포**(api: GitHub Actions→GHCR 이미지→EC2 cron pull, web: Vercel). 조율 필요한 변경(마이그레이션·breaking change)은 머지 타이밍 주의 — 머지 즉시 라이브. 상세: `deploy/README.md`.
