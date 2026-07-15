@@ -65,6 +65,10 @@ _REGION_FULL_NAME = {
     "전남광주통합특별시": "전남광주",
 }
 
+# 입력에서 지역으로 인식하는 표기 전체(표준값 + 구표기·풀네임 동의어).
+# dedup의 '[지역]' 접두 제거가 과도기 구표기([광주]·[전남] 등)도 지우도록 여기서 파생한다.
+REGION_INPUT_LABELS = frozenset(REGIONS) | frozenset(_REGION_FULL_NAME)
+
 # 온통청년 mclsfNm → 표준 category 느슨 매핑 (§7). 비창업 슬라이스는 애초 수집하지 않는다(§6-C).
 ONTONG_CATEGORY_MAP = {
     "창업": "사업화",
