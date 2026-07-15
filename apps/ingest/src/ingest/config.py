@@ -17,6 +17,7 @@ _ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 @dataclass(frozen=True)
 class Settings:
     kstartup_api_key: str | None
+    bizinfo_api_key: str | None
     ontong_api_key: str | None
     database_dsn: str
 
@@ -25,6 +26,7 @@ def load_settings() -> Settings:
     load_dotenv(_ENV_PATH)
     return Settings(
         kstartup_api_key=os.environ.get("KSTARTUP_API_KEY") or None,
+        bizinfo_api_key=os.environ.get("BIZINFO_API_KEY") or None,
         ontong_api_key=os.environ.get("ONTONG_API_KEY") or None,
         database_dsn=os.environ.get("DATABASE_URL", DEFAULT_DSN),
     )

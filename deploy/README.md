@@ -129,7 +129,7 @@ ssh -i <changmun-key.pem> ubuntu@<EC2-IP>   # 키·IP는 팀 비공개 노트
   docker build -f apps/ingest/Dockerfile -t changmun-ingest apps/ingest
   docker run --rm --network deploy_default \
     -e DATABASE_URL=postgresql://changmun:<pw>@postgres:5432/changmun \
-    -e KSTARTUP_API_KEY=... -e ONTONG_API_KEY=... \
+    -e KSTARTUP_API_KEY=... -e BIZINFO_API_KEY=... -e ONTONG_API_KEY=... \
     changmun-ingest
   ```
 

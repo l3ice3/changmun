@@ -7,11 +7,12 @@ import re
 
 from ingest import db
 from ingest.report import EnrichmentReport
-from ingest.sources import kstartup, ontong_youth
+from ingest.sources import bizinfo, kstartup, ontong_youth
 
 # 소스별 직접 신호 산출 — 분류 칸은 수집이 안 건드리므로 persona가 raw에서 재산출한다 (#11)
 _DIRECT_EXTRACTORS = {
     kstartup.SOURCE: kstartup.direct_targets,
+    bizinfo.SOURCE: bizinfo.direct_targets,
     ontong_youth.SOURCE: ontong_youth.direct_targets,
 }
 

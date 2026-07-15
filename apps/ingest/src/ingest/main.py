@@ -8,7 +8,7 @@ from collections.abc import Callable
 from ingest import db, dedup, persona
 from ingest.config import Settings, load_settings
 from ingest.report import EnrichmentReport, SourceReport, format_report
-from ingest.sources import kstartup, ontong_youth
+from ingest.sources import bizinfo, kstartup, ontong_youth
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,9 @@ Enricher = Callable[[object], EnrichmentReport]
 
 
 def default_collectors() -> dict[str, Collector]:
-    # bizinfo는 API 키 발급 후 여기 등록만 하면 된다 (소스 격리 구조 동일)
     return {
         kstartup.SOURCE: kstartup.collect,
+        bizinfo.SOURCE: bizinfo.collect,
         ontong_youth.SOURCE: ontong_youth.collect,
     }
 

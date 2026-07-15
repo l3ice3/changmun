@@ -95,7 +95,9 @@ class TestMapRecordEdges:
         assert "category:수출 지원" in result.unknown_values
         assert record.organization_type == "지자체"  # 원문 보존(표시용 — 코드 매핑 폐기, 미지 NULL 아님)
         assert record.region == ["대전"]  # 풀네임 → 시도
-        assert record.application_start_date is None  # "2026-06-30" 형식 이탈
+        # "2026-06-30" — 구분자(-·.) 허용 파싱으로 인식 (기업마당 라이브 형식 대응하며 개선.
+        # 예전엔 형식 이탈→None이라 실제 마감이 UNDATED로 오표시됐다)
+        assert record.application_start_date == date(2026, 6, 30)
         assert record.application_deadline is None  # 빈값
         assert record.target_startup_stage is None  # 신호 없음 → NULL (억지 채움 금지)
         assert record.detail_url.startswith("https://")  # 스킴 보정
