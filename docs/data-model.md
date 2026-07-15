@@ -225,20 +225,20 @@ END AS d_day
 | `title` | `pblancNm`(=`title`) | |
 | `summary` | `bsnsSumryCn`(=`description`) | **`<div>` HTML 제거** |
 | `category` | `pldirSportRealmLclasCodeNm`(=`lcategory`) | 8종 → 표준 매핑(§7, 느슨) |
-| `region` | **`hashTags` 파싱** | 전용 필드 없음 — 해시태그에서 시도 추출(복수 가능) |
+| `region` | **`hashtags` 파싱** | 전용 필드 없음 — 해시태그에서 시도 추출(복수 가능). 라이브 RSS 키는 소문자 `hashtags`(구 명세 `hashTags`는 폴백) |
 | `organization` | `jrsdInsttNm`(소관) / `excInsttNm`(수행) | |
 | `eligibility_detail` | `trgetNm` | "중소기업" 등 **자유텍스트** |
 | `application_start_date` / `_deadline` | `reqstBeginEndDe` 분리 | "20220727 ~ 20220930" → ` ~ ` split, 각 `YYYYMMDD` |
 | `detail_url` | `pblancUrl`(=`link`) | bizinfo 상세 페이지 |
 | `apply_url` | `rceptEngnHmpgUrl` | 사업신청URL(대개 빈값) |
-| `source_posted_at` | `creatPnttm`(=`pubDate`) | "2022-09-02 15:38:29" datetime |
+| ~~`source_posted_at`~~ | `creatPnttm`(=`pubDate`) | **컬럼 미도입**(§2 스키마에 없음) — `raw`에 보존, 필요 시 Phase 2 |
 | `raw` | 전체 | hashTags·첨부파일·문의처 등 |
 
 ### Bizinfo 전용 규칙 (필수)
 
 1. **⚠️ JSON이 깨져 있음 → RSS(XML) 사용 권장.** `dataType=json` 응답은 값에 따옴표가 없어(`"title":착한임대인...,`) 표준 JSON 파서로 못 읽는다. **`dataType=rss`(XML)로 받아 파싱**하거나 별도 보정 필요. (K-Startup은 JSON 권장이었지만 Bizinfo는 반대)
-2. **신청기간 분리:** `reqstBeginEndDe`는 단일 필드 "시작 ~ 종료" → ` ~ ` 기준 split, 각 `YYYYMMDD` 파싱. 한쪽만 있거나 형식 이탈 케이스 방어.
-3. **region은 hashTags에서:** "2022,금융,충북,대전,중소벤처기업부"처럼 연도·분야·지역·기관이 섞여 옴. 17개 시도 사전과 매칭해 추출. **복수 지역 가능** → 단일 `region` 컬럼이라 best-effort(첫 매칭 또는 다수면 보류). Bizinfo 지역 필터는 근사치임을 인지.
+2. **신청기간 분리:** `reqstBeginEndDe`는 단일 필드 "시작 ~ 종료" → ` ~ ` 기준 split. **라이브 검증(2026-07): 실제 형식은 `2026-07-10 ~ 2026-08-10` 대시 구분** — 명세 표기(YYYYMMDD)와 달라 구분자(`-`·`.`) 허용 파싱. 한쪽만 있거나 형식 이탈 케이스 방어.
+3. **region은 hashtags에서:** "창업,부산,대구,2026,중소벤처기업부"처럼 연도·분야·지역·기관이 섞여 옴. 17개 시도 사전과 매칭해 추출, **매칭된 시도를 모두 배열로 보존**(§2 `region TEXT[]`). 전국 사업은 시도 전체(16~17개)를 나열해 옴 — 그대로 저장하면 모든 지역 필터에 매칭되므로 의미 보존. 사전 밖 표기(예: 통합 지자체 신명칭)는 제외. Bizinfo 지역 필터는 근사치임을 인지.
 4. **HTML 제거:** `description`/`bsnsSumryCn`에 `<div>` 등 태그 포함 → strip.
 5. **페르소나 필터 미지원:** 업력·연령·신청대상 enum이 없음 → `target_startup_stage`/`target_audience_type` = **NULL**. `trgetNm`은 자유텍스트라 `eligibility_detail`로만. (∴ Bizinfo 공고는 페르소나 필터에서 누락 — 4.1 원칙대로 솔직히 노출)
 6. **필수 검증:** `pblancId`·`pblancNm` 없으면 스킵.
