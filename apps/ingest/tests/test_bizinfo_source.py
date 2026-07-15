@@ -77,6 +77,15 @@ def test_nationwide_listing_keeps_all_regions():
     ]
 
 
+def test_reqst_dt_fallback_for_dates():
+    """확장 필드(reqstBeginEndDe) 없이 RSS 기본 필드(reqstDt)만 와도 신청기간을 채운다."""
+    item = dict(SAMPLE, reqstDt="2026-07-01 ~ 2026-07-31")
+    del item["reqstBeginEndDe"]
+    record = bizinfo.map_record(item).record
+    assert record.application_start_date == date(2026, 7, 1)
+    assert record.application_deadline == date(2026, 7, 31)
+
+
 def test_missing_required_field_is_skipped():
     result = bizinfo.map_record({"pblancNm": "제목", "lcategory": "창업"})
     assert result.record is None

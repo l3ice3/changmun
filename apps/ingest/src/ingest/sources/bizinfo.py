@@ -145,7 +145,8 @@ def map_record(raw: dict) -> MappingResult:
     category = _category(raw, unknown)
     if category is None:
         return MappingResult(None, "창업 슬라이스 아님(lcategory)", unknown)
-    start_date, deadline = split_date_range(_field(raw, "reqstBeginEndDe"))
+    # 확장 필드가 빠지고 RSS 기본 필드 reqstDt만 오는 공고 대비 폴백 (둘 다 "시작 ~ 종료" 형식)
+    start_date, deadline = split_date_range(_field(raw, "reqstBeginEndDe", "reqstDt"))
     record = OpportunityRecord(
         source=SOURCE,
         external_id=external_id,
