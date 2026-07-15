@@ -30,7 +30,7 @@
 기획서 → PRD → data-model → data-overview → screens → api-spec → AC
 
 ## 구현 현황 (2026-06 · 1차 QA 완료)
-백엔드 FR-001~007 + 프론트 S1~S4 + UI/UX 폴리시까지 반영된 상태. 남은 건 기업마당(bizinfo) 수집기와 실 API 키·배포.
+백엔드 FR-001~007 + 프론트 S1~S4 + UI/UX 폴리시까지 반영된 상태. 수집 3종(K-Startup·기업마당·온통청년) 전부 구현.
 
 ### `apps/api` — 읽기 전용 서빙 API (Spring Boot 4.1 · Java 21 · Gradle Kotlin DSL)
 엔드포인트 5종:
@@ -47,7 +47,7 @@
 - 커밋 전 `./gradlew check`(spotless·checkstyle·pmd·ArchUnit·Testcontainers 슬라이스 테스트) 통과 필수.
 
 ### `apps/ingest` — 수집·정규화·dedup 배치 (Python · poetry)
-- 수집: **K-Startup·온통청년 2종 구현**(기업마당/bizinfo 수집기는 예정). 공식 API만 사용 — 크롤링 라이브러리 금지(MVP).
+- 수집: **K-Startup·기업마당·온통청년 3종 구현.** 공식 API만 사용 — 크롤링 라이브러리 금지(MVP).
 - 정규화(taxonomy 매핑)·dedup·페르소나 부여 배치. `raw` 원본 보존, 분류 칸 보존, UNDATED canonical 우선.
 - `poetry run pytest` 통과.
 
@@ -86,7 +86,6 @@ cd apps/web && pnpm build                   # SSG/ISR 빌드 검증
 
 ## 확정 / 미결정
 - 로마자 표기: **changmun 확정** (Java 패키지 `com.changmun`, DB명 `changmun`).
-- **기업마당(bizinfo) 수집기 미구현** — 추가 예정(현재 수집은 K-Startup·온통청년).
-- API 키 3종 발급 — 실수집 전 필요(코드는 env 주입 준비됨).
+- 수집기 3종(K-Startup·기업마당·온통청년) 구현 완료 — API 키는 env 주입(`apps/ingest/.env`).
 - 배포: **하이브리드 완료** — web=Vercel(www.changmun.com), api+DB=EC2 단일(Postgres 컨테이너·Caddy HTTPS, api.changmun.com). DB는 pg_dump 백업(로컬+S3). **구성·절차·운영 상세: [`deploy/README.md`](deploy/README.md).**
 - GitHub: branch protection(`static-analysis` required) + Codex 클라우드 코드 리뷰 활성화.

@@ -5,7 +5,12 @@ from ingest.config import Settings
 from ingest.main import run
 from ingest.report import EnrichmentReport, SourceReport
 
-SETTINGS = Settings(kstartup_api_key="KEY", ontong_api_key="KEY", database_dsn="postgresql://unused")
+SETTINGS = Settings(
+    kstartup_api_key="KEY",
+    bizinfo_api_key="KEY",
+    ontong_api_key="KEY",
+    database_dsn="postgresql://unused",
+)
 
 
 class FakeConnection:

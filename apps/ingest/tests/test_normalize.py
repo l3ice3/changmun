@@ -34,8 +34,13 @@ class TestParseYyyymmdd:
         assert parse_yyyymmdd("20260619") == date(2026, 6, 19)
         assert parse_yyyymmdd(20260619) == date(2026, 6, 19)
 
+    def test_separator_formats(self):
+        # 기업마당 라이브는 대시 형식으로 옴 (§6-B 명세 YYYYMMDD와 다름 — 라이브 검증)
+        assert parse_yyyymmdd("2026-06-19") == date(2026, 6, 19)
+        assert parse_yyyymmdd("2026.06.19") == date(2026, 6, 19)
+
     def test_malformed_returns_none(self):
-        assert parse_yyyymmdd("2026-06-19") is None
+        assert parse_yyyymmdd("2026-6-19") is None  # 자리수 부족 — 8자리 아님
         assert parse_yyyymmdd("") is None
         assert parse_yyyymmdd(None) is None
         assert parse_yyyymmdd("20261341") is None  # 13월 41일

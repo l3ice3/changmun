@@ -8,6 +8,8 @@ _MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 # 스킴 없는 도메인 형태 (예: www.k-startup.go.kr/...) — 한글·공백 포함 시 URL 아님
 _BARE_DOMAIN = re.compile(r"^[\w-]+(\.[\w-]+)+(/\S*)?$")
 _YYYYMMDD = re.compile(r"^\d{8}$")
+# 날짜 구분자 — 기업마당 라이브는 "2026-07-10 ~ 2026-08-10" 대시 형식(§6-B 명세는 YYYYMMDD)
+_DATE_SEPARATORS = re.compile(r"[-.]")
 
 
 def clean_text(value: str | None) -> str | None:
@@ -19,10 +21,10 @@ def clean_text(value: str | None) -> str | None:
 
 
 def parse_yyyymmdd(value: str | int | None) -> date | None:
-    """라이브 형식 YYYYMMDD(8자리) → date. 형식 이탈은 None (raw에 원본 보존됨)."""
+    """라이브 형식 YYYYMMDD(8자리, -·. 구분자 허용) → date. 형식 이탈은 None (raw에 원본 보존됨)."""
     if value is None:
         return None
-    text = str(value).strip()
+    text = _DATE_SEPARATORS.sub("", str(value).strip())
     if not _YYYYMMDD.match(text):
         return None
     try:
