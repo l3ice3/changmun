@@ -26,7 +26,9 @@ WHERE NOT COALESCE(region, '{}'::text[]) @> ARRAY['전남광주']
     OR (source = 'k-startup'
         AND string_to_array(replace(COALESCE(raw->>'supt_regin', ''), ' ', ''), ',') @> ARRAY['전남광주'])
     OR (source = 'bizinfo'
-        AND string_to_array(replace(COALESCE(raw->>'hashtags', raw->>'hashTags', ''), ' ', ''), ',')
+        -- 런타임 _field는 빈 문자열도 건너뛰고 폴백 — NULLIF로 동일하게 빈 hashtags를 무시
+        AND string_to_array(
+                replace(COALESCE(NULLIF(raw->>'hashtags', ''), raw->>'hashTags', ''), ' ', ''), ',')
             @> ARRAY['전남광주'])
   );
 
