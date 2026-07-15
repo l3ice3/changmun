@@ -26,5 +26,16 @@ WHERE NOT COALESCE(region, '{}'::text[]) @> ARRAY['전남광주']
     OR (source = 'k-startup'
         AND string_to_array(replace(COALESCE(raw->>'supt_regin', ''), ' ', ''), ',') @> ARRAY['전남광주'])
     OR (source = 'bizinfo'
-        AND string_to_array(replace(COALESCE(raw->>'hashtags', ''), ' ', ''), ',') @> ARRAY['전남광주'])
+        AND string_to_array(replace(COALESCE(raw->>'hashtags', raw->>'hashTags', ''), ' ', ''), ',')
+            @> ARRAY['전남광주'])
   );
+
+-- backfill 2: 위 보정으로 시도 16개가 전부 찬 bizinfo 전국 사업 행에 '전국' 라벨 부여.
+-- 수집 로직(_with_nationwide, §6-B 규칙 3)과 저장 상태를 일치시킨다 — 지역 필터가
+-- @> 배열 포함 매칭이라 region=전국 요청은 배열에 '전국'이 있어야 잡힌다.
+UPDATE opportunity
+SET region = '{전국}'::text[] || region
+WHERE source = 'bizinfo'
+  AND NOT region @> ARRAY['전국']
+  AND region @> ARRAY['서울', '부산', '대구', '인천', '전남광주', '대전', '울산', '세종',
+                      '경기', '강원', '충북', '충남', '전북', '경북', '경남', '제주'];
