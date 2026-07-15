@@ -90,6 +90,15 @@ class TestRegion:
         assert normalize_regions("서울,경기", []) == ["서울", "경기"]
         assert normalize_regions("서울,서울특별시", []) == ["서울"]  # 중복 제거
 
+    def test_jeonnamgwangju_merger(self):
+        # 2026 행정구역 통합(§7): 광주·전남·신구 표기 전부 → 전남광주 단일 표준값
+        assert normalize_regions("광주", []) == ["전남광주"]
+        assert normalize_regions("전남", []) == ["전남광주"]
+        assert normalize_regions("광주광역시", []) == ["전남광주"]
+        assert normalize_regions("전라남도", []) == ["전남광주"]
+        assert normalize_regions("전남광주통합특별시", []) == ["전남광주"]
+        assert normalize_regions("광주,전남", []) == ["전남광주"]  # 구표기 복수 → 중복 제거
+
     def test_unknown_logged_and_dropped(self):
         unknown = []
         assert normalize_regions("수도권", unknown) is None
@@ -159,6 +168,11 @@ class TestSidoFromZipCodes:
     def test_multiple_sido_array(self):
         # region이 배열이라 복수 시도를 모두 보존(정렬)
         assert sido_from_zip_codes("11000,26000", []) == ["부산", "서울"]
+
+    def test_jeonnamgwangju_zip_prefixes(self):
+        # 신규 12(라이브 실증: 목포 12110·강진 12780)와 구 광주 29·전남 46 전부 → 전남광주
+        assert sido_from_zip_codes("12110", []) == ["전남광주"]
+        assert sido_from_zip_codes("29000,46000", []) == ["전남광주"]
 
     def test_unknown_prefix_logged(self):
         unknown = []

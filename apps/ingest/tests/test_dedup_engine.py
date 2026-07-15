@@ -49,6 +49,16 @@ class TestNormKeys:
         assert "kotra" in norm_title("[KOTRA] 글로벌 지원사업")
         assert norm_title("[서울] 창업 지원") == norm_title("창업 지원")
 
+    def test_strips_legacy_region_prefixes(self):
+        # 전남광주 통합 후에도 과도기 구표기 접두([광주]·[전남]·풀네임)는 계속 지운다 —
+        # 잔여 지역 토큰이 veto_tokens에 남아 병합을 막으면 안 된다 (Codex)
+        base = norm_title("예비창업패키지 참여자 모집")
+        assert norm_title("[광주] 예비창업패키지 참여자 모집") == base
+        assert norm_title("[전남] 예비창업패키지 참여자 모집") == base
+        assert norm_title("[전남광주] 예비창업패키지 참여자 모집") == base
+        assert norm_title("[전라남도] 예비창업패키지 참여자 모집") == base
+        assert veto_tokens("[광주] 예비창업패키지") == veto_tokens("예비창업패키지")
+
     def test_strips_year_with_do_suffix(self):
         # "2026년도"와 "2026년" 모두 연도 noise로 제거 (Codex G)
         assert norm_title("2026년도 창업 지원") == norm_title("2026년 창업 지원")

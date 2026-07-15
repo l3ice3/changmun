@@ -64,35 +64,39 @@ def test_spec_format_also_accepted():
 
 
 def test_all_sido_listing_gains_nationwide_label():
-    """시도 전체 나열(전국 사업 표현) → '전국' 라벨 부여 + 개별 시도 보존 (region=전국 필터 @> 매칭)."""
-    item = dict(
-        SAMPLE,
-        hashtags="창업,서울,부산,대구,인천,광주,대전,울산,세종,경기,강원,충북,충남,전북,전남,경북,경남,제주,2026",
-    )
-    record = bizinfo.map_record(item).record
-    assert record.region[0] == "전국"
-    assert set(record.region) == {
-        "전국", "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
-        "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
-    }
+    """시도 전체 나열(전국 사업 표현) → '전국' 라벨 부여 + 개별 시도 보존 (region=전국 필터 @> 매칭).
 
-
-def test_partial_sido_listing_keeps_regions_only():
-    """일부 시도만 나열(비수도권 사업 등)은 '전국'을 부여하지 않는다 — 억지 채움 금지.
-
-    "전남광주"(통합특별시 표기)는 이 표준(17개 시도)에 없어 제외 — 시도 전체가 안 채워져
-    전국 부여도 안 된다. 통합 표준 개정(feat/region-jeonnamgwangju)이 이 갭을 닫는다.
+    통합 표준(§7 — 16개 시도)에서 신표기(전남광주)·구표기(광주,전남 분리) 어느 쪽 나열이든
+    전체가 채워지면 전국이 붙는다.
     """
-    item = dict(
+    merged_16 = {
+        "전국", "서울", "부산", "대구", "인천", "전남광주", "대전", "울산", "세종",
+        "경기", "강원", "충북", "충남", "전북", "경북", "경남", "제주",
+    }
+    new_style = dict(
         SAMPLE,
         hashtags="창업,서울,부산,대구,인천,전남광주,대전,울산,세종,경기,강원,충북,충남,전북,경북,경남,제주,2026",
     )
+    old_style = dict(
+        SAMPLE,
+        hashtags="창업,서울,부산,대구,인천,광주,대전,울산,세종,경기,강원,충북,충남,전북,전남,경북,경남,제주,2026",
+    )
+    for item in (new_style, old_style):
+        record = bizinfo.map_record(item).record
+        assert record.region[0] == "전국"
+        assert set(record.region) == merged_16
+
+
+def test_partial_sido_listing_keeps_regions_only():
+    """일부 시도만 나열(비수도권 사업 등)은 '전국'을 부여하지 않는다 — 억지 채움 금지 (Pre-TIPS 실표본형)."""
+    item = dict(
+        SAMPLE,
+        hashtags="창업,부산,대구,전남광주,대전,울산,세종,강원,충북,충남,전북,경북,경남,제주,2026",
+    )
     record = bizinfo.map_record(item).record
     assert "전국" not in record.region
-    assert record.region == [
-        "서울", "부산", "대구", "인천", "대전", "울산", "세종",
-        "경기", "강원", "충북", "충남", "전북", "경북", "경남", "제주",
-    ]
+    assert "전남광주" in record.region
+    assert "서울" not in record.region
 
 
 def test_reqst_dt_fallback_for_dates():

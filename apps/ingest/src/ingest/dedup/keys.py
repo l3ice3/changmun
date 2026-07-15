@@ -5,12 +5,14 @@ norm_org   = 기관명 약어사전 정규화 + 공백 제거.
 """
 import re
 
-from ingest.normalize.taxonomy import REGIONS
+from ingest.normalize.taxonomy import REGION_INPUT_LABELS
 
 # §6-D는 '[지역]' 접두만 제거하라고 한다 — [소셜벤처]·[KOTRA] 등 비-지역 접두를 지우면
 # 서로 다른 트랙이 오합치된다(Codex). 괄호 안이 지역명일 때만 접두를 제거한다.
+# 표준값이 아니라 '인식 표기 전체'를 쓴다 — 과도기 구표기([광주]·[전남]·풀네임) 접두도
+# 지워져야 veto_tokens에 지역 잔여물이 남아 병합을 막지 않는다 (Codex).
 _REGION_BRACKET = re.compile(
-    r"^\s*[\[(](?:" + "|".join(sorted(REGIONS, key=len, reverse=True)) + r")[\])]\s*"
+    r"^\s*[\[(](?:" + "|".join(sorted(REGION_INPUT_LABELS, key=len, reverse=True)) + r")[\])]\s*"
 )
 # '2026년도'/'2026년' 혼용 대응 — '년' 뒤 '도'까지 연도 noise로 제거 (Codex)
 _YEAR = re.compile(r"(19|20)\d{2}\s*년?도?")
