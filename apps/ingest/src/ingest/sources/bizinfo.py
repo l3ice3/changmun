@@ -117,6 +117,10 @@ def _parse_page(xml_text: str) -> tuple[list[dict], int]:
     root = ElementTree.fromstring(xml_text)
     items = [_element_to_dict(item) for item in root.findall(".//item")]
     total_text = _first_text(root, "totCnt", "totalCount")
+    if not items and total_text is None:
+        # 인증 오류·쿼터 초과는 HTTP 200 + XML 오류 봉투(item·totCnt 없음)로 온다.
+        # ([], 0)으로 넘기면 collect()가 성공 리포트를 내 AC-004(무효 키 → 소스 실패)가 깨진다.
+        raise ValueError(f"item·totCnt 없는 응답(오류 봉투 의심): {xml_text[:200]}")
     total_count = int(total_text) if total_text and total_text.isdigit() else len(items)
     return items, total_count
 

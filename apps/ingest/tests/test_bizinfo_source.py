@@ -1,6 +1,9 @@
-"""기업마당 RSS 매핑·범위·페이지네이션 테스트 — AC-001·003·005."""
+"""기업마당 RSS 매핑·범위·페이지네이션 테스트 — AC-001·003·004·005."""
 from datetime import date
 
+import pytest
+
+from ingest.errors import SourceError
 from ingest.sources import bizinfo
 
 
@@ -101,3 +104,27 @@ def test_paginates_and_sends_fixed_scope():
     assert calls[0]["searchLclasId"] == "06"
     assert calls[0]["dataType"] == "rss"
     assert calls[0]["crtfcKey"] == "KEY"
+
+
+def test_error_envelope_raises_source_error():
+    """인증 오류는 HTTP 200 + XML 오류 봉투로 옴 — 성공(0건) 리포트로 오인하면 안 됨 (AC-004)."""
+    envelope = (
+        "<OpenAPI_ServiceResponse><cmmMsgHeader>"
+        "<returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg>"
+        "</cmmMsgHeader></OpenAPI_ServiceResponse>"
+    )
+
+    def fake_get(url, params, timeout):
+        return FakeResponse(envelope)
+
+    with pytest.raises(SourceError):
+        list(bizinfo.fetch_pages("BAD_KEY", http_get=fake_get, sleep=lambda _: None))
+
+
+def test_genuinely_empty_feed_is_not_an_error():
+    """totCnt=0이 명시된 빈 채널은 정상 0건 — 오류 봉투와 구분한다."""
+    def fake_get(url, params, timeout):
+        return FakeResponse("<rss><channel><totCnt>0</totCnt></channel></rss>")
+
+    pages = list(bizinfo.fetch_pages("KEY", http_get=fake_get, sleep=lambda _: None))
+    assert pages == [[]]
