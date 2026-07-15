@@ -63,14 +63,32 @@ def test_spec_format_also_accepted():
     assert record.application_deadline == date(2026, 7, 31)
 
 
-def test_nationwide_listing_keeps_all_regions():
-    """전국 사업은 시도 전체를 나열해 옴 — 복수 지역 배열 그대로 보존 (§2 region TEXT[])."""
+def test_all_sido_listing_gains_nationwide_label():
+    """시도 전체 나열(전국 사업 표현) → '전국' 라벨 부여 + 개별 시도 보존 (region=전국 필터 @> 매칭)."""
+    item = dict(
+        SAMPLE,
+        hashtags="창업,서울,부산,대구,인천,광주,대전,울산,세종,경기,강원,충북,충남,전북,전남,경북,경남,제주,2026",
+    )
+    record = bizinfo.map_record(item).record
+    assert record.region[0] == "전국"
+    assert set(record.region) == {
+        "전국", "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+        "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+    }
+
+
+def test_partial_sido_listing_keeps_regions_only():
+    """일부 시도만 나열(비수도권 사업 등)은 '전국'을 부여하지 않는다 — 억지 채움 금지.
+
+    "전남광주"(통합특별시 표기)는 이 표준(17개 시도)에 없어 제외 — 시도 전체가 안 채워져
+    전국 부여도 안 된다. 통합 표준 개정(feat/region-jeonnamgwangju)이 이 갭을 닫는다.
+    """
     item = dict(
         SAMPLE,
         hashtags="창업,서울,부산,대구,인천,전남광주,대전,울산,세종,경기,강원,충북,충남,전북,경북,경남,제주,2026",
     )
     record = bizinfo.map_record(item).record
-    # "전남광주"(통합특별시 표기)는 표준 17개 시도 사전에 없어 제외된다
+    assert "전국" not in record.region
     assert record.region == [
         "서울", "부산", "대구", "인천", "대전", "울산", "세종",
         "경기", "강원", "충북", "충남", "전북", "경북", "경남", "제주",

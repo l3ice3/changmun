@@ -12,6 +12,7 @@ from ingest import db
 from ingest.config import Settings
 from ingest.errors import SourceError
 from ingest.normalize import clean_text, clean_url, normalize_regions, split_date_range
+from ingest.normalize.taxonomy import REGIONS
 from ingest.record import MappingResult, OpportunityRecord
 from ingest.report import SourceReport
 from ingest.sources.http_client import MAX_RETRIES, TIMEOUT_SECONDS, _redact_secrets
@@ -22,6 +23,9 @@ SOURCE = "bizinfo"
 BASE_URL = "https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do"
 CATEGORY_CODE = "06"
 PER_PAGE = 100
+
+# 시도 전체 나열 = 전국 사업 표현 감지용 (표준에서 지역 아닌 라벨 제외)
+_ALL_SIDO = frozenset(REGIONS) - {"전국", "해외"}
 
 _CATEGORY_MAP = {
     "금융": "융자ㆍ보증",
@@ -204,7 +208,20 @@ def _regions(raw: dict, unknown: list[str]) -> list[str] | None:
         return None
     tokens = [token.strip().lstrip("#") for token in hashtags.replace(",", " ").split()]
     known = [token for token in tokens if normalize_regions(token, [])]
-    return normalize_regions(",".join(known), unknown)
+    return _with_nationwide(normalize_regions(",".join(known), unknown))
+
+
+def _with_nationwide(regions: list[str] | None) -> list[str] | None:
+    """시도 전체 나열(전국 사업 표현)이면 '전국' 라벨을 함께 부여.
+
+    지역 필터는 배열 포함(@>) 매칭이라 '전국' 요청은 배열에 '전국'이 있어야 잡힌다(Codex).
+    개별 시도는 그대로 보존해 개별 지역 필터 매칭도 유지한다.
+    """
+    if regions is None or "전국" in regions:
+        return regions
+    if set(regions) >= _ALL_SIDO:
+        return ["전국", *regions]
+    return regions
 
 
 def _strip_html(value: str | None) -> str | None:
