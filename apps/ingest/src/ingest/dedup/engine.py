@@ -29,7 +29,7 @@ class DedupRecord:
     source: str
     norm_title: str
     veto_tokens: frozenset[str]
-    norm_org: str | None
+    norm_orgs: frozenset[str]
     region: list[str] | None
     start_date: date | None
     deadline: date | None
@@ -46,15 +46,25 @@ class Assignment:
 
 
 def record_of(row: tuple) -> DedupRecord:
-    """db.fetch_dedup_rows 행 → DedupRecord (정규화 키 계산 포함)."""
+    """db.fetch_dedup_rows 행 → DedupRecord (정규화 키 계산 포함).
+
+    기관은 단일 값이 아니라 후보 집합 — 같은 공고를 소스마다 소관부처/수행기관으로
+    다르게 표기해(라이브: 해양수산부 vs 해양수산과학기술진흥원) 단일 비교로는 교차
+    소스 쌍의 기관일치(0.25)가 사실상 0점이었다 (2026-07-15 튜닝, PRD §11-8 절차).
+    """
     (record_id, source, title, organization, region, start_date, deadline,
-     always_open, info_count, group_id) = row
+     always_open, info_count, group_id, *org_candidates) = row
+    norm_orgs = frozenset(
+        normalized
+        for candidate in (organization, *org_candidates)
+        if (normalized := norm_org(candidate)) is not None
+    )
     return DedupRecord(
         record_id=record_id,
         source=source,
         norm_title=norm_title(title),
         veto_tokens=veto_tokens(title),
-        norm_org=norm_org(organization),
+        norm_orgs=norm_orgs,
         region=region,
         start_date=start_date,
         deadline=deadline,
@@ -64,14 +74,27 @@ def record_of(row: tuple) -> DedupRecord:
     )
 
 
+# 출처 간 등록 시차 — 같은 공고의 시작일이 소스마다 1일 어긋나는 패턴이 라이브에서
+# 반복 관찰됨(대구콘텐츠 06-24/06-25, TIPS 컨설팅 07-01/07-02). 마감일은 블로킹이
+# 이미 동일을 강제하므로 시작일에만 허용 오차를 둔다.
+START_DATE_TOLERANCE_DAYS = 1
+
+
 def pair_score(left: DedupRecord, right: DedupRecord) -> float:
-    """0.6·제목 유사도 + 0.25·기관 일치 + 0.15·기간(시작일) 일치 (§6-D 규칙 3)."""
+    """0.6·제목 유사도 + 0.25·기관 일치 + 0.15·기간(시작일) 일치 (§6-D 규칙 3).
+
+    기관일치 = 후보 집합(소관·수행 포함) 교집합 존재 / 기간일치 = 시작일 ±1일.
+    """
     title_score = trigram_similarity(left.norm_title, right.norm_title)
     organization_score = 0.0
-    if left.norm_org is not None and left.norm_org == right.norm_org:
+    if left.norm_orgs & right.norm_orgs:
         organization_score = 1.0
     period_score = 0.0
-    if left.start_date is not None and left.start_date == right.start_date:
+    if (
+        left.start_date is not None
+        and right.start_date is not None
+        and abs((left.start_date - right.start_date).days) <= START_DATE_TOLERANCE_DAYS
+    ):
         period_score = 1.0
     return TITLE_WEIGHT * title_score + ORGANIZATION_WEIGHT * organization_score + PERIOD_WEIGHT * period_score
 
@@ -141,10 +164,17 @@ def _region_conflict(left: DedupRecord, right: DedupRecord) -> bool:
     (['서울','경기'] vs ['서울'])을 병합하면 canonical이 일부 지역을 잃어 그 지역 필터에서 누락된다
     (복수 지역 보존 계약 위반 — Codex P1). 그래서 '지역 집합이 같을 때만' 병합을 허용한다
     (오합치 > 놓침 — AC-008). 한쪽이 NULL이면 비교하지 않는다.
+
+    전국 특례: 둘 다 '전국'을 포함하면 시도 나열 여부와 무관하게 호환 — 같은 전국
+    사업을 k-startup은 {전국}, 기업마당은 {전국+시도 전체}로 표현한다(§6-B 규칙 3).
+    한쪽만 전국이면 기존대로 충돌(보수성 유지).
     """
     if not left.region or not right.region:
         return False
-    return set(left.region) != set(right.region)
+    left_set, right_set = set(left.region), set(right.region)
+    if "전국" in left_set and "전국" in right_set:
+        return False
+    return left_set != right_set
 
 
 def has_substantive_difference(left_tokens: frozenset[str], right_tokens: frozenset[str]) -> bool:

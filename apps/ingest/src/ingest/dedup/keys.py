@@ -30,6 +30,9 @@ _ORGANIZATION_ALIASES = {
     "행안부": "행정안전부",
     "창진원": "창업진흥원",
 }
+# 법인격 접두 — 같은 기관을 소스마다 "(재)대구디지털혁신진흥원"/"대구디지털혁신진흥원"으로
+# 표기해 기관일치가 깨진다(라이브 2026-07-15). 식별에 기여하지 않는 접두만 제거.
+_LEGAL_FORM_PREFIX = re.compile(r"^(\(재\)|\(사\)|\(주\)|\(유\)|재단법인|사단법인|주식회사)")
 
 
 def norm_title(title: str) -> str:
@@ -59,5 +62,7 @@ def _strip_noise(title: str) -> str:
 def norm_org(organization: str | None) -> str | None:
     if organization is None or not organization.strip():
         return None
-    compact = _SPACES.sub("", organization)
+    compact = _LEGAL_FORM_PREFIX.sub("", _SPACES.sub("", organization))
+    if not compact:
+        return None
     return _ORGANIZATION_ALIASES.get(compact, compact)
