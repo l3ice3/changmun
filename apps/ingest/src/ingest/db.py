@@ -47,14 +47,18 @@ def _build_upsert_sql() -> str:
 _UPSERT_SQL = _build_upsert_sql()
 
 
-# dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5)
+# dedup 입력 — info_count는 canonical 동순위 판정용 "채워진 컬럼 수" (§6-D 규칙 5).
+# 마지막 4개 = 기관 후보(소관·수행, bizinfo/온통청년 raw) — organization 단일 값만으로는
+# 소스 간 표기 차이(소관부처 vs 수행기관)로 기관일치가 깨진다 (engine.record_of 참조).
 _DEDUP_ROWS_SQL = """
 SELECT id, source, title, organization, region,
        application_start_date, application_deadline, is_always_open,
        num_nonnulls(summary, category, region, organization, organization_type, support_amount,
                     target_startup_stage, target_audience_type, eligibility_detail,
                     application_start_date, application_deadline, apply_url) AS info_count,
-       dedup_group_id
+       dedup_group_id,
+       raw->>'jrsdInsttNm', raw->>'excInsttNm',
+       raw->>'sprvsnInstCdNm', raw->>'operInstCdNm'
 FROM opportunity
 """
 

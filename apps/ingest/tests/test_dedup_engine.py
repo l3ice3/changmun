@@ -11,12 +11,17 @@ DEADLINE = date(2026, 6, 30)
 
 
 def record(record_id, source, title, **overrides) -> DedupRecord:
+    organizations = overrides.pop("organization", "중소벤처기업부")
+    if organizations is None or isinstance(organizations, str):
+        organizations = [organizations]
     values = {
         "record_id": record_id,
         "source": source,
         "norm_title": norm_title(title),
         "veto_tokens": veto_tokens(title),
-        "norm_org": norm_org(overrides.pop("organization", "중소벤처기업부")),
+        "norm_orgs": frozenset(
+            normalized for org in organizations if (normalized := norm_org(org)) is not None
+        ),
         "region": overrides.pop("region", ["전국"]),
         "start_date": overrides.pop("start_date", date(2026, 6, 1)),
         "deadline": overrides.pop("deadline", DEADLINE),
@@ -43,6 +48,13 @@ class TestNormKeys:
         assert norm_org("중기부") == "중소벤처기업부"
         assert norm_org("중소벤처기업부") == "중소벤처기업부"
         assert norm_org("  ") is None
+
+    def test_norm_org_strips_legal_form_prefix(self):
+        # 법인격 접두는 식별에 기여하지 않음 — 소스 간 표기 차이((재) 유무) 흡수
+        assert norm_org("(재)대구디지털혁신진흥원") == norm_org("대구디지털혁신진흥원")
+        assert norm_org("재단법인 강원창조경제혁신센터") == norm_org("강원창조경제혁신센터")
+        assert norm_org("(주)아이전스") == norm_org("아이전스")
+        assert norm_org("(재)") is None
 
     def test_keeps_non_region_bracket(self):
         # [지역]만 제거, [기관/분야] 접두는 토큰으로 남는다 (Codex E)
@@ -134,6 +146,60 @@ class TestGrouping:
         right = record(2, "ontong-youth", "청년창업 공간 지원사업", region=["서울"])
         assignments = by_id(engine.build_assignments([left, right], TODAY))
         assert assignments[1].group_id == assignments[2].group_id == 1
+
+    def test_nationwide_representation_difference_merges(self):
+        """전국 특례: 같은 전국 사업을 {전국} vs {전국+시도 전체}로 표현해도 병합한다.
+
+        라이브 재현(2026-07-15): '해양수산 창업 콘테스트' — k-startup은 {전국},
+        기업마당은 전국+시도 나열. 기관도 소관(해양수산부)/수행(해양수산과학기술진흥원)으로
+        갈려 후보 집합 교집합으로만 일치한다 (§11-8 튜닝).
+        """
+        kstartup_row = record(
+            1, "k-startup", "2026년 해양수산 창업 콘테스트 참가자 모집 공고",
+            organization="해양수산과학기술진흥원", region=["전국"],
+        )
+        bizinfo_row = record(
+            2, "bizinfo", "2026년 해양수산 창업 콘테스트 참가자 모집 공고",
+            organization=["해양수산부", "해양수산과학기술진흥원"],
+            region=["전국", "서울", "부산", "대구", "인천", "전남광주", "대전", "울산",
+                    "세종", "경기", "강원", "충북", "충남", "전북", "경북", "경남", "제주"],
+        )
+        assignments = by_id(engine.build_assignments([kstartup_row, bizinfo_row], TODAY))
+        assert assignments[1].group_id == assignments[2].group_id == 1
+        assert assignments[1].canonical is True  # K-Startup 우선
+
+    def test_nationwide_on_one_side_only_still_conflicts(self):
+        """한쪽만 전국이면 기존 보수 규칙 유지 — {전국} vs {서울}은 병합하지 않는다."""
+        left = record(1, "k-startup", "청년창업 공간 지원사업", region=["전국"])
+        right = record(2, "bizinfo", "청년창업 공간 지원사업", region=["서울"])
+        assignments = by_id(engine.build_assignments([left, right], TODAY))
+        assert assignments[1].group_id is None
+        assert assignments[2].group_id is None
+
+    def test_org_candidate_set_and_start_tolerance_merges(self):
+        """기관 후보 집합(법인격 접두 정규화 포함) + 시작일 ±1일 허용 병합.
+
+        라이브 재현: '대구콘텐츠코리아랩' — 기업마당 소관=대구광역시·수행=대구디지털혁신진흥원,
+        k-startup 기관=(재)대구디지털혁신진흥원, 시작일 06-24/06-25.
+        """
+        bizinfo_row = record(
+            1, "bizinfo", "[대구] 2026년 대구콘텐츠코리아랩 크리에이터 사업화 제작지원 참가자 모집 공고",
+            organization=["대구광역시", "대구디지털혁신진흥원"],
+            region=["대구"], start_date=date(2026, 6, 24),
+        )
+        kstartup_row = record(
+            2, "k-startup", "2026년 대구콘텐츠코리아랩 크리에이터 사업화 제작지원 참가자 모집",
+            organization="(재)대구디지털혁신진흥원",
+            region=["대구"], start_date=date(2026, 6, 25),
+        )
+        assignments = by_id(engine.build_assignments([bizinfo_row, kstartup_row], TODAY))
+        assert assignments[1].group_id == assignments[2].group_id == 1
+
+    def test_start_date_two_days_apart_gets_no_period_score(self):
+        """시작일 허용 오차는 ±1일까지만 — 2일 차이는 기간 점수 없음 (경계 보수성)."""
+        left = record(1, "k-startup", "청년창업 지원", start_date=date(2026, 6, 1))
+        right = record(2, "bizinfo", "청년창업 지원", start_date=date(2026, 6, 3))
+        assert engine.pair_score(left, right) == engine.TITLE_WEIGHT + engine.ORGANIZATION_WEIGHT
 
     def test_non_region_bracket_not_merged(self):
         """비-지역 접두([소셜벤처]/[청년])가 다르면 별개 공고 — 접두 보존 veto (Codex E)."""
