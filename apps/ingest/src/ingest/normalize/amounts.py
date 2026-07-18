@@ -50,8 +50,9 @@ _LOAN_DOCUMENT = re.compile(r"상환|융자|대출|보증(?!금)")
 # 재원형("직접투자 검토(총 2억원)")은 정당한 총액이다 (라이브 표본).
 # "N년간/N개년 최대 X원"은 프로그램 다년 예산이지 기업당 지원금이 아니다
 # (라이브 검수 2026-07-18: "3년간 최대 15억원 이내 지원" — 캠퍼스타운 단위사업 예산).
-_EXCLUDE_BEFORE = re.compile(r"(매출|자본금|보증|융자|대출|출연금|연\s*소득|소득|\d+\s*년간|\d+\s*개년)")
-_EXCLUDE_AFTER = re.compile(r"^\s*(이하|미만|이상|을\s*초과|초과)")
+_EXCLUDE_BEFORE = re.compile(r"(매출|자본금|보증|융자|대출|출연금|연\s*소득|소득|\d+\s*년\s*간|\d+\s*개년)")
+# 이하/미만류는 금액 직후(앵커), 자격 명사(매출 등)는 뒤 창 어디든 — "최대 10억원 매출 기업 대상" (Codex 7차)
+_EXCLUDE_AFTER = re.compile(r"^\s*(?:원)?\s*(이하|미만|이상|을?\s*초과)|매출|자본금|소득")
 _BEFORE_WINDOW = 14
 _AFTER_WINDOW = 8
 
@@ -126,7 +127,7 @@ def _best_match(
 def _excluded_by_context(text: str, match: re.Match) -> bool:
     before = text[max(0, match.start() - _BEFORE_WINDOW):match.start()]
     after = text[match.end():match.end() + _AFTER_WINDOW]
-    return bool(_EXCLUDE_BEFORE.search(before)) or bool(_EXCLUDE_AFTER.match(after))
+    return bool(_EXCLUDE_BEFORE.search(before)) or bool(_EXCLUDE_AFTER.search(after))
 
 
 def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:

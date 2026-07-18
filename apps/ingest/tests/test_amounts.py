@@ -72,6 +72,8 @@ class TestFalsePositiveGuards:
         assert extract_amounts("연 매출액이 5천만원 이하인 업체").max_support_amount is None
         assert extract_amounts("최대 10억원 이하 매출 기업 대상").max_support_amount is None
         assert extract_amounts("투자기관으로부터 1천만원 이상 투자를 받은 기업").max_support_amount is None
+        # 자격 키워드가 금액 뒤에 오는 변형 (Codex 7차)
+        assert extract_amounts("최대 10억원 매출 기업 대상").max_support_amount is None
 
     def test_loan_guarantee_amounts_not_extracted(self):
         # 융자·보증 한도는 성격이 다름 (§6-E 규칙 4)
@@ -94,6 +96,7 @@ class TestFalsePositiveGuards:
         # 전수 검수(2026-07-18): "N년간 최대 X원"은 프로그램 다년 예산 — 상한(20억) 이하라도 제외
         assert extract_amounts("(단위형) 3년간 최대 15억원 이내 지원").max_support_amount is None
         assert extract_amounts("2개년 최대 5억원 지원").max_support_amount is None
+        assert extract_amounts("3년 간 최대 15억원 이내 지원").max_support_amount is None  # 띄어쓰기 변형 (Codex 7차)
 
     def test_loan_category_skipped_entirely(self):
         assert extract_amounts("기업당 최대 1억원", category="융자ㆍ보증").max_support_amount is None
