@@ -142,6 +142,28 @@ class TestDedupAndPersonaFlow:
         assert report_first.metrics["상속"] >= 1
         assert report_second.metrics["상속"] == 0
 
+    def test_amount_inheritance_merges_split_donors(self, conn):
+        """최대액·총예산이 서로 다른 출처에서 추출된 그룹 — 컬럼별 donor 집계로 둘 다 상속 (Codex)."""
+        max_only_id = insert_row(conn, "bizinfo", "p", "2099년 창업도약패키지 창업기업 모집 공고")
+        budget_only_id = insert_row(conn, "ontong-youth", "q", "[전국] 창업도약패키지 창업기업 모집")
+        null_member_id = insert_row(conn, "k-startup", "r", "창업도약패키지 창업기업 모집")
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE opportunity SET max_support_amount=300000000, support_amount='최대 3억원'"
+                " WHERE id=%s", (max_only_id,))
+            cursor.execute(
+                "UPDATE opportunity SET total_program_budget=50000000000 WHERE id=%s", (budget_only_id,))
+
+        dedup.run(conn)
+        amounts.apply(conn)
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT max_support_amount, total_program_budget, support_amount"
+                " FROM opportunity WHERE id=%s", (null_member_id,))
+            member = cursor.fetchone()
+        assert member == (300000000, 50000000000, "최대 3억원")  # 두 donor의 값을 모두 상속
+
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""
         kstartup_id = insert_row(conn, "k-startup", "d",

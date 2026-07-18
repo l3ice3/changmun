@@ -102,16 +102,29 @@ WHERE member.dedup_group_id = donor.dedup_group_id
 """
 
 # 지원금 그룹 상속 (§6-E 규칙 6): 그룹 내 추출값을 NULL인 멤버에만 공유(자체 추출 우선 — COALESCE).
-# donor는 기업당 최대액이 가장 큰 멤버("적용 가능한 최대"가 답 — FR-008). K-Startup은 본문에
+# donor는 컬럼별로 집계한다 — 최대액과 총예산이 서로 다른 출처에서 추출된 그룹에서 단일 donor
+# 행을 고르면 한쪽 값이 탈락한다(Codex). 컬럼별 max = "적용 가능한 최대"(FR-008)와도 일치.
+# 원문 표기(support_amount)는 최대액이 가장 큰 행의 것을 따른다. K-Startup은 본문에
 # 금액이 없어(첨부 구조) 이 상속이 주 채움 경로다.
 _INHERIT_AMOUNTS_SQL = """
-WITH donor AS (
-    SELECT DISTINCT ON (dedup_group_id)
-           dedup_group_id, max_support_amount, total_program_budget, support_amount
+WITH ranked AS (
+    SELECT dedup_group_id, max_support_amount, total_program_budget,
+           first_value(support_amount) OVER (
+               PARTITION BY dedup_group_id
+               ORDER BY max_support_amount DESC NULLS LAST,
+                        total_program_budget DESC NULLS LAST, id
+           ) AS donor_text
     FROM opportunity
     WHERE dedup_group_id IS NOT NULL
-      AND (max_support_amount IS NOT NULL OR total_program_budget IS NOT NULL)
-    ORDER BY dedup_group_id, max_support_amount DESC NULLS LAST, id
+),
+donor AS (
+    SELECT dedup_group_id,
+           max(max_support_amount)   AS max_support_amount,
+           max(total_program_budget) AS total_program_budget,
+           min(donor_text)           AS support_amount
+    FROM ranked
+    GROUP BY dedup_group_id
+    HAVING max(max_support_amount) IS NOT NULL OR max(total_program_budget) IS NOT NULL
 )
 UPDATE opportunity AS member
 SET max_support_amount   = COALESCE(member.max_support_amount, donor.max_support_amount),
