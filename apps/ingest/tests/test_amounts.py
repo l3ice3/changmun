@@ -33,6 +33,11 @@ class TestExactExtraction:
         assert result.max_support_amount == 1_500_000_000
         assert "15억원" in result.source_text
 
+    def test_decimal_exactness(self):
+        # float 오차 방어(Codex 6차) — 0.29억이 28,999,999가 되면 안 된다
+        assert extract_amounts("최대 0.29억원").max_support_amount == 29_000_000
+        assert extract_amounts("최대 1.15억원").max_support_amount == 115_000_000
+
     def test_unit_combinations(self):
         assert extract_amounts("팀당 1억 5천만원").max_support_amount == 150_000_000
         assert extract_amounts("과제당 5,000만원").max_support_amount == 50_000_000

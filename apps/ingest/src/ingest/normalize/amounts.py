@@ -6,6 +6,7 @@
 """
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 
 from ingest.normalize.taxonomy import STANDARD_CATEGORIES
 
@@ -133,10 +134,13 @@ def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
 
 
 def _parse_amount(amount_text: str) -> int | None:
-    """"1억 5,000만" 조합을 원 단위 정수로 — 한계 밖이면 None(오파싱 방어)."""
-    total = 0.0
+    """"1억 5,000만" 조합을 원 단위 정수로 — 한계 밖이면 None(오파싱 방어).
+
+    소수 표기("0.29억")는 float 오차로 1원이 어긋날 수 있어 Decimal로 정확 변환한다(Codex).
+    """
+    total = Decimal(0)
     for number, unit in re.findall(r"(\d[\d,]*(?:\.\d+)?)\s*(억|천만|백만|만)?", amount_text):
-        total += float(number.replace(",", "")) * _UNIT_VALUES.get(unit, 1)
+        total += Decimal(number.replace(",", "")) * _UNIT_VALUES.get(unit, 1)
     value = int(total)
     if value < _MIN_AMOUNT or value > _MAX_AMOUNT:
         return None
