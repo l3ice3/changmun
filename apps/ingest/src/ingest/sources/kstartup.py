@@ -15,6 +15,7 @@ from ingest.sources.http_client import request_json
 from ingest.normalize import (
     clean_text,
     clean_url,
+    extract_amounts,
     normalize_audiences,
     normalize_category,
     normalize_regions,
@@ -106,16 +107,22 @@ def map_record(raw: dict) -> MappingResult:
         return MappingResult(None, f"detail_url 없음(pbanc_sn={external_id})", unknown)
     # 직접 신호는 INSERT 시 저장(신규 행이 후처리 rollback돼도 보존) — 갱신은 persona 직접 단계가 한다 (#11)
     direct_stage, direct_audience = direct_targets(raw, unknown)
+    summary = clean_text(raw.get("pbanc_ctnt"))
+    category = normalize_category(raw.get("supt_biz_clsfc"), unknown)
+    # 본문 보수 추출 (§6-E) — K-Startup은 금액이 첨부에 있어 대부분 None, 그룹 상속이 보완
+    amounts = extract_amounts(summary, category=category)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=str(external_id),  # JSON에서 number로 옴 → 문자열화 (§6 규칙 3)
         title=title,
-        summary=clean_text(raw.get("pbanc_ctnt")),
-        category=normalize_category(raw.get("supt_biz_clsfc"), unknown),
+        summary=summary,
+        category=category,
         region=normalize_regions(raw.get("supt_regin"), unknown),
         organization=clean_text(raw.get("pbanc_ntrp_nm")),
         organization_type=clean_text(raw.get("sprv_inst")),  # 표시용 — 원문 그대로(코드 매핑 폐기)
-        support_amount=None,  # 공고 API에 없음 — 타 출처/Phase 2에서 보강 (§2)
+        support_amount=amounts.source_text,
+        max_support_amount=amounts.max_support_amount,
+        total_program_budget=amounts.total_program_budget,
         target_startup_stage=direct_stage,
         target_audience_type=direct_audience,
         eligibility_detail=clean_text(raw.get("aply_trgt_ctnt")),

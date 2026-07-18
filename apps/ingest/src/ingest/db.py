@@ -22,7 +22,8 @@ from ingest.record import OpportunityRecord
 _KEY_COLUMNS = ("source", "external_id")
 _COLLECTED_COLUMNS = (
     "title", "summary", "category", "region", "organization", "organization_type",
-    "support_amount", "eligibility_detail", "application_start_date", "application_deadline",
+    "support_amount", "max_support_amount", "total_program_budget",
+    "eligibility_detail", "application_start_date", "application_deadline",
     "is_always_open", "detail_url", "apply_url", "source_status", "raw",
 )
 _ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
@@ -100,6 +101,29 @@ WHERE member.dedup_group_id = donor.dedup_group_id
   AND member.source <> 'k-startup'
 """
 
+# 지원금 그룹 상속 (§6-E 규칙 6): 그룹 내 추출값을 NULL인 멤버에만 공유(자체 추출 우선 — COALESCE).
+# donor는 기업당 최대액이 가장 큰 멤버("적용 가능한 최대"가 답 — FR-008). K-Startup은 본문에
+# 금액이 없어(첨부 구조) 이 상속이 주 채움 경로다.
+_INHERIT_AMOUNTS_SQL = """
+WITH donor AS (
+    SELECT DISTINCT ON (dedup_group_id)
+           dedup_group_id, max_support_amount, total_program_budget, support_amount
+    FROM opportunity
+    WHERE dedup_group_id IS NOT NULL
+      AND (max_support_amount IS NOT NULL OR total_program_budget IS NOT NULL)
+    ORDER BY dedup_group_id, max_support_amount DESC NULLS LAST, id
+)
+UPDATE opportunity AS member
+SET max_support_amount   = COALESCE(member.max_support_amount, donor.max_support_amount),
+    total_program_budget = COALESCE(member.total_program_budget, donor.total_program_budget),
+    support_amount       = COALESCE(NULLIF(member.support_amount, ''), donor.support_amount)
+FROM donor
+WHERE member.dedup_group_id = donor.dedup_group_id
+  AND (member.max_support_amount   IS DISTINCT FROM COALESCE(member.max_support_amount, donor.max_support_amount)
+       OR member.total_program_budget IS DISTINCT FROM COALESCE(member.total_program_budget, donor.total_program_budget)
+       OR NULLIF(member.support_amount, '') IS DISTINCT FROM COALESCE(NULLIF(member.support_amount, ''), donor.support_amount))
+"""
+
 # 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.
 # update_targets가 COALESCE라 이미 있는 값은 안 덮으므로 OR 조건이 안전하다.
 _PERSONA_CANDIDATES_SQL = """
@@ -161,6 +185,12 @@ def set_direct_targets(conn, rows: list[tuple]) -> None:
 def inherit_group_targets(conn) -> int:
     with conn.cursor() as cursor:
         cursor.execute(_INHERIT_TARGETS_SQL)
+        return cursor.rowcount
+
+
+def inherit_group_amounts(conn) -> int:
+    with conn.cursor() as cursor:
+        cursor.execute(_INHERIT_AMOUNTS_SQL)
         return cursor.rowcount
 
 

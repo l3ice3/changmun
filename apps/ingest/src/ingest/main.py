@@ -5,7 +5,7 @@
 import logging
 from collections.abc import Callable
 
-from ingest import db, dedup, persona
+from ingest import amounts, db, dedup, persona
 from ingest.config import Settings, load_settings
 from ingest.report import EnrichmentReport, SourceReport, format_report
 from ingest.sources import bizinfo, kstartup, ontong_youth
@@ -26,7 +26,13 @@ def default_collectors() -> dict[str, Collector]:
 
 def default_enrichers() -> dict[str, Enricher]:
     # 순서 = 의존: 직접(raw→target_*, dedup의 info_count 입력) → dedup(그룹) → persona(상속·키워드)
-    return {"direct": persona.fill_direct, "dedup": dedup.run, "persona": persona.apply}
+    # → amounts(지원금 그룹 상속 — 그룹 확정 이후여야 함, §6-E 규칙 6)
+    return {
+        "direct": persona.fill_direct,
+        "dedup": dedup.run,
+        "persona": persona.apply,
+        "amounts": amounts.apply,
+    }
 
 
 def run(

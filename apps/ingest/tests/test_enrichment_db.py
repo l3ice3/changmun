@@ -1,10 +1,10 @@
-"""dedup·persona DB 통합 테스트 — AC-006·007·008·009·010. 로컬 PostgreSQL 필요, 없으면 skip."""
+"""dedup·persona DB 통합 테스트 — AC-006·007·008·009·010·030. 로컬 PostgreSQL 필요, 없으면 skip."""
 import os
 from datetime import date
 
 import pytest
 
-from ingest import db, dedup, persona
+from ingest import amounts, db, dedup, persona
 from ingest.config import DEFAULT_DSN
 
 DSN = os.environ.get("DATABASE_URL", DEFAULT_DSN)
@@ -113,6 +113,34 @@ class TestDedupAndPersonaFlow:
             audience, stage = cursor.fetchone()
         assert set(audience) == {"YOUTH", "UNIV_STUDENT"}  # 직접신호 YOUTH 보존 + 키워드 UNIV_STUDENT 추가
         assert stage == ["PRE_STARTUP"]  # 예비창업 키워드
+
+    def test_amount_inheritance_and_idempotency(self, conn):
+        """AC-030: 그룹 내 추출 금액을 NULL 멤버가 상속, 자체 값 우선, 재실행 멱등 (§6-E 규칙 6)."""
+        bizinfo_id = insert_row(conn, "bizinfo", "m", "2099년 예비창업패키지 창업자 모집 공고")
+        kstartup_id = insert_row(conn, "k-startup", "n", "[전국] 예비창업패키지 창업자 모집")
+        own_id = insert_row(conn, "ontong-youth", "o", "예비창업패키지 창업자 모집")
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE opportunity SET max_support_amount=150000000, total_program_budget=10000000000,"
+                " support_amount='최대 1.5억원' WHERE id=%s", (bizinfo_id,))
+            # 자체 추출값이 있는 멤버 — donor 값으로 덮이면 안 됨
+            cursor.execute("UPDATE opportunity SET max_support_amount=70000000 WHERE id=%s", (own_id,))
+
+        dedup.run(conn)
+        report_first = amounts.apply(conn)
+        report_second = amounts.apply(conn)  # 멱등: 2회째는 변경 0건
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT max_support_amount, total_program_budget, support_amount"
+                " FROM opportunity WHERE id=%s", (kstartup_id,))
+            k_max, k_budget, k_text = cursor.fetchone()
+            cursor.execute("SELECT max_support_amount FROM opportunity WHERE id=%s", (own_id,))
+            own_max = cursor.fetchone()[0]
+        assert (k_max, k_budget, k_text) == (150000000, 10000000000, "최대 1.5억원")  # NULL 멤버 상속
+        assert own_max == 70000000  # 자체 추출값 우선 (COALESCE)
+        assert report_first.metrics["상속"] >= 1
+        assert report_second.metrics["상속"] == 0
 
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""

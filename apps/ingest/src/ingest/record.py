@@ -19,6 +19,8 @@ class OpportunityRecord:
     organization: str | None = None
     organization_type: str | None = None
     support_amount: str | None = None
+    max_support_amount: int | None = None
+    total_program_budget: int | None = None
     target_startup_stage: list[str] | None = None
     target_audience_type: list[str] | None = None
     eligibility_detail: str | None = None
