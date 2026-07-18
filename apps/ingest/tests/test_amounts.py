@@ -39,8 +39,18 @@ class TestExactExtraction:
         assert extract_amounts("최대 700백만원 지원").max_support_amount == 700_000_000
 
     def test_range_takes_upper_bound(self):
-        # §6-E 규칙 5: 범위는 상한
+        # §6-E 규칙 5: 범위는 상한 — 하한에 원이 붙은 흔한 표기도 (Codex 3차)
         assert extract_amounts("기업당 5천만~1억원 지원").max_support_amount == 100_000_000
+        assert extract_amounts("기업당 5천만원~1억원 지원").max_support_amount == 100_000_000
+        assert extract_amounts("기업당 5,000만원 ~ 1억원 지원").max_support_amount == 100_000_000
+
+    def test_won_suffix_omitted(self):
+        # 원 생략형 (Codex 3차) — 억·천만·백만 단위로 끝나면 금액이 확실
+        assert extract_amounts("기업당 최대 1.5억 지원").max_support_amount == 150_000_000
+        assert extract_amounts("총 사업비 100억").total_program_budget == 10_000_000_000
+        assert extract_amounts("팀당 5천만 지원").max_support_amount == 50_000_000
+        # bare '만'은 수량("10만 명") 오인 위험 — 원 없이는 금액으로 안 본다
+        assert extract_amounts("최대 10만 명 대상 프로그램").max_support_amount is None
 
     def test_total_with_max_inside(self):
         # "총 사업비 최대 100억" — 총액이며, 기업당으로 중복 추출되지 않는다
