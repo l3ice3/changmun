@@ -15,6 +15,12 @@ class TestExactExtraction:
         assert extract_amounts("사업화 자금(최대 1.4억원) 및 후속 연계 지원").max_support_amount == 140_000_000
         assert extract_amounts("창업지원금 지원(1인당 최대 2천만 원)").max_support_amount == 20_000_000
 
+    def test_total_postfix_form(self):
+        # 후위형 "총 X원 규모" (§6-E — Codex): 규모가 붙으면 사업 예산 표현으로 확실
+        result = extract_amounts("총 100억원 규모로 지원")
+        assert result.total_program_budget == 10_000_000_000
+        assert result.max_support_amount is None
+
     def test_bare_total_not_extracted(self):
         # 전수 검수(2026-07-18): bare '총'은 개인 수령 총액("월 20만원 한도, 총 60만원")을
         # 사업 예산으로 오분류 → 명시 표현(총 사업비·총 예산)만 인정. 재원형 bare 총도 놓침 허용

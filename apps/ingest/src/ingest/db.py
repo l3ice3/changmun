@@ -22,11 +22,16 @@ from ingest.record import OpportunityRecord
 _KEY_COLUMNS = ("source", "external_id")
 _COLLECTED_COLUMNS = (
     "title", "summary", "category", "region", "organization", "organization_type",
-    "support_amount", "max_support_amount", "total_program_budget",
     "eligibility_detail", "application_start_date", "application_deadline",
     "is_always_open", "detail_url", "apply_url", "source_status", "raw",
 )
-_ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
+# 금액 3컬럼도 분류 칸과 같은 취급(#11 패턴, Codex): 수집 UPDATE가 그룹 상속값을 NULL로
+# 덮으면 후처리 실패 시 상속이 유실된다 → INSERT에만 직접 추출값을 넣고, 갱신(본문 변경
+# 반영)은 amounts 후처리 단계가 매 배치 재산출한다.
+_ENRICHED_COLUMNS = (
+    "target_startup_stage", "target_audience_type",
+    "support_amount", "max_support_amount", "total_program_budget",
+)
 
 
 def _build_upsert_sql() -> str:
@@ -205,6 +210,29 @@ def inherit_group_amounts(conn) -> int:
     with conn.cursor() as cursor:
         cursor.execute(_INHERIT_AMOUNTS_SQL)
         return cursor.rowcount
+
+
+# 금액 직접 재산출 입력·갱신 — persona 직접 단계와 동일 패턴(수집은 분류/금액 칸을 안 건드림)
+_AMOUNT_INPUTS_SQL = "SELECT id, summary, category FROM opportunity"
+_SET_AMOUNTS_SQL = (
+    "UPDATE opportunity"
+    " SET max_support_amount = %s, total_program_budget = %s, support_amount = %s"
+    " WHERE id = %s"
+)
+
+
+def fetch_amount_inputs(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_AMOUNT_INPUTS_SQL)
+        return cursor.fetchall()
+
+
+def set_direct_amounts(conn, rows: list[tuple]) -> None:
+    """직접 추출값 일괄 덮어쓰기 — rows: [(max, budget, source_text, record_id), ...]."""
+    if not rows:
+        return
+    with conn.cursor() as cursor:
+        cursor.executemany(_SET_AMOUNTS_SQL, rows)
 
 
 def fetch_persona_candidates(conn) -> list[tuple]:

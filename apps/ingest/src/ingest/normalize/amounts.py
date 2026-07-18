@@ -24,8 +24,12 @@ _RANGE_LOWER = re.compile(rf"({_AMOUNT_PART})\s*[~∼]\s*(?=\d)")
 
 # 컬럼 구분 수식어 (§6-E 규칙 2). 총액을 먼저 잡고, 겹치는 구간은 기업당 매칭에서 제외한다.
 # bare "총 X원"은 쓰지 않는다 — 라이브 전수 검수에서 "월 20만원 한도, 총 60만원"처럼
-# 개인 수령 총액을 사업 예산으로 오분류함이 확인됨(2026-07-18). 명시 표현만 인정.
-_TOTAL = re.compile(rf"(?:총\s*사업비|총\s*예산|총\s*지원\s*규모)\s*(?:최대\s*)?({_AMOUNT})")
+# 개인 수령 총액을 사업 예산으로 오분류함이 확인됨(2026-07-18). 명시 표현만 인정:
+# 전위형("총 사업비/총 예산/총 지원 규모 X원") + 후위형("총 X원 규모" — §6-E, Codex)
+_TOTAL_PATTERNS = (
+    re.compile(rf"(?:총\s*사업비|총\s*예산|총\s*지원\s*규모)\s*(?:최대\s*)?({_AMOUNT})"),
+    re.compile(rf"총\s*({_AMOUNT})\s*규모"),
+)
 _PER_COMPANY = re.compile(
     rf"(?:기업당|팀당|과제당|개사당|업체당|1개사당|1인당|인당|최대)\s*({_AMOUNT})"
 )
@@ -70,7 +74,12 @@ def extract_amounts(text: str | None, category: str | None = None) -> ExtractedA
     if not text or category == _LOAN_CATEGORY or _LOAN_DOCUMENT.search(text):
         return _EMPTY
     prepared = _RANGE_LOWER.sub("", text)
-    total_value, total_text, total_spans = _best_match(_TOTAL, prepared)
+    total_value, total_text, total_spans = None, None, []
+    for pattern in _TOTAL_PATTERNS:
+        value, matched_text, spans = _best_match(pattern, prepared)
+        total_spans.extend(spans)
+        if value is not None and (total_value is None or value > total_value):
+            total_value, total_text = value, matched_text
     max_value, max_text, _ = _best_match(
         _PER_COMPANY, prepared, skip_spans=total_spans, upper_bound=_MAX_PER_COMPANY
     )
