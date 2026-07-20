@@ -2,6 +2,7 @@
 
 규칙: data-model.md §6(정규화 15항)·§7(표준 분류). 미지 enum → '기타' + 원본 로그 (열린 enum).
 """
+from ingest.normalize.amounts import ExtractedAmounts, extract_amounts
 from ingest.normalize.taxonomy import (
     normalize_audiences,
     normalize_category,
@@ -19,6 +20,8 @@ from ingest.normalize.text import (
 )
 
 __all__ = [
+    "ExtractedAmounts",
+    "extract_amounts",
     "clean_text",
     "clean_url",
     "mentions_always_open",

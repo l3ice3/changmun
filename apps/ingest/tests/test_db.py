@@ -114,3 +114,30 @@ class TestEnrichedColumnsPreserved:
             title, audience = cursor.fetchone()
         assert title == "갱신된 제목"  # 수집 칸은 최신으로 갱신
         assert audience == ["UNIV_STUDENT"]  # 분류 칸은 보존 (수집이 덮지 않음)
+
+    def test_rerun_preserves_inherited_amounts(self, conn):
+        """금액 칸도 분류 칸과 같은 취급(Codex) — 그룹 상속값이 재수집 UPSERT에 유실되면 안 된다."""
+        db.upsert_records(conn, [make_record("200", "금액 상속 공고")])
+        conn.commit()
+        # amounts 상속이 채웠다고 가정 (K-Startup처럼 자체 추출이 없는 레코드)
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE opportunity SET max_support_amount = 150000000,"
+                " total_program_budget = 10000000000, support_amount = '최대 1.5억원'"
+                " WHERE source = %s AND external_id = '200'",
+                (TEST_SOURCE,),
+            )
+        conn.commit()
+
+        db.upsert_records(conn, [make_record("200", "금액 상속 공고 (갱신)")])
+        conn.commit()
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT title, max_support_amount, total_program_budget, support_amount"
+                " FROM opportunity WHERE source = %s AND external_id = '200'",
+                (TEST_SOURCE,),
+            )
+            title, max_amount, budget, text = cursor.fetchone()
+        assert title == "금액 상속 공고 (갱신)"
+        assert (max_amount, budget, text) == (150000000, 10000000000, "최대 1.5억원")

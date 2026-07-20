@@ -17,6 +17,7 @@ from ingest.errors import SourceError
 from ingest.normalize import (
     clean_text,
     clean_url,
+    extract_amounts,
     mentions_always_open,
     normalize_ontong_category,
     parse_yyyymmdd,
@@ -112,16 +113,21 @@ def map_record(raw: dict) -> MappingResult:
     start_date, deadline, always_open = _resolve_period(raw)
     # 직접 신호는 INSERT 시 저장(신규 행이 후처리 rollback돼도 보존) — 갱신은 persona 직접 단계가 한다 (#11)
     direct_stage, direct_audience = direct_targets(raw, unknown)
+    summary = _joined_text(raw.get("plcyExplnCn"), raw.get("plcySprtCn"))
+    category = normalize_ontong_category(raw.get("mclsfNm"), title, unknown)
+    amounts = extract_amounts(summary, category=category)  # 본문 보수 추출 (§6-E)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=external_id,
         title=title,
-        summary=_joined_text(raw.get("plcyExplnCn"), raw.get("plcySprtCn")),
-        category=normalize_ontong_category(raw.get("mclsfNm"), title, unknown),
+        summary=summary,
+        category=category,
         region=sido_from_zip_codes(raw.get("zipCd"), unknown),
         organization=_organization_of(raw),
         organization_type=None,  # 온통청년엔 기관 유형 필드 없음 (§6-C)
-        support_amount=None,
+        support_amount=amounts.source_text,
+        max_support_amount=amounts.max_support_amount,
+        total_program_budget=amounts.total_program_budget,
         target_startup_stage=direct_stage,
         target_audience_type=direct_audience,
         eligibility_detail=_resolve_eligibility(raw),

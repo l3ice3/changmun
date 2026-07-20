@@ -11,7 +11,7 @@ import requests
 from ingest import db
 from ingest.config import Settings
 from ingest.errors import SourceError
-from ingest.normalize import clean_text, clean_url, normalize_regions, split_date_range
+from ingest.normalize import clean_text, clean_url, extract_amounts, normalize_regions, split_date_range
 from ingest.normalize.taxonomy import REGIONS
 from ingest.record import MappingResult, OpportunityRecord
 from ingest.report import SourceReport
@@ -151,16 +151,20 @@ def map_record(raw: dict) -> MappingResult:
         return MappingResult(None, "창업 슬라이스 아님(lcategory)", unknown)
     # 확장 필드가 빠지고 RSS 기본 필드 reqstDt만 오는 공고 대비 폴백 (둘 다 "시작 ~ 종료" 형식)
     start_date, deadline = split_date_range(_field(raw, "reqstBeginEndDe", "reqstDt"))
+    summary = _strip_html(_field(raw, "bsnsSumryCn", "description"))
+    amounts = extract_amounts(summary, category=category)  # 본문 보수 추출 (§6-E)
     record = OpportunityRecord(
         source=SOURCE,
         external_id=external_id,
         title=title,
-        summary=_strip_html(_field(raw, "bsnsSumryCn", "description")),
+        summary=summary,
         category=category,
         region=_regions(raw, unknown),
         organization=_field(raw, "jrsdInsttNm", "excInsttNm"),
         organization_type=None,
-        support_amount=None,
+        support_amount=amounts.source_text,
+        max_support_amount=amounts.max_support_amount,
+        total_program_budget=amounts.total_program_budget,
         target_startup_stage=None,
         target_audience_type=None,
         eligibility_detail=_field(raw, "trgetNm"),

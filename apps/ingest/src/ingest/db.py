@@ -22,10 +22,16 @@ from ingest.record import OpportunityRecord
 _KEY_COLUMNS = ("source", "external_id")
 _COLLECTED_COLUMNS = (
     "title", "summary", "category", "region", "organization", "organization_type",
-    "support_amount", "eligibility_detail", "application_start_date", "application_deadline",
+    "eligibility_detail", "application_start_date", "application_deadline",
     "is_always_open", "detail_url", "apply_url", "source_status", "raw",
 )
-_ENRICHED_COLUMNS = ("target_startup_stage", "target_audience_type")
+# 금액 3컬럼도 분류 칸과 같은 취급(#11 패턴, Codex): 수집 UPDATE가 그룹 상속값을 NULL로
+# 덮으면 후처리 실패 시 상속이 유실된다 → INSERT에만 직접 추출값을 넣고, 갱신(본문 변경
+# 반영)은 amounts 후처리 단계가 매 배치 재산출한다.
+_ENRICHED_COLUMNS = (
+    "target_startup_stage", "target_audience_type",
+    "support_amount", "max_support_amount", "total_program_budget",
+)
 
 
 def _build_upsert_sql() -> str:
@@ -100,6 +106,42 @@ WHERE member.dedup_group_id = donor.dedup_group_id
   AND member.source <> 'k-startup'
 """
 
+# 지원금 그룹 상속 (§6-E 규칙 6): 그룹 내 추출값을 NULL인 멤버에만 공유(자체 추출 우선 — COALESCE).
+# donor는 컬럼별로 집계한다 — 최대액과 총예산이 서로 다른 출처에서 추출된 그룹에서 단일 donor
+# 행을 고르면 한쪽 값이 탈락한다(Codex). 컬럼별 max = "적용 가능한 최대"(FR-008)와도 일치.
+# 원문 표기(support_amount)는 최대액이 가장 큰 행의 것을 따른다. K-Startup은 본문에
+# 금액이 없어(첨부 구조) 이 상속이 주 채움 경로다.
+_INHERIT_AMOUNTS_SQL = """
+WITH ranked AS (
+    SELECT dedup_group_id, max_support_amount, total_program_budget,
+           first_value(support_amount) OVER (
+               PARTITION BY dedup_group_id
+               ORDER BY max_support_amount DESC NULLS LAST,
+                        total_program_budget DESC NULLS LAST, id
+           ) AS donor_text
+    FROM opportunity
+    WHERE dedup_group_id IS NOT NULL
+),
+donor AS (
+    SELECT dedup_group_id,
+           max(max_support_amount)   AS max_support_amount,
+           max(total_program_budget) AS total_program_budget,
+           min(donor_text)           AS support_amount
+    FROM ranked
+    GROUP BY dedup_group_id
+    HAVING max(max_support_amount) IS NOT NULL OR max(total_program_budget) IS NOT NULL
+)
+UPDATE opportunity AS member
+SET max_support_amount   = COALESCE(member.max_support_amount, donor.max_support_amount),
+    total_program_budget = COALESCE(member.total_program_budget, donor.total_program_budget),
+    support_amount       = COALESCE(NULLIF(member.support_amount, ''), donor.support_amount)
+FROM donor
+WHERE member.dedup_group_id = donor.dedup_group_id
+  AND (member.max_support_amount   IS DISTINCT FROM COALESCE(member.max_support_amount, donor.max_support_amount)
+       OR member.total_program_budget IS DISTINCT FROM COALESCE(member.total_program_budget, donor.total_program_budget)
+       OR NULLIF(member.support_amount, '') IS DISTINCT FROM COALESCE(NULLIF(member.support_amount, ''), donor.support_amount))
+"""
+
 # 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.
 # update_targets가 COALESCE라 이미 있는 값은 안 덮으므로 OR 조건이 안전하다.
 _PERSONA_CANDIDATES_SQL = """
@@ -162,6 +204,35 @@ def inherit_group_targets(conn) -> int:
     with conn.cursor() as cursor:
         cursor.execute(_INHERIT_TARGETS_SQL)
         return cursor.rowcount
+
+
+def inherit_group_amounts(conn) -> int:
+    with conn.cursor() as cursor:
+        cursor.execute(_INHERIT_AMOUNTS_SQL)
+        return cursor.rowcount
+
+
+# 금액 직접 재산출 입력·갱신 — persona 직접 단계와 동일 패턴(수집은 분류/금액 칸을 안 건드림)
+_AMOUNT_INPUTS_SQL = "SELECT id, summary, category FROM opportunity"
+_SET_AMOUNTS_SQL = (
+    "UPDATE opportunity"
+    " SET max_support_amount = %s, total_program_budget = %s, support_amount = %s"
+    " WHERE id = %s"
+)
+
+
+def fetch_amount_inputs(conn) -> list[tuple]:
+    with conn.cursor() as cursor:
+        cursor.execute(_AMOUNT_INPUTS_SQL)
+        return cursor.fetchall()
+
+
+def set_direct_amounts(conn, rows: list[tuple]) -> None:
+    """직접 추출값 일괄 덮어쓰기 — rows: [(max, budget, source_text, record_id), ...]."""
+    if not rows:
+        return
+    with conn.cursor() as cursor:
+        cursor.executemany(_SET_AMOUNTS_SQL, rows)
 
 
 def fetch_persona_candidates(conn) -> list[tuple]:

@@ -1,10 +1,10 @@
-"""dedup·persona DB 통합 테스트 — AC-006·007·008·009·010. 로컬 PostgreSQL 필요, 없으면 skip."""
+"""dedup·persona DB 통합 테스트 — AC-006·007·008·009·010·030. 로컬 PostgreSQL 필요, 없으면 skip."""
 import os
 from datetime import date
 
 import pytest
 
-from ingest import db, dedup, persona
+from ingest import amounts, db, dedup, persona
 from ingest.config import DEFAULT_DSN
 
 DSN = os.environ.get("DATABASE_URL", DEFAULT_DSN)
@@ -14,8 +14,8 @@ OTHER_DEADLINE = date(2099, 7, 15)
 
 INSERT_SQL = """
 INSERT INTO opportunity (source, external_id, title, organization, target_startup_stage,
-                         application_start_date, application_deadline, detail_url)
-VALUES (%s, %s, %s, %s, %s, %s, %s, 'https://example.test/fr002')
+                         application_start_date, application_deadline, summary, detail_url)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'https://example.test/fr002')
 RETURNING id
 """
 
@@ -41,8 +41,12 @@ def insert_row(conn, source, suffix, title, **fields):
     stages = fields.get("stages")
     start_date = fields.get("start_date", date(2099, 6, 1))
     deadline = fields.get("deadline", FAR_DEADLINE)
+    summary = fields.get("summary")
     with conn.cursor() as cursor:
-        cursor.execute(INSERT_SQL, (source, PREFIX + suffix, title, organization, stages, start_date, deadline))
+        cursor.execute(
+            INSERT_SQL,
+            (source, PREFIX + suffix, title, organization, stages, start_date, deadline, summary),
+        )
         row_id = cursor.fetchone()[0]
     return row_id  # commit 안 함 — fixture가 끝에 rollback
 
@@ -113,6 +117,59 @@ class TestDedupAndPersonaFlow:
             audience, stage = cursor.fetchone()
         assert set(audience) == {"YOUTH", "UNIV_STUDENT"}  # 직접신호 YOUTH 보존 + 키워드 UNIV_STUDENT 추가
         assert stage == ["PRE_STARTUP"]  # 예비창업 키워드
+
+    def test_amount_inheritance_and_idempotency(self, conn):
+        """AC-030: 본문 재산출 → 그룹 상속, 자체 값 우선, 재실행 멱등 (§6-E 규칙 6, end-to-end)."""
+        insert_row(conn, "bizinfo", "m", "2099년 예비창업패키지 창업자 모집 공고",
+                   summary="기업당 최대 1.5억원 지원 (총 사업비 100억원)")
+        kstartup_id = insert_row(conn, "k-startup", "n", "[전국] 예비창업패키지 창업자 모집")
+        own_id = insert_row(conn, "ontong-youth", "o", "예비창업패키지 창업자 모집",
+                            summary="과제당 7천만원 지원")
+
+        def snapshot():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT max_support_amount, total_program_budget, support_amount"
+                    " FROM opportunity WHERE id IN (%s, %s) ORDER BY id", (kstartup_id, own_id))
+                return cursor.fetchall()
+
+        dedup.run(conn)
+        report_first = amounts.apply(conn)
+        state_first = snapshot()
+        amounts.apply(conn)  # 멱등 = 최종 상태 불변 (재산출→상속이 매 배치 반복되므로 건수는 반복될 수 있음)
+        state_second = snapshot()
+
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT max_support_amount FROM opportunity WHERE id=%s", (own_id,))
+            own_max = cursor.fetchone()[0]
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT max_support_amount, total_program_budget, support_amount"
+                " FROM opportunity WHERE id=%s", (kstartup_id,))
+            k_state = cursor.fetchone()
+        assert k_state == (150000000, 10000000000, "최대 1.5억원")  # NULL 멤버 상속
+        assert own_max == 70000000  # 자체 추출값 우선 (COALESCE)
+        assert report_first.metrics["직접"] >= 2  # 본문 재산출로 채워진 행
+        assert report_first.metrics["상속"] >= 1
+        assert state_second == state_first  # AC-030: 2회 실행 결과가 1회와 동일
+
+    def test_amount_inheritance_merges_split_donors(self, conn):
+        """최대액·총예산이 서로 다른 출처에서 추출된 그룹 — 컬럼별 donor 집계로 둘 다 상속 (Codex)."""
+        insert_row(conn, "bizinfo", "p", "2099년 창업도약패키지 창업기업 모집 공고",
+                   summary="기업당 3억원 지원")
+        insert_row(conn, "ontong-youth", "q", "[전국] 창업도약패키지 창업기업 모집",
+                   summary="총 사업비 500억원")
+        null_member_id = insert_row(conn, "k-startup", "r", "창업도약패키지 창업기업 모집")
+
+        dedup.run(conn)
+        amounts.apply(conn)
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT max_support_amount, total_program_budget, support_amount"
+                " FROM opportunity WHERE id=%s", (null_member_id,))
+            member = cursor.fetchone()
+        assert member == (300000000, 50000000000, "기업당 3억원")  # 두 donor의 값을 모두 상속
 
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""
