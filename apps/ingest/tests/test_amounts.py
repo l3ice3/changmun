@@ -91,8 +91,9 @@ class TestFalsePositiveGuards:
         # 전수 검수(2026-07-18): 창 기반 배제를 빠져나간 실사례 — 융자성 단어가 문서 어디든 있으면 통째 제외
         assert extract_amounts("업체당 최대 50백만원\n○ 상환방법\n- 1년 일시상환").max_support_amount is None
         assert extract_amounts("후계농업경영인 육성자금: 세대당 최대 5억원 대출 지원").max_support_amount is None
-        # '보증금'(임대차 용어)은 융자 가드에 안 걸린다
+        # '보증금'(임대차 용어)은 융자 가드에 안 걸린다 — 뒤 창(문서 가드)과 앞 창(문맥 가드) 모두 (Codex 10차)
         assert extract_amounts("최대 300만원 지원 ※ 관리비, 보증금 등 제외").max_support_amount == 3_000_000
+        assert extract_amounts("보증금 제외, 최대 300만원 지원").max_support_amount == 3_000_000
 
     def test_per_company_upper_bound(self):
         # 전수 검수(2026-07-18): "4~5기 4년간 최대 80억원"은 사업단 예산 — 기업당 상한 20억으로 차단
