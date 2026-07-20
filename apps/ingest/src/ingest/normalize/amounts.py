@@ -24,20 +24,22 @@ _AMOUNT = (
     rf"|(?:{_AMOUNT_PART}\s*)*\d[\d,]*(?:\.\d+)?\s*(?:억|천만|백만)"
 )
 
-# 범위 "5천만~1억원"·"5,000만원 ~ 1억원"·"1억 5천만원~2억원" → 하한(복합 단위·원 접미 포함)을
-# 통째로 제거 후 상한만 파싱 (§6-E 규칙 5). 조각 하나만 지우면 잔여 조각이 상한에 합산된다(Codex)
-_RANGE_LOWER = re.compile(rf"(?:{_AMOUNT_PART}\s*)+원?\s*[~∼]\s*(?=\d)")
+# 범위 "5천만~1억원"·"1억 5천만원~2억원" → 하한을 매치에 포함(원문 표기 보존)하되 값은
+# 상한만 취한다 (§6-E 규칙 5·7). 하한을 사전 삭제하면 support_amount 원문이 잘려
+# 노출된다(Codex 8차) — 매치는 원문 그대로, 파싱만 마지막 ~ 뒤 구간으로.
+_RANGE_PREFIX = rf"(?:(?:{_AMOUNT_PART}\s*)+원?\s*[~∼]\s*)?"
+_AMOUNT_EXPR = rf"{_RANGE_PREFIX}(?:{_AMOUNT})"
 
 # 컬럼 구분 수식어 (§6-E 규칙 2). 총액을 먼저 잡고, 겹치는 구간은 기업당 매칭에서 제외한다.
 # bare "총 X원"은 쓰지 않는다 — 라이브 전수 검수에서 "월 20만원 한도, 총 60만원"처럼
 # 개인 수령 총액을 사업 예산으로 오분류함이 확인됨(2026-07-18). 명시 표현만 인정:
 # 전위형("총 사업비/총 예산/총 지원 규모 X원") + 후위형("총 X원 규모" — §6-E, Codex)
 _TOTAL_PATTERNS = (
-    re.compile(rf"(?:총\s*사업비|총\s*예산|총\s*지원\s*규모)\s*(?:최대\s*)?({_AMOUNT})"),
-    re.compile(rf"총\s*({_AMOUNT})\s*규모"),
+    re.compile(rf"(?:총\s*사업비|총\s*예산|총\s*지원\s*규모)\s*(?:최대\s*)?({_AMOUNT_EXPR})"),
+    re.compile(rf"총\s*({_AMOUNT_EXPR})\s*규모"),
 )
 _PER_COMPANY = re.compile(
-    rf"(?:기업당|팀당|과제당|개사당|업체당|1개사당|1인당|인당|최대)\s*({_AMOUNT})"
+    rf"(?:기업당|팀당|과제당|개사당|업체당|1개사당|1인당|인당|최대)\s*({_AMOUNT_EXPR})"
 )
 
 # 융자성 문서 가드 — 본문에 상환·융자·대출·보증이 등장하면 문서 전체를 추출 대상에서 제외.
@@ -80,15 +82,14 @@ def extract_amounts(text: str | None, category: str | None = None) -> ExtractedA
     """본문에서 (기업당 최대 지원액, 사업 전체 예산, 대표 원문 표기)를 보수적으로 추출."""
     if not text or category == _LOAN_CATEGORY or _LOAN_DOCUMENT.search(text):
         return _EMPTY
-    prepared = _RANGE_LOWER.sub("", text)
     total_value, total_text, total_spans = None, None, []
     for pattern in _TOTAL_PATTERNS:
-        value, matched_text, spans = _best_match(pattern, prepared)
+        value, matched_text, spans = _best_match(pattern, text)
         total_spans.extend(spans)
         if value is not None and (total_value is None or value > total_value):
             total_value, total_text = value, matched_text
     max_value, max_text, _ = _best_match(
-        _PER_COMPANY, prepared, skip_spans=total_spans, upper_bound=_MAX_PER_COMPANY
+        _PER_COMPANY, text, skip_spans=total_spans, upper_bound=_MAX_PER_COMPANY
     )
     if max_value is None and total_value is None:
         return _EMPTY
@@ -137,10 +138,12 @@ def _overlaps(span: tuple[int, int], spans: list[tuple[int, int]]) -> bool:
 def _parse_amount(amount_text: str) -> int | None:
     """"1억 5,000만" 조합을 원 단위 정수로 — 한계 밖이면 None(오파싱 방어).
 
+    범위("5천만~1억원")는 마지막 ~ 뒤(상한)만 값으로 취한다 — 원문 표기는 매치가 보존(§6-E 규칙 5·7).
     소수 표기("0.29억")는 float 오차로 1원이 어긋날 수 있어 Decimal로 정확 변환한다(Codex).
     """
+    upper_text = re.split(r"[~∼]", amount_text)[-1]
     total = Decimal(0)
-    for number, unit in re.findall(r"(\d[\d,]*(?:\.\d+)?)\s*(억|천만|백만|만)?", amount_text):
+    for number, unit in re.findall(r"(\d[\d,]*(?:\.\d+)?)\s*(억|천만|백만|만)?", upper_text):
         total += Decimal(number.replace(",", "")) * _UNIT_VALUES.get(unit, 1)
     value = int(total)
     if value < _MIN_AMOUNT or value > _MAX_AMOUNT:

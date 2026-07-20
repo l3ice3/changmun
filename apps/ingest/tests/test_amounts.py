@@ -51,6 +51,13 @@ class TestExactExtraction:
         # 복합 단위 하한(Codex 4차) — 조각 하나만 지우면 잔여가 상한에 합산돼 2억이 3억이 된다
         assert extract_amounts("기업당 1억 5천만원~2억원 지원").max_support_amount == 200_000_000
 
+    def test_range_source_text_preserved(self):
+        # §6-E 규칙 7 (Codex 8차): 원문 표기는 범위 그대로 — 하한을 잘라 "1억원"만 노출하면 왜곡
+        result = extract_amounts("기업당 5천만~1억원 지원")
+        assert "5천만~1억원" in result.source_text
+        compound = extract_amounts("기업당 1억 5천만원~2억원 지원")
+        assert "1억 5천만원~2억원" in compound.source_text
+
     def test_won_suffix_omitted(self):
         # 원 생략형 (Codex 3차) — 억·천만·백만 단위로 끝나면 금액이 확실
         assert extract_amounts("기업당 최대 1.5억 지원").max_support_amount == 150_000_000
