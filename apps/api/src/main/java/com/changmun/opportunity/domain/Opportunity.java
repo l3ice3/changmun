@@ -93,6 +93,17 @@ public class Opportunity {
     // JPA 전용
   }
 
+  /**
+   * 응답에 싣는 지원금 원문 표기 — 기업당/1인당 최대액이 확인된 공고만. 총예산만 잡힌 원문(검수용 보존 — data-model §6-E 규칙 7)은 카드 대상이 아니라서
+   * 노출하지 않는다(api-spec §1).
+   */
+  public String servedSupportAmount() {
+    if (maxSupportAmount == null) {
+      return null;
+    }
+    return supportAmount;
+  }
+
   public OpportunityStatus statusOn(LocalDate today) {
     return OpportunityStatus.on(today, alwaysOpen, applicationDeadline);
   }

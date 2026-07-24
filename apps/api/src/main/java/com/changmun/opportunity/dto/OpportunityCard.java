@@ -41,7 +41,7 @@ public record OpportunityCard(
         opportunity.getTargetStartupStage(),
         opportunity.getTargetAudienceType(),
         opportunity.getEligibilityDetail(),
-        opportunity.getSupportAmount(),
+        opportunity.servedSupportAmount(),
         opportunity.getMaxSupportAmount(),
         opportunity.getDetailUrl());
   }

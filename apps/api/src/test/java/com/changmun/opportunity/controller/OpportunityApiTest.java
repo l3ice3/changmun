@@ -172,13 +172,7 @@ class OpportunityApiTest {
   @Test
   @DisplayName("리스트 응답에 supportAmount·maxSupportAmount가 실리고 미상이면 null이다 (AC-032)")
   void amountFieldsAreInListResponse() throws Exception {
-    new TestOpportunity()
-        .title("금액공고")
-        .supportAmount("최대 1억원")
-        .maxSupportAmount(100_000_000L)
-        .deadline(today.plusDays(3))
-        .insert(jdbc);
-    new TestOpportunity().title("미상공고").deadline(today.plusDays(5)).insert(jdbc);
+    insertAmountSerializationFixtures();
 
     ResultActions result = mockMvc.perform(get("/api/v1/opportunities"));
 
@@ -187,6 +181,24 @@ class OpportunityApiTest {
     result.andExpect(jsonPath("$.items[0].maxSupportAmount").value(100_000_000L));
     result.andExpect(jsonPath("$.items[1].supportAmount").isEmpty());
     result.andExpect(jsonPath("$.items[1].maxSupportAmount").isEmpty());
+    result.andExpect(jsonPath("$.items[2].supportAmount").isEmpty());
+    result.andExpect(jsonPath("$.items[2].maxSupportAmount").isEmpty());
+  }
+
+  /** 마감일 순 3건: [0] 금액 확인 · [1] 완전 미상 · [2] 총예산 원문만(max NULL — 서빙 시 두 필드 null). */
+  private void insertAmountSerializationFixtures() {
+    new TestOpportunity()
+        .title("금액공고")
+        .supportAmount("최대 1억원")
+        .maxSupportAmount(100_000_000L)
+        .deadline(today.plusDays(3))
+        .insert(jdbc);
+    new TestOpportunity().title("미상공고").deadline(today.plusDays(5)).insert(jdbc);
+    new TestOpportunity()
+        .title("총예산만공고")
+        .supportAmount("총 사업비 10억원")
+        .deadline(today.plusDays(7))
+        .insert(jdbc);
   }
 
   @Test

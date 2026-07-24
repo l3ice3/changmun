@@ -98,7 +98,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 ```
 - 카드에 필요한 전부 포함(`screens.md` S1). `eligibilityDetail`은 프론트가 1줄 말줄임.
 - 결과 0건 → `200` + `"items": []` (AC-012).
-- `supportAmount`(원문 표기)·`maxSupportAmount`(기업당/1인당 최대 지원액, 원 단위 — data-model `max_support_amount`)는 미상이면 `null`(억지 채움 금지 — FR-008). 카드 표시는 **"최대 X원" 사실 서술까지만**, 수령 보장 표현 금지(FR-008 가드레일). `total_program_budget`(사업단 예산)은 사용자 필터·카드 대상 아님(집계용).
+- `supportAmount`(원문 표기)·`maxSupportAmount`(기업당/1인당 최대 지원액, 원 단위 — data-model `max_support_amount`)는 미상이면 `null`(억지 채움 금지 — FR-008). 카드 표시는 **"최대 X원" 사실 서술까지만**, 수령 보장 표현 금지(FR-008 가드레일). `total_program_budget`(사업단 예산)은 사용자 필터·카드 대상 아님(집계용). **총예산 원문만 잡힌 공고(`max_support_amount` NULL)도 두 필드 `null`로 서빙** — DB의 `support_amount` 원문(검수용 보존)을 그대로 싣지 않는다.
 
 ### GET /api/v1/opportunities/stats — 홈 지표
 홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` 기준 count. (literal 경로라 `/{id}`보다 우선 매칭)
