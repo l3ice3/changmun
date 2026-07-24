@@ -39,6 +39,9 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
                OR is_always_open
                OR application_deadline >= CURRENT_DATE
                OR application_deadline IS NULL)
+          AND (:#{#criteria.requireAmount} = FALSE OR max_support_amount IS NOT NULL)
+          AND (CAST(:#{#criteria.minAmount} AS bigint) IS NULL
+               OR max_support_amount >= CAST(:#{#criteria.minAmount} AS bigint))
       """;
 
   String SELECT_BY_DEADLINE =

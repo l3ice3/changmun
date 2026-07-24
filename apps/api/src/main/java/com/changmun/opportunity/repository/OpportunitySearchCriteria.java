@@ -18,6 +18,8 @@ public final class OpportunitySearchCriteria {
   private final String source;
   private final String query;
   private final boolean onlyOpen;
+  private final boolean requireAmount;
+  private final Long minAmount;
 
   private OpportunitySearchCriteria(Persona persona, Filters filters) {
     this.stages = stagesOf(persona);
@@ -27,6 +29,8 @@ public final class OpportunitySearchCriteria {
     this.source = filters.source();
     this.query = filters.query();
     this.onlyOpen = filters.onlyOpen();
+    this.requireAmount = filters.requireAmount();
+    this.minAmount = filters.minAmount();
   }
 
   /** persona가 null이면 페르소나 필터 없음(전체 탭). */
@@ -80,6 +84,15 @@ public final class OpportunitySearchCriteria {
     return onlyOpen;
   }
 
+  public boolean isRequireAmount() {
+    return requireAmount;
+  }
+
+  /** null이면 하한 없음. 하한 지정 시 금액 미상(NULL)은 쿼리에서 자동 제외된다(NULL 비교 = false). */
+  public Long getMinAmount() {
+    return minAmount;
+  }
+
   private static String escapeLike(String value) {
     if (value == null) {
       return null;
@@ -87,7 +100,13 @@ public final class OpportunitySearchCriteria {
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 
-  /** 보조 필터(지역·카테고리·출처·검색어·진행상태) 운반용. */
+  /** 보조 필터(지역·카테고리·출처·검색어·진행상태·지원금) 운반용. 지원금 축 확장(maxAmount 등)은 여기에 필드 추가로 끝낸다. */
   public record Filters(
-      String region, String category, String source, String query, boolean onlyOpen) {}
+      String region,
+      String category,
+      String source,
+      String query,
+      boolean onlyOpen,
+      boolean requireAmount,
+      Long minAmount) {}
 }

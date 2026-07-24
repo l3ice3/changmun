@@ -30,13 +30,13 @@ public final class TestOpportunity {
         application_start_date, application_deadline, is_always_open,
         target_startup_stage, target_audience_type, category, region,
         summary, eligibility_detail, organization, organization_type,
-        support_amount, apply_url, dedup_group_id, first_seen_at)
+        support_amount, max_support_amount, apply_url, dedup_group_id, first_seen_at)
       VALUES (
         :source, :externalId, :title, :detailUrl, :canonical,
         :startDate, :deadline, :alwaysOpen,
         :stages::text[], :audiences::text[], :category, :region::text[],
         :summary, :eligibilityDetail, :organization, :organizationType,
-        :supportAmount, :applyUrl, :dedupGroupId, :firstSeenAt)
+        :supportAmount, :maxSupportAmount, :applyUrl, :dedupGroupId, :firstSeenAt)
       RETURNING id
       """;
 
@@ -57,6 +57,7 @@ public final class TestOpportunity {
   private String organization;
   private String organizationType;
   private String supportAmount;
+  private Long maxSupportAmount;
   private String applyUrl;
   private Long dedupGroupId;
   private OffsetDateTime firstSeenAt;
@@ -148,6 +149,11 @@ public final class TestOpportunity {
     return this;
   }
 
+  public TestOpportunity maxSupportAmount(Long value) {
+    this.maxSupportAmount = value;
+    return this;
+  }
+
   public TestOpportunity applyUrl(String value) {
     this.applyUrl = value;
     return this;
@@ -234,6 +240,10 @@ public final class TestOpportunity {
 
   public String getSupportAmount() {
     return supportAmount;
+  }
+
+  public Long getMaxSupportAmount() {
+    return maxSupportAmount;
   }
 
   public String getApplyUrl() {

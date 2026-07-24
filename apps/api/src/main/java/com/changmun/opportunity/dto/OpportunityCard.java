@@ -23,6 +23,8 @@ public record OpportunityCard(
     List<String> targetStartupStage,
     List<String> targetAudienceType,
     String eligibilityDetail,
+    String supportAmount,
+    Long maxSupportAmount,
     String detailUrl) {
 
   public static OpportunityCard from(Opportunity opportunity) {
@@ -39,6 +41,8 @@ public record OpportunityCard(
         opportunity.getTargetStartupStage(),
         opportunity.getTargetAudienceType(),
         opportunity.getEligibilityDetail(),
+        opportunity.getSupportAmount(),
+        opportunity.getMaxSupportAmount(),
         opportunity.getDetailUrl());
   }
 }

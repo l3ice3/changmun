@@ -168,4 +168,63 @@ class OpportunityApiTest {
     result.andExpect(status().isBadRequest());
     result.andExpect(jsonPath("$.code").value("INVALID_PARAM"));
   }
+
+  @Test
+  @DisplayName("리스트 응답에 supportAmount·maxSupportAmount가 실리고 미상이면 null이다 (AC-032)")
+  void amountFieldsAreInListResponse() throws Exception {
+    new TestOpportunity()
+        .title("금액공고")
+        .supportAmount("최대 1억원")
+        .maxSupportAmount(100_000_000L)
+        .deadline(today.plusDays(3))
+        .insert(jdbc);
+    new TestOpportunity().title("미상공고").deadline(today.plusDays(5)).insert(jdbc);
+
+    ResultActions result = mockMvc.perform(get("/api/v1/opportunities"));
+
+    result.andExpect(status().isOk());
+    result.andExpect(jsonPath("$.items[0].supportAmount").value("최대 1억원"));
+    result.andExpect(jsonPath("$.items[0].maxSupportAmount").value(100_000_000L));
+    result.andExpect(jsonPath("$.items[1].supportAmount").isEmpty());
+    result.andExpect(jsonPath("$.items[1].maxSupportAmount").isEmpty());
+  }
+
+  @Test
+  @DisplayName("hasAmount=true·minAmount가 요청부터 응답까지 걸러 반환한다 (AC-031)")
+  void amountFiltersAreWiredEndToEnd() throws Exception {
+    new TestOpportunity()
+        .title("1억공고")
+        .maxSupportAmount(100_000_000L)
+        .deadline(today.plusDays(3))
+        .insert(jdbc);
+    new TestOpportunity()
+        .title("5천만공고")
+        .maxSupportAmount(50_000_000L)
+        .deadline(today.plusDays(5))
+        .insert(jdbc);
+    new TestOpportunity().title("금액미상").deadline(today.plusDays(5)).insert(jdbc);
+
+    ResultActions hasAmount = getOpportunities("hasAmount", "true");
+    hasAmount.andExpect(status().isOk());
+    hasAmount.andExpect(jsonPath("$.items.length()").value(2));
+
+    ResultActions minAmount = getOpportunities("minAmount", "80000000");
+    minAmount.andExpect(status().isOk());
+    minAmount.andExpect(jsonPath("$.items.length()").value(1));
+    minAmount.andExpect(jsonPath("$.items[0].title").value("1억공고"));
+  }
+
+  @Test
+  @DisplayName("잘못된 hasAmount·비숫자/음수 minAmount는 400 INVALID_PARAM이다 (AC-033)")
+  void invalidAmountParamsReturnBadRequest() throws Exception {
+    getOpportunities("hasAmount", "yes")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    getOpportunities("minAmount", "abc")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    getOpportunities("minAmount", "-1")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+  }
 }

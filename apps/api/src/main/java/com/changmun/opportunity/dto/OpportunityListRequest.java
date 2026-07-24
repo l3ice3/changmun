@@ -23,6 +23,8 @@ public record OpportunityListRequest(
     @BindParam("source") String sourceParam,
     @BindParam("status") String statusParam,
     @BindParam("q") String queryParam,
+    @BindParam("hasAmount") String hasAmountParam,
+    @BindParam("minAmount") String minAmountParam,
     @BindParam("ids") String idsParam,
     @BindParam("sort") String sortParam,
     @BindParam("page") Integer pageParam,
@@ -72,6 +74,33 @@ public record OpportunityListRequest(
       throw new InvalidParameterException("q", queryParam);
     }
     return trimmed;
+  }
+
+  /** 지원금 확인 공고만 — true/false 외 값은 400 INVALID_PARAM (AC-033). */
+  public boolean requireAmount() {
+    if (isBlank(hasAmountParam)) {
+      return false;
+    }
+    String value = hasAmountParam.trim().toLowerCase(Locale.ROOT);
+    if (value.equals("true")) {
+      return true;
+    }
+    if (value.equals("false")) {
+      return false;
+    }
+    throw new InvalidParameterException("hasAmount", hasAmountParam);
+  }
+
+  /** 최대 지원액 하한(원, ≥0) — 비숫자·음수는 400 INVALID_PARAM (AC-033). 확장 예약: maxAmount(api-spec §1). */
+  public Long minAmount() {
+    if (isBlank(minAmountParam)) {
+      return null;
+    }
+    Long parsed = parseAmount(minAmountParam.trim());
+    if (parsed < 0) {
+      throw new InvalidParameterException("minAmount", minAmountParam);
+    }
+    return parsed;
   }
 
   public boolean onlyOpen() {
@@ -139,6 +168,14 @@ public record OpportunityListRequest(
       return;
     }
     parsed.add(parseId(trimmed));
+  }
+
+  private static Long parseAmount(String token) {
+    try {
+      return Long.valueOf(token);
+    } catch (NumberFormatException invalid) {
+      throw new InvalidParameterException("minAmount", token);
+    }
   }
 
   private static Long parseId(String token) {

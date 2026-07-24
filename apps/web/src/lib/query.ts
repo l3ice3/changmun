@@ -2,7 +2,18 @@
 
 export type RawParams = Record<string, string | string[] | undefined>;
 
-const PASS_KEYS = ["persona", "source", "region", "category", "status", "q", "sort", "page"] as const;
+const PASS_KEYS = [
+  "persona",
+  "source",
+  "region",
+  "category",
+  "status",
+  "q",
+  "hasAmount",
+  "minAmount",
+  "sort",
+  "page",
+] as const;
 
 function first(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -56,5 +67,9 @@ export function listViewPayload(
   if (status) payload.statusFilter = status;
   const query = first(sp.q);
   if (query) payload.q = query;
+  const hasAmount = first(sp.hasAmount);
+  if (hasAmount) payload.hasAmount = hasAmount;
+  const minAmount = first(sp.minAmount);
+  if (minAmount) payload.minAmount = minAmount;
   return payload;
 }

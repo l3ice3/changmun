@@ -57,6 +57,9 @@ public class Opportunity {
   @Column(name = "support_amount")
   private String supportAmount;
 
+  @Column(name = "max_support_amount")
+  private Long maxSupportAmount;
+
   @JdbcTypeCode(SqlTypes.ARRAY)
   @Column(name = "target_startup_stage", columnDefinition = "text[]")
   private List<String> targetStartupStage;

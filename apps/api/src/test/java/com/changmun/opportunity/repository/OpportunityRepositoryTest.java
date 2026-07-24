@@ -49,11 +49,32 @@ class OpportunityRepositoryTest {
   }
 
   private static OpportunitySearchCriteria persona(Persona persona) {
-    return OpportunitySearchCriteria.of(persona, new Filters(null, null, null, null, true));
+    return OpportunitySearchCriteria.of(persona, openFilters());
   }
 
   private static OpportunitySearchCriteria filters(Filters filters) {
     return OpportunitySearchCriteria.of(null, filters);
+  }
+
+  // Filters 조립 헬퍼 — 각 테스트는 관심 축 하나만 지정한다(나머지는 필터 없음).
+  private static Filters openFilters() {
+    return new Filters(null, null, null, null, true, false, null);
+  }
+
+  private static Filters allStatusFilters() {
+    return new Filters(null, null, null, null, false, false, null);
+  }
+
+  private static Filters regionFilters(String region) {
+    return new Filters(region, null, null, null, true, false, null);
+  }
+
+  private static Filters queryFilters(String query) {
+    return new Filters(null, null, null, query, true, false, null);
+  }
+
+  private static Filters amountFilters(boolean requireAmount, Long minAmount) {
+    return new Filters(null, null, null, null, true, requireAmount, minAmount);
   }
 
   private void preStartup(String title, LocalDate deadline) {
@@ -109,7 +130,7 @@ class OpportunityRepositoryTest {
     new TestOpportunity().title("기간미상").insert(jdbc);
     new TestOpportunity().title("마감").deadline(today.minusDays(5)).insert(jdbc);
 
-    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, null, null, true)));
+    Page<Opportunity> page = byDeadline(filters(openFilters()));
 
     assertThat(page.getContent())
         .extracting(Opportunity::getTitle)
@@ -122,7 +143,7 @@ class OpportunityRepositoryTest {
     new TestOpportunity().title("진행중").deadline(today.plusDays(5)).insert(jdbc);
     new TestOpportunity().title("마감").deadline(today.minusDays(5)).insert(jdbc);
 
-    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, null, null, false)));
+    Page<Opportunity> page = byDeadline(filters(allStatusFilters()));
 
     assertThat(page.getContent())
         .extracting(Opportunity::getTitle)
@@ -135,7 +156,7 @@ class OpportunityRepositoryTest {
     new TestOpportunity().title("서울공고").region("서울").deadline(today.plusDays(5)).insert(jdbc);
     new TestOpportunity().title("부산공고").region("부산").deadline(today.plusDays(5)).insert(jdbc);
 
-    Page<Opportunity> page = byDeadline(filters(new Filters("서울", null, null, null, true)));
+    Page<Opportunity> page = byDeadline(filters(regionFilters("서울")));
 
     assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("서울공고");
   }
@@ -149,10 +170,10 @@ class OpportunityRepositoryTest {
         .deadline(today.plusDays(5))
         .insert(jdbc);
 
-    assertThat(byDeadline(filters(new Filters("서울", null, null, null, true))).getContent())
+    assertThat(byDeadline(filters(regionFilters("서울"))).getContent())
         .extracting(Opportunity::getTitle)
         .containsExactly("수도권공고");
-    assertThat(byDeadline(filters(new Filters("경기", null, null, null, true))).getContent())
+    assertThat(byDeadline(filters(regionFilters("경기"))).getContent())
         .extracting(Opportunity::getTitle)
         .containsExactly("수도권공고");
   }
@@ -163,7 +184,7 @@ class OpportunityRepositoryTest {
     new TestOpportunity().title("청년창업사관학교 모집").deadline(today.plusDays(5)).insert(jdbc);
     new TestOpportunity().title("관련 없는 공고").deadline(today.plusDays(5)).insert(jdbc);
 
-    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, null, "창업사관", true)));
+    Page<Opportunity> page = byDeadline(filters(queryFilters("창업사관")));
 
     assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("청년창업사관학교 모집");
   }
@@ -172,10 +193,10 @@ class OpportunityRepositoryTest {
   @DisplayName("SQL 메타·인젝션 문자열은 0건으로 안전 처리되고 테이블은 그대로다 (AC-021)")
   void searchInjectionIsSafe() {
     new TestOpportunity().title("정상공고").deadline(today.plusDays(5)).insert(jdbc);
-    Filters injection = new Filters(null, null, null, "'; DROP TABLE opportunity;-- %_", true);
+    Filters injection = queryFilters("'; DROP TABLE opportunity;-- %_");
 
     Page<Opportunity> injected = byDeadline(filters(injection));
-    Page<Opportunity> survived = byDeadline(filters(new Filters(null, null, null, "정상", true)));
+    Page<Opportunity> survived = byDeadline(filters(queryFilters("정상")));
 
     assertThat(injected.getContent()).isEmpty();
     assertThat(survived.getContent()).extracting(Opportunity::getTitle).containsExactly("정상공고");
@@ -186,7 +207,7 @@ class OpportunityRepositoryTest {
   void searchWildcardsAreTreatedAsLiteral() {
     new TestOpportunity().title("정상공고").deadline(today.plusDays(5)).insert(jdbc);
 
-    Page<Opportunity> page = byDeadline(filters(new Filters(null, null, null, "__", true)));
+    Page<Opportunity> page = byDeadline(filters(queryFilters("__")));
 
     assertThat(page.getContent()).isEmpty();
   }
@@ -223,9 +244,56 @@ class OpportunityRepositoryTest {
     new TestOpportunity().title("먼저수집").deadline(today.plusDays(1)).insert(jdbc);
     new TestOpportunity().title("나중수집").deadline(today.plusDays(9)).insert(jdbc);
 
-    Page<Opportunity> page =
-        repository.searchByLatest(filters(new Filters(null, null, null, null, true)), FIRST_PAGE);
+    Page<Opportunity> page = repository.searchByLatest(filters(openFilters()), FIRST_PAGE);
 
     assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("나중수집", "먼저수집");
+  }
+
+  private void amountRow(String title, String stage, Long maxSupportAmount) {
+    TestOpportunity row = new TestOpportunity().title(title).maxSupportAmount(maxSupportAmount);
+    if (stage != null) {
+      row.stages(stage);
+    }
+    row.deadline(today.plusDays(5)).insert(jdbc);
+  }
+
+  @Test
+  @DisplayName("hasAmount=true는 최대 지원액이 확인된 공고만 반환한다 (AC-031)")
+  void hasAmountReturnsOnlyAmountConfirmed() {
+    amountRow("1억공고", null, 100_000_000L);
+    amountRow("5천만공고", null, 50_000_000L);
+    amountRow("금액미상", null, null);
+
+    Page<Opportunity> page = byDeadline(filters(amountFilters(true, null)));
+
+    assertThat(page.getContent())
+        .extracting(Opportunity::getTitle)
+        .containsExactlyInAnyOrder("1억공고", "5천만공고");
+  }
+
+  @Test
+  @DisplayName("minAmount는 하한 이상만 반환하고 금액 미상(NULL)은 제외한다 (AC-031)")
+  void minAmountFiltersBelowThresholdAndNull() {
+    amountRow("1억공고", null, 100_000_000L);
+    amountRow("5천만공고", null, 50_000_000L);
+    amountRow("금액미상", null, null);
+
+    Page<Opportunity> page = byDeadline(filters(amountFilters(false, 80_000_000L)));
+
+    assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("1억공고");
+  }
+
+  @Test
+  @DisplayName("지원금 필터는 페르소나 필터와 AND로 조합된다 (AC-031)")
+  void amountFilterCombinesWithPersona() {
+    amountRow("예비-1억", "PRE_STARTUP", 100_000_000L);
+    amountRow("초기-1억", "LT_2Y", 100_000_000L);
+    amountRow("예비-금액미상", "PRE_STARTUP", null);
+
+    Page<Opportunity> page =
+        byDeadline(
+            OpportunitySearchCriteria.of(Persona.PRE_STARTUP, amountFilters(false, 50_000_000L)));
+
+    assertThat(page.getContent()).extracting(Opportunity::getTitle).containsExactly("예비-1억");
   }
 }
