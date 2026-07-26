@@ -137,7 +137,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 ```
 - `matchedTerms`: summary·eligibilityDetail에서 glossary 매칭된 용어만(0개면 빈 배열 — AC-015, 프론트는 빈 배열 시 영역 미표시).
 - `applyUrl` null 가능 → 프론트는 "공고 원문 보기"만 (AC-017).
-- `otherSources`: dedup 그룹 내 비-canonical 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능.
+- `otherSources`: dedup 그룹 내 비-canonical 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능. **검수 게이트 적용 대상** — 형제 조회에도 `(review_status IS NULL OR review_status = 'approved')`를 걸어 민간 pending·rejected의 `source`·`detailUrl`이 승인된 공고 응답에 실리지 않게 한다(FR-010, AC-035).
 - 마감 공고도 `200` + `status="CLOSED"` (AC-018). 없는 id → `404` (AC-016).
 
 ---

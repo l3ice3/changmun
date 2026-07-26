@@ -415,22 +415,33 @@ Then:  소스별 레코드가 review_status='pending'으로 적재되고,
 And:   민간 source 행을 review_status 없이(NULL) INSERT하면
        DB 제약 ck_opportunity_review_status로 실패한다
        (상태 누락이 NULL=공공으로 해석돼 검수 게이트를 우회하는 경로 차단 — fail-closed)
+And:   미편입 source(오타 'asan-nanm' · 백로그 'sparklabs')는 review_status가
+       유효해도 ck_opportunity_source로 INSERT가 실패한다
+       (미편입 값은 목록엔 뜨지만 같은 값의 source 필터가 400이 되는 계약 불일치를 만든다)
 ```
 **검증**
 - [ ] 자동: `apps/ingest/tests/` — 소스별 fixture 파싱 + 필수 필드 + raw 정책(전문 부재) 검증
 - [ ] 자동: 실DB 통합(pytest) 또는 리포지토리 슬라이스(Testcontainers) — 민간 source + review_status NULL INSERT가 제약 위반으로 거부됨
+- [ ] 자동: 동 — 미편입/오타 source INSERT가 `ck_opportunity_source` 위반으로 거부됨
 
 #### AC-035: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
 ```gherkin
-Given: review_status가 'pending'·'rejected'·'approved'인 민간 공고 각 1건 + 공공 공고(NULL) 1건
-When:  리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats) 조회를 각각 호출한다
+Given: review_status가 'pending'·'rejected'·'approved'인 민간 공고 각 1건 + 공공 공고(NULL) 1건.
+       네 건은 **같은 dedup 그룹**에 속하고 canonical은 공공 건이다
+When:  리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats) 조회를 각각 호출하고,
+       공공 canonical 건의 상세 응답에 실린 otherSources를 확인한다
 Then:  'pending'·'rejected'는 다섯 경로 모두에서 나타나지 않고,
        'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND).
        stats는 open·newToday·closingSoon 세 집계 모두에서 pending·rejected를 제외한다
        (기존 stats 쿼리는 is_canonical만 세므로 — 민간 행은 기본 is_canonical=true라 필터 누락 시 카운트에 샌다)
+And:   공공 건 상세의 otherSources에는 'approved' 형제만 실리고
+       'pending'·'rejected' 형제의 source·detailUrl은 나타나지 않는다
+       (findGroupSiblings는 dedup_group_id만 보므로 — 상세를 404로 막아도
+        승인된 공고 응답에 중첩돼 새어 나가는 경로다)
 ```
 **검증**
 - [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — 다섯 경로 각각(stats는 집계 3종 전부)
+- [ ] 자동: 동 — 한 dedup 그룹 fixture로 공공 canonical 상세 응답의 `otherSources` 중첩 검증
 
 #### AC-036: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
 ```gherkin
@@ -444,10 +455,14 @@ And:   공공 공고와 중복인 pending 건을 승인하면, 승인 트랜잭�
        dedup_group_id·is_canonical이 함께 확정된다 —
        승인 "직후"(다음 수집 배치 전) 리스트·검색을 조회해도
        공공 원본과 민간 중복본이 동시에 노출되는 구간이 없다 (data-model §6-F 규칙 8)
+And:   검수자가 pending 내용을 읽은 뒤 승인을 확정하기 전에 수집 배치가
+       같은 행을 갱신하면, 승인은 updated_at 불일치로 0행 갱신되어 취소되고
+       "내용이 바뀌었다 — 재검수" 안내가 뜬다 (사람이 본 스냅샷 ≠ 공개될 값 방지)
 ```
 **검증**
 - [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·review_status 불변)
 - [ ] 자동: 실DB 통합 — 중복 건 승인 **직후**(배치 재실행 전) 조회에 canonical 1건만 노출
+- [ ] 자동: 실DB 경합 통합 — 읽기 후 승인 전에 UPSERT를 끼워넣고 승인이 거부되는지(낙관적 동시성)
 
 #### AC-037: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
 ```gherkin

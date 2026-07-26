@@ -367,7 +367,7 @@
 | `kb-innovation-hub` | KB이노베이션허브 | 협업형(연 1~2회) | 공고 페이지 (정적, robots 전면 허용) |
 
 2. **기술은 Tier 1 한정**: requests + BeautifulSoup4 + feedparser(정적 HTML·RSS). **예절 의무**: 매 실행 robots.txt 확인 · 식별 UA(`changmun-bot/1.0; +https://changmun.com/bot`) · 요청 간 딜레이 ≥1초 · 일 1회 배치. 403/429·robots 불허 시 해당 소스 스킵+리포트 — **우회 금지, 차단 반복 시 소스 제외.**
-3. **수집분은 `review_status='pending'`으로 적재** — 리스트·검색·상세·`ids=`·홈 지표(stats) 등 **모든 서빙 경로에서 미노출**(카운트에도 불포함). NULL(=공공) 허용은 **DB CHECK 제약이 공공 3소스로 한정** — 민간·신규 source가 상태를 빠뜨리면 INSERT 실패(검수 게이트 우회 차단, data-model §6-F 규칙 2).
+3. **수집분은 `review_status='pending'`으로 적재** — 리스트·검색·상세·`ids=`·홈 지표(stats)·상세의 `otherSources` 등 **모든 서빙 경로에서 미노출**(카운트에도, 승인 공고의 형제 목록에도 불포함). NULL(=공공) 허용은 **DB CHECK 제약이 공공 3소스로 한정** — 민간·신규 source가 상태를 빠뜨리면 INSERT 실패(검수 게이트 우회 차단, data-model §6-F 규칙 2).
 4. **CLI 검수**(`apps/ingest`, 관리자 웹 UI 아님): pending 목록 → 건별 승인/반려 + **페르소나 수동 태깅**(단계 자체는 필수, 값은 '미상'(NULL 유지) 선택 가능 — 절대규칙 8 양립) + 금액 확인. 승인 → `'approved'` → 기존 서빙·dedup·금액 추출(§6-E) 파이프라인에 합류.
 5. **재수집 UPSERT는 내용 필드만 갱신** — `rejected`·`pending`은 `review_status` 불변(반려 공고가 재수집으로 부활 금지). 단 **`approved` 건의 핵심 필드(마감일·모집시작일·제목·금액 표기)가 바뀌면 `pending`으로 되돌려 재검수**한다(AC-039) — 승인은 "그 시점 내용"에 대한 승인이라, 변경된 마감일이 무검증으로 노출되면 가드레일 2가 깨진다.
 6. **본문 전문 미수집** — 제목·기관·기간·금액·대상·원문 URL 등 **사실 필드만** 수집·저장(민간 공고문은 공공누리 없는 저작물 — 전재 리스크). 상세 화면은 원문 링크 중심.
