@@ -429,7 +429,18 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
 8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 단독이면 `is_canonical=true`. 그룹에 속하면 **규칙 7의 순위로 그룹 canonical을 재선정**한다 — 출처만 보고 "공공과 중복이면 민간은 무조건 false"로 처리하면 안 된다. 마감된 공공 건과 진행 중인 승인 민간 건이 중복일 때 민간이 대표가 되어야 그룹이 기본 `status=open` 목록에 남는다(①이 ②보다 먼저 — AC-010·AC-036).
    **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-036).
 
-   **검수 판정 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성) — 승인·반려 둘 다**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, **승인이든 반려든** 판정 UPDATE에 **`WHERE id = :id AND updated_at = :seen_at` 조건을 건다**. 0행이 갱신되면 판정을 취소하고 "수집 배치가 내용을 바꿨다 — 다시 검수하라"고 알린다.
+   **검수 판정 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성) — 승인·반려 둘 다**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, **승인이든 반려든** 판정 UPDATE를 이렇게 건다:
+
+   ```sql
+   UPDATE opportunity
+      SET review_status = :verdict, updated_at = now()   -- ← 판정도 updated_at을 반드시 올린다
+    WHERE id = :id
+      AND updated_at = :seen_at        -- 내가 본 스냅샷 그대로인가
+      AND review_status = 'pending';   -- 아직 아무도 판정 안 했는가
+   ```
+
+   0행이 갱신되면 판정을 취소하고 "내용이 바뀌었거나 이미 판정됐다 — 다시 검수하라"고 알린다.
+   **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의 경합을, `review_status = 'pending'` 비교는 *다른 검수자*와의 경합을 막는다. 그리고 `SET`에서 `updated_at`을 올리는 게 필수다 — `updated_at`은 `DEFAULT now()`일 뿐 **자동 갱신 트리거가 없어서**(§2 스키마), 판정이 이 값을 안 건드리면 같은 행을 함께 읽은 두 검수자의 **반대 판정이 둘 다 성공해 나중 것이 앞선 결정을 조용히 덮는다**(AC-036).
    **왜**: 검수자가 화면을 읽은 뒤 판정을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은 `pending`이라 규칙 4의 강등도 안 걸린다) **사람이 본 값과 확정되는 값이 달라진다**. 승인 쪽은 미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — 규칙 4에서 `rejected`는 이후 재수집에도 불변이라, 보지도 않은 새 내용이 영구 반려로 굳고 **검수 큐에 다시 나타나지 않아 그대로 유실**된다 (AC-036).
 9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
 10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅(승인은 규칙 8의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
