@@ -393,6 +393,8 @@ ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_review_status CHECK (
 CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE review_status = 'pending';  -- 검수 큐 조회용
 ```
 
+**마이그레이션 안전성 (로컬 실측 2026-07-26)**: 적재된 29,874행의 `source`는 `k-startup`(29,452)·`ontong-youth`(325)·`bizinfo`(97) 셋뿐 — 전부 THEN 분기(`review_status IS NULL`)를 만족하므로 **CHECK 추가 시 기존 행 위반 0건, 백필 불요**. 제약 추가는 테이블 전체 스캔 + ACCESS EXCLUSIVE 락이지만 3만 행 규모라 순간이다.
+
 ### 규칙
 
 1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않는다** (AC-035).
