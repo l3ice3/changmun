@@ -426,22 +426,30 @@ And:   미편입 source(오타 'asan-nanm' · 백로그 'sparklabs')는 review_s
 
 #### AC-035: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
 ```gherkin
-Given: review_status가 'pending'·'rejected'·'approved'인 민간 공고 각 1건 + 공공 공고(NULL) 1건.
-       네 건은 **같은 dedup 그룹**에 속하고 canonical은 공공 건이다
-When:  리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats) 조회를 각각 호출하고,
-       공공 canonical 건의 상세 응답에 실린 otherSources를 확인한다
+Given: fixture를 두 벌로 나눈다 —
+       (A) 최상위 경로용: **is_canonical=true인 단독 민간 공고** pending 1건·rejected 1건
+           (+ approved 1건 + 공공 1건). 서로 다른 그룹이거나 dedup_group_id=NULL.
+           ※ canonical인 pending은 규칙 4의 강등이 실제로 만든다 —
+             단독 승인 건(is_canonical=true)이 마감일 변경으로 pending이 된 상태.
+             is_canonical 필터가 우연히 가려 주지 않는 배치라야 게이트를 진짜로 검증한다.
+       (B) otherSources용: pending·rejected·approved 민간 + 공공 4건이
+           **같은 dedup 그룹**에 있고 canonical은 공공 건
+When:  (A)로 리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats)를 각각 호출하고,
+       (B)로 공공 canonical 건의 상세 응답에 실린 otherSources를 확인한다
 Then:  'pending'·'rejected'는 다섯 경로 모두에서 나타나지 않고,
        'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND).
        stats는 open·newToday·closingSoon 세 집계 모두에서 pending·rejected를 제외한다
-       (기존 stats 쿼리는 is_canonical만 세므로 — 민간 행은 기본 is_canonical=true라 필터 누락 시 카운트에 샌다)
+       (기존 stats 쿼리는 is_canonical만 세므로 — (A)의 canonical pending은
+        review_status 조건이 없으면 그대로 카운트에 샌다)
 And:   공공 건 상세의 otherSources에는 'approved' 형제만 실리고
        'pending'·'rejected' 형제의 source·detailUrl은 나타나지 않는다
        (findGroupSiblings는 dedup_group_id만 보므로 — 상세를 404로 막아도
         승인된 공고 응답에 중첩돼 새어 나가는 경로다)
 ```
 **검증**
-- [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — 다섯 경로 각각(stats는 집계 3종 전부)
-- [ ] 자동: 동 — 한 dedup 그룹 fixture로 공공 canonical 상세 응답의 `otherSources` 중첩 검증
+- [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — (A)로 다섯 경로 각각(stats는 집계 3종 전부)
+- [ ] 자동: 동 — (B) 단일 그룹 fixture로 공공 canonical 상세 응답의 `otherSources` 중첩 검증
+- [ ] **회귀 방지 확인**: 쿼리에서 `review_status` 조건만 제거하면 (A) 테스트가 **실패해야** 한다. 통과한다면 fixture가 `is_canonical`에 기대고 있는 것이므로 fixture를 고친다(이 AC의 이전 판이 그 함정에 빠졌다)
 
 #### AC-036: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
 ```gherkin
@@ -455,14 +463,16 @@ And:   공공 공고와 중복인 pending 건을 승인하면, 승인 트랜잭�
        dedup_group_id·is_canonical이 함께 확정된다 —
        승인 "직후"(다음 수집 배치 전) 리스트·검색을 조회해도
        공공 원본과 민간 중복본이 동시에 노출되는 구간이 없다 (data-model §6-F 규칙 8)
-And:   검수자가 pending 내용을 읽은 뒤 승인을 확정하기 전에 수집 배치가
-       같은 행을 갱신하면, 승인은 updated_at 불일치로 0행 갱신되어 취소되고
-       "내용이 바뀌었다 — 재검수" 안내가 뜬다 (사람이 본 스냅샷 ≠ 공개될 값 방지)
+And:   검수자가 pending 내용을 읽은 뒤 판정을 확정하기 전에 수집 배치가
+       같은 행을 갱신하면, **승인이든 반려든** updated_at 불일치로 0행 갱신되어
+       취소되고 "내용이 바뀌었다 — 재검수" 안내가 뜬다.
+       특히 반려는 rejected가 이후 재수집에도 불변이라(규칙 4),
+       못 본 내용이 영구 반려로 굳어 검수 큐에서 유실되는 것을 막는다
 ```
 **검증**
 - [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·review_status 불변)
 - [ ] 자동: 실DB 통합 — 중복 건 승인 **직후**(배치 재실행 전) 조회에 canonical 1건만 노출
-- [ ] 자동: 실DB 경합 통합 — 읽기 후 승인 전에 UPSERT를 끼워넣고 승인이 거부되는지(낙관적 동시성)
+- [ ] 자동: 실DB 경합 통합 — 읽기 후 판정 전에 UPSERT를 끼워넣고 **승인·반려 각각** 거부되는지(낙관적 동시성)
 
 #### AC-037: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
 ```gherkin
@@ -493,9 +503,14 @@ Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아�
        해당 공고는 재검수 전까지 모든 서빙 경로에서 사라진다(AC-035 준용).
        요약·기관 표기 등 핵심 외 필드만 바뀐 경우에는 approved가 유지된다
        (승인은 "그 시점 내용"에 대한 승인 — 변경된 마감일이 무검증 노출되면 가드레일 2 위반)
+And:   강등된 건이 dedup 그룹의 canonical이었다면, 같은 트랜잭션에서
+       남은 approved·공공 멤버 중 canonical이 다시 뽑힌다 —
+       승인 상태로 남은 형제가 있는데도 그룹이 통째로 리스트·검색에서
+       사라지는 일이 없다 (data-model §6-F 규칙 4)
 ```
 **검증**
 - [ ] 자동: pytest — 핵심 필드 변경 → pending 강등 / 비핵심 변경 → approved 유지 (실DB 재수집 통합)
+- [ ] 자동: 실DB 통합 — 민간 approved 2건(A=canonical·B=멤버)이 한 그룹인 상태에서 A 강등 → B가 canonical로 승격돼 리스트에 계속 노출
 
 ---
 
