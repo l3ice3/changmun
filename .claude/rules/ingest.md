@@ -5,15 +5,17 @@ paths:
 
 # rules/ingest.md — apps/ingest (Python, poetry)
 
-> 수집·정규화·dedup·페르소나 부여 배치. 근거: `docs/data-model.md` §6/6-B/6-C/6-D, PRD FR-001·002.
+> 수집·정규화·dedup·페르소나 부여 배치. 근거: `docs/data-model.md` §6/6-B/6-C/6-D/6-F, PRD FR-001·002·010.
 
 ## 구조
 ```
 src/ingest/
   sources/      # kstartup.py, bizinfo.py, ontong_youth.py — 소스별 fetch+매핑 (1소스 1파일)
+                # 민간(FR-010): asan_nanum.py, kakao_impact.py, sopoong.py, kb_innovation_hub.py
   normalize/    # enum 정규화(category 11종+기타), 날짜 split, region 매핑, HTML strip
   dedup/        # norm key → 블로킹 → 스코어링(0.85) → union-find → canonical
   persona/      # 3단계: 직접(K-Startup) → 상속(그룹) → 키워드 규칙 → NULL
+  review.py     # 민간 검수 CLI(FR-010): pending 목록 → 승인/반려 + 페르소나 태깅 (관리자 웹 UI 금지)
   db.py         # UPSERT (ON CONFLICT (source, external_id))
   main.py       # 오케스트레이션: 소스 수집(격리) → dedup → 리포트
 tests/          # pytest — fixture는 실제 API 응답 표본 사용
@@ -26,5 +28,7 @@ tests/          # pytest — fixture는 실제 API 응답 표본 사용
 4. **미지 enum → '기타' + 원본 로그** (AC-005). 열린 enum 원칙 — 새 값에 crash 금지.
 5. **dedup 임계 0.85는 상수로 분리**(튜닝 대상). 오합치 > 놓침 — 경계 케이스는 합치지 않는다 (AC-008).
 6. **페르소나 키워드 규칙은 보수적으로** — 확실한 패턴만. 못 잡으면 NULL (AC-009). LLM 호출 금지(MVP).
-7. 실행 결과 리포트 출력: 소스별 신규/갱신/스킵/미지값 건수 (DoD 항목).
+7. 실행 결과 리포트 출력: 소스별 신규/갱신/스킵/미지값 건수 (DoD 항목). **민간 소스는 추가로 파싱 0건 시 "파손 의심" 경고 + pending 잔량** (AC-038).
 8. 외부 호출은 timeout + 재시도 N회. API 키는 env로만.
+9. **민간 소스(FR-010)는 화이트리스트만**(data-model 소스 레지스트리 — 신규 편입은 체크리스트+3인 합의). 기술은 **Tier 1만**: requests+BeautifulSoup4+feedparser — 헤드리스 브라우저·차단 우회 절대 금지. `review_status='pending'` 적재, **본문 전문 미수집**(사실 필드+원문 URL만 — §6-F). 재수집 UPSERT는 `review_status` 불변 (AC-036).
+10. **크롤링 예절 의무**(AC-037): 매 실행 robots.txt 확인 → 불허면 요청 없이 스킵. UA `changmun-bot/1.0 (+https://changmun.com/bot)`. 요청 간 ≥1초. 403/429 → 즉시 해당 소스 중단+리포트(재시도·우회 금지).

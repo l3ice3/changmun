@@ -84,7 +84,8 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `source_status` | VARCHAR(10) | YES | `rcrt_prgs_yn` (Y/N) |
 | `dedup_group_id` | BIGINT | YES | 출처 간 동일 공고 클러스터 (null=단독). dedup 배치가 채움 |
 | `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true. K-Startup 우선 |
-| `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등) |
+| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-010, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
+| `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등). **민간 소스는 예외 — 본문 전문 미수집**(§6-F) |
 | `first_seen_at` | TIMESTAMPTZ | NO | 최초 수집 (UPSERT 때 갱신 안 함) |
 | `updated_at` | TIMESTAMPTZ | NO | 매 UPSERT 갱신 |
 
@@ -160,6 +161,7 @@ WHERE (:category IS NULL OR category = :category)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
   AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
+  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids= 포함) 공통 불변식 (FR-010, §6-F)
 ORDER BY application_deadline ASC NULLS LAST
 LIMIT :size OFFSET :offset;
 ```
@@ -286,9 +288,37 @@ END AS d_day
 
 ## 소스 레지스트리 & 비(非)API 소스 정책
 
-- **`source` enum (확정):** `k-startup`(메인) · `bizinfo`(창업분야만) · `ontong-youth`(창업 슬라이스만). external_id 체계가 셋 다 다름(`pbanc_sn` 숫자 / `pblancId` 문자열 / `plcyNo` 20자리) → `external_id`는 VARCHAR(64).
-- **비API 소스 = 크롤링 영역 = MVP 제외:** 공공기관이어도 **API가 없고 로그인·JS로 막힌 곳**(CCEI, 전국 테크노파크, 지역기관 다수)은 민간과 동일 취급. CCEI 공식 창업 공고는 K-Startup/기업마당이 대부분 커버하므로 직접 수집 가치 낮음. 커버리지 갭이 실증되면 단일 포털 크롤러로 재검토.
+- **`source` enum (확정):** 공공 `k-startup`(메인) · `bizinfo`(창업분야만) · `ontong-youth`(창업 슬라이스만) + **민간 화이트리스트(FR-010 파일럿)** `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. external_id 체계가 소스마다 다름(`pbanc_sn` 숫자 / `pblancId` 문자열 / `plcyNo` 20자리 / 민간은 §6-F) → `external_id`는 VARCHAR(64).
+- **비API 공공 소스 = 크롤링 영역 = 제외 유지:** 공공기관이어도 **API가 없고 로그인·JS로 막힌 곳**(CCEI, 전국 테크노파크, 지역기관 다수)은 민간과 동일 취급. CCEI 공식 창업 공고는 K-Startup/기업마당이 대부분 커버하므로 직접 수집 가치 낮음. 커버리지 갭이 실증되면 편입 체크리스트로 재검토.
 - **R&D(SMTECH·과기부)·중소벤처24:** API는 있으나 기업마당과 중복 큼 → Phase 2(중복률 실측 후).
+
+### 민간 소스 편입 체크리스트 (FR-010 — 신규 소스는 전 항목 통과 + 3인 합의 필수)
+
+1. **robots.txt가 수집 경로를 허용**한다 (확인 일자·내용 기록. AI봇 차단 등 부분 신호도 기록해 판단 근거로).
+2. **정적 HTML 또는 RSS로 수집 가능** (Tier 1 — 헤드리스 브라우저 필요하면 편입 불가, Tier 2·3은 별도 합의).
+3. **이용약관에 수집 금지 조항 없음** (검토 기록 남김. robots에 서면 허가 요구 등 명시가 있으면 허가 없이 편입 불가).
+4. **자체 재원 공고** — 정부사업 위탁운영(운영사) 공고는 공공 3종에 이미 실림 → 표본으로 비커버(고유분) 확인.
+5. **타깃 적합**(예비·극초기·대학생) + 공고 빈도가 크롤러 유지비를 정당화.
+6. **1소스 1파일 구현 + 실응답 fixture 테스트** (ingest 규칙).
+- **운영 중 차단(403/429) 관측 시 즉시 해당 소스 수집 중단** — 우회 금지, 재개는 원인 확인 후.
+- **집계 사이트(THE VC·올콘·링커리어·벤처스퀘어 등)는 크롤링 영구 금지**(저작권법 §93 DB권 — 채용공고 크롤링 소송에서 침해 인정된 구조). 사람의 소스 발굴 도구로만 사용.
+
+### 민간 소스 실사 이력 (2026-07-26, 2차에 걸쳐 후보 10곳)
+
+| 소스 | robots | 정적 | 판정 |
+|---|---|---|---|
+| 아산나눔재단 | 전면 허용+sitemap | ✅ `/notice` | **편입(파일럿)** — 타깃 적합 최상 |
+| 카카오임팩트 | 파일 없음(관례상 허용) | ✅ `/news` | **편입(파일럿)** |
+| 소풍벤처스 | `/oauth2/`만 차단 | ✅ `/contents` | **편입(파일럿)** |
+| KB이노베이션허브 | 전면 허용+sitemap | ✅ | **편입(파일럿)** — 연 1~2회로 빈도 낮음 |
+| 디캠프 | 일반 봇 허용, AI봇 전면 차단+`ai-train=no` | 실사 403 | **보류** — 차단 의사 관측, 재확인 후 판단 |
+| 스파크랩 | 전면 허용 | 게시판 없음(뉴스레터만) | **크롤링 부적합** — 뉴스레터 구독 채널로 |
+| 프라이머 | **서면 허가 요구 명시** | — | **불가** — 허가 요청이 선행 |
+| 언더독스 | **전면 금지(`Disallow: /`)** | — | **불가** |
+| 신한 스퀘어브릿지 | 전면 허용 | ❌ JS 렌더링 | Tier 2 후보(보류) |
+| 브라이언임팩트 | 전면 허용 | ✅ 단 공고 게시판 없음(프로그램 페이지만) | **백로그** — 페이지 변경 감지 방식 필요 |
+
+> 미실사 백로그: 롯데벤처스(L-CAMP) · 한화 드림플러스 · 포스코 체인지업그라운드(공공 포털 중복 의심) · 현대 제로원(크리에이터 공모 — 적합 낮음) 등 — 편입 검토 시 위 체크리스트부터.
 
 ---
 
@@ -304,7 +334,7 @@ END AS d_day
 2. **블로킹:** `application_deadline` 동일 그룹 내에서만 쌍 비교(N² 방지).
 3. **스코어링:** `0.6·similarity(norm_title) [pg_trgm] + 0.25·기관일치 + 0.15·기간일치` → **≥ 0.85**만 동일 판정. (판정 정밀화 — 2026-07-16 튜닝, §11-8 절차·전수 검수 오합치 0: **기관일치** = 후보 집합 교집합 — 같은 공고를 소스마다 소관부처/수행기관으로 다르게 표기(해양수산부 vs 해양수산과학기술진흥원)하므로 organization + raw의 소관·수행 필드를 모두 후보로 / **기간일치** = 시작일 ±1일 — 출처 간 등록 시차 라이브 관찰, 마감일은 블로킹이 동일 강제)
 4. **그룹핑:** 동일 판정 쌍 Union-Find → `dedup_group_id` 부여(단독 공고는 NULL).
-5. **canonical 선정:** 그룹 내 **K-Startup 우선**(페르소나 필드 풍부) → `is_canonical=true`. 동순위면 정보량(채워진 컬럼 수) 많은 쪽.
+5. **canonical 선정:** 그룹 내 **K-Startup 우선**(페르소나 필드 풍부) → `is_canonical=true`. 동순위면 정보량(채워진 컬럼 수) 많은 쪽. **민간 소스(§6-F)는 `approved`만 dedup 대상이며 우선순위 최하위**(K-Startup > 기타 공공 > 민간).
 - **서빙:** 리스트/검색은 `WHERE is_canonical = true`. 상세에서 "다른 출처에서도 게재" 링크로 그룹 내 나머지 노출 가능(선택).
 
 ### 페르소나 부여 3단계 폭포 (신호 강한 순)
@@ -333,7 +363,34 @@ END AS d_day
 7. **원문 보존**: 추출에 사용한 원문 표현을 `support_amount`(TEXT)에 저장(표시·검수용). 추출 실패 시 세 컬럼 모두 건드리지 않음(NULL 유지).
 
 ### 커버리지 현실 (라이브 실측 2026-07-18)
-진행중 공고 기준 채움 가능: 기업마당 ~18% · 온통청년 ~8% · **K-Startup ~0.6%**(금액이 첨부 HWP에만 있음) — 전체 약 5%. K-Startup 첨부 추출은 **크롤링 금지 원칙과 충돌 → Phase 2**(이 실측이 "커버리지 갭 실증 시 재검토" 조건 충족). 민간 수집(Phase 2) 결합 시 같은 파이프라인으로 총액 지표 성장.
+진행중 공고 기준 채움 가능: 기업마당 ~18% · 온통청년 ~8% · **K-Startup ~0.6%**(금액이 첨부 HWP에만 있음) — 전체 약 5%. K-Startup 첨부 추출은 **크롤링 금지 원칙과 충돌 → Phase 2**(이 실측이 "커버리지 갭 실증 시 재검토" 조건 충족). 민간 수집(§6-F) 결합 시 같은 파이프라인으로 총액 지표 성장.
+
+---
+
+## 6-F. 민간 소스 공통 규칙 (FR-010 — 하이브리드) 【2026-07-26 신설 — 3인 합의 대상】
+
+> 파일럿 4소스: `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub` (편입 근거·실사는 소스 레지스트리). 소스별 상세 필드 매핑은 구현 시 각 소스 파일 + 본 절에 확정 기록(§6-B·6-C 선례).
+
+### 스키마 변경 (Flyway — 이 문서 합의 후 마이그레이션 추가)
+
+```sql
+-- V{타임스탬프}__add_review_status.sql
+ALTER TABLE opportunity ADD COLUMN review_status VARCHAR(10);
+-- NULL = 공공 소스(검수 불요 — 기존 행 백필 불요, 공공 경로 의미 무변경)
+-- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-010)
+CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE review_status = 'pending';  -- 검수 큐 조회용
+```
+
+### 규칙
+
+1. **서빙 불변식**: 리스트·검색·상세·`ids=` **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지 (AC-035).
+2. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. **재수집 UPSERT는 내용 필드만 갱신** — `review_status`·`first_seen_at` 불변(반려 공고 부활 금지 — AC-036).
+3. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
+4. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
+5. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
+6. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
+7. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅. **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
+8. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
 
 ---
 

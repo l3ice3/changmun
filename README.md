@@ -47,7 +47,7 @@
 - 커밋 전 `./gradlew check`(spotless·checkstyle·pmd·ArchUnit·Testcontainers 슬라이스 테스트) 통과 필수.
 
 ### `apps/ingest` — 수집·정규화·dedup 배치 (Python · poetry)
-- 수집: **K-Startup·기업마당·온통청년 3종 구현.** 공식 API만 사용 — 크롤링 라이브러리 금지(MVP).
+- 수집: **K-Startup·기업마당·온통청년 3종 구현** + 민간 화이트리스트 하이브리드(FR-010 — 문서 확정, 구현 대기). 공공은 공식 API만, 민간은 Tier 1(정적+RSS)+사람 검수 — 헤드리스 브라우저·차단 우회 금지.
 - 정규화(taxonomy 매핑)·dedup·페르소나 부여 배치. `raw` 원본 보존, 분류 칸 보존, UNDATED canonical 우선.
 - `poetry run pytest` 통과.
 

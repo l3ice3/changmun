@@ -30,6 +30,7 @@
 | FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
+| FR-010 | 민간 공고 수집 (하이브리드) | AC-034 ~ AC-038 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트. 소스 실사 이력은 data-model 소스 레지스트리 |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -399,6 +400,64 @@ Then:  세 경우 모두 400 INVALID_PARAM을 반환한다 (AC-014 준용)
 ```
 **검증**
 - [ ] 자동: 요청 파싱 단위 테스트 + E2E(MockMvc) 400 검증
+
+---
+
+### FR-010: 민간 공고 수집 (하이브리드)
+
+#### AC-034: 화이트리스트 4소스가 pending으로 적재된다 (Happy / Must)
+```gherkin
+Given: 화이트리스트 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub)의 실제 응답 표본 fixture
+When:  민간 수집 배치를 실행한다
+Then:  소스별 레코드가 review_status='pending'으로 적재되고,
+       external_id·title·detail_url·source가 NOT NULL이며,
+       raw에 공고 본문 전문이 없다(사실 필드 + 원문 URL + 수집 메타만 — data-model §6-F)
+```
+**검증**
+- [ ] 자동: `apps/ingest/tests/` — 소스별 fixture 파싱 + 필수 필드 + raw 정책(전문 부재) 검증
+
+#### AC-035: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
+```gherkin
+Given: review_status가 'pending'·'rejected'·'approved'인 민간 공고 각 1건 + 공공 공고(NULL) 1건
+When:  리스트·검색(q)·상세({id})·찜(ids=) 조회를 각각 호출한다
+Then:  'pending'·'rejected'는 네 경로 모두에서 나타나지 않고,
+       'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND)
+```
+**검증**
+- [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — 네 경로 각각
+
+#### AC-036: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
+```gherkin
+Given: pending 민간 공고 2건
+When:  검수 CLI로 1건은 페르소나 태깅(표준 코드 또는 '미상'=NULL)과 함께 승인, 1건은 반려한 뒤,
+       민간 수집 배치를 1회 재실행한다
+Then:  승인 건은 approved + 태깅값이 반영돼 서빙에 나타나고,
+       반려 건은 rejected 유지(재수집이 review_status를 pending으로 되돌리지 않음),
+       두 건 모두 내용 필드(title 등)는 재수집으로 갱신된다(UPSERT — first_seen_at 불변)
+```
+**검증**
+- [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·review_status 불변)
+
+#### AC-037: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
+```gherkin
+Given: robots.txt가 수집 경로를 Disallow하는 소스 A + HTTP 403/429를 반환하는 소스 B + 정상 소스 C
+When:  민간 수집 배치를 실행한다
+Then:  A는 콘텐츠 요청 없이 스킵, B는 즉시 중단·스킵되고 각각 리포트에 사유가 기록되며,
+       C는 정상 수집된다(소스 격리 — AC-004 준용).
+       모든 요청은 식별 User-Agent(changmun-bot)를 싣고 요청 간 딜레이(≥1초)를 지킨다
+```
+**검증**
+- [ ] 자동: pytest — robots 파서 판정·403/429 처리·UA 헤더·딜레이 파라미터 (우회 로직이 없음을 코드 리뷰로 확인)
+
+#### AC-038: 파싱 0건이면 파손 의심 경고를 남긴다 (Edge / Must)
+```gherkin
+Given: 정상 수집 이력이 있는 민간 소스의 목록 페이지가 개편되어 파싱 결과가 0건이 되는 fixture
+When:  수집 배치를 실행한다
+Then:  배치는 실패하지 않고, 리포트에 해당 소스 "0건 — 파손 의심" 경고가 기록된다
+       (셀렉터 파손은 조용히 죽는다 — 마감 지난 공고 방치는 가드레일 2 위반이므로 반드시 가시화)
+```
+**검증**
+- [ ] 자동: pytest — 0건 리포트 경고 + pending 잔량 표기
 
 ---
 
