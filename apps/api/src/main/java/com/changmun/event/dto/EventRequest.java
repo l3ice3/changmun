@@ -27,7 +27,9 @@ public record EventRequest(
           "q",
           "page",
           "linkType",
-          "resultCount");
+          "resultCount",
+          "hasAmount",
+          "minAmount");
 
   public EventLog toEventLog(Instant fallback) {
     validate();

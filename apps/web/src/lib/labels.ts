@@ -87,6 +87,28 @@ export const SOURCE_OPTIONS = Object.entries(SOURCE_LABELS).map(([value, label])
   label,
 }));
 
+// 지원금 필터 옵션 — "has"=유무(hasAmount=true), 숫자=하한(minAmount, 원 단위). FR-009·screens.md.
+export const AMOUNT_OPTIONS = [
+  { value: "has", label: "지원금 확인 공고" },
+  { value: "10000000", label: "1천만원 이상" },
+  { value: "50000000", label: "5천만원 이상" },
+  { value: "100000000", label: "1억원 이상" },
+];
+
+// 최대 지원액(원) → "최대 X원" 사실 서술 라벨. 반올림으로 실제보다 크게 보이지 않게 내림만 쓴다(FR-008 가드레일).
+export function amountLabel(maxSupportAmount: number): string {
+  const EOK = 100_000_000;
+  const MAN = 10_000;
+  if (maxSupportAmount >= EOK) {
+    const eok = Math.floor((maxSupportAmount / EOK) * 10) / 10;
+    return `최대 ${eok}억원`;
+  }
+  if (maxSupportAmount >= MAN) {
+    return `최대 ${Math.floor(maxSupportAmount / MAN).toLocaleString()}만원`;
+  }
+  return `최대 ${maxSupportAmount.toLocaleString()}원`;
+}
+
 export function sourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source;
 }

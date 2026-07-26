@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { BadgeCode, OpportunityCard as Card } from "@/lib/api";
-import { BADGE_LABELS, sourceLabel } from "@/lib/labels";
+import { amountLabel, BADGE_LABELS, sourceLabel } from "@/lib/labels";
 import { BookmarkButton } from "./BookmarkButton";
 import { DDay } from "./DDay";
 import { SourceBadge } from "./SourceBadge";
@@ -49,6 +49,13 @@ export function OpportunityCard({ item }: { item: Card }) {
             </span>
           ))}
         </div>
+      ) : null}
+
+      {/* 금액 확인 공고만 표시 — "최대 X원" 사실 서술까지(수령 보장 표현 금지, FR-008 가드레일). */}
+      {item.maxSupportAmount != null ? (
+        <p className="mt-2 text-[13px] font-semibold text-accent">
+          {amountLabel(item.maxSupportAmount)}
+        </p>
       ) : null}
 
       {item.eligibilityDetail ? (

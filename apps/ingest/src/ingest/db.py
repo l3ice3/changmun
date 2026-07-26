@@ -109,8 +109,11 @@ WHERE member.dedup_group_id = donor.dedup_group_id
 # 지원금 그룹 상속 (§6-E 규칙 6): 그룹 내 추출값을 NULL인 멤버에만 공유(자체 추출 우선 — COALESCE).
 # donor는 컬럼별로 집계한다 — 최대액과 총예산이 서로 다른 출처에서 추출된 그룹에서 단일 donor
 # 행을 고르면 한쪽 값이 탈락한다(Codex). 컬럼별 max = "적용 가능한 최대"(FR-008)와도 일치.
-# 원문 표기(support_amount)는 최대액이 가장 큰 행의 것을 따른다. K-Startup은 본문에
-# 금액이 없어(첨부 구조) 이 상속이 주 채움 경로다.
+# 원문 표기(support_amount)는 max의 출처를 따른다: 자체 max가 있으면 자체 원문(=max 문구,
+# extract_amounts가 max_text 우선), max를 상속받으면 원문도 donor 것으로 덮는다 — 총예산-only
+# 멤버의 자체 원문(총예산 문구)이 상속된 max와 함께 기업당 지원액처럼 서빙되는 것을 막는다
+# (Codex #69 — api-spec §1). donor 정렬이 max DESC라 그룹에 max가 있으면 donor_text는 항상
+# max 문구다. K-Startup은 본문에 금액이 없어(첨부 구조) 이 상속이 주 채움 경로다.
 _INHERIT_AMOUNTS_SQL = """
 WITH ranked AS (
     SELECT dedup_group_id, max_support_amount, total_program_budget,
@@ -134,12 +137,20 @@ donor AS (
 UPDATE opportunity AS member
 SET max_support_amount   = COALESCE(member.max_support_amount, donor.max_support_amount),
     total_program_budget = COALESCE(member.total_program_budget, donor.total_program_budget),
-    support_amount       = COALESCE(NULLIF(member.support_amount, ''), donor.support_amount)
+    support_amount       = CASE
+        WHEN member.max_support_amount IS NULL AND donor.max_support_amount IS NOT NULL
+            THEN COALESCE(donor.support_amount, NULLIF(member.support_amount, ''))
+        ELSE COALESCE(NULLIF(member.support_amount, ''), donor.support_amount)
+    END
 FROM donor
 WHERE member.dedup_group_id = donor.dedup_group_id
   AND (member.max_support_amount   IS DISTINCT FROM COALESCE(member.max_support_amount, donor.max_support_amount)
        OR member.total_program_budget IS DISTINCT FROM COALESCE(member.total_program_budget, donor.total_program_budget)
-       OR NULLIF(member.support_amount, '') IS DISTINCT FROM COALESCE(NULLIF(member.support_amount, ''), donor.support_amount))
+       OR NULLIF(member.support_amount, '') IS DISTINCT FROM CASE
+              WHEN member.max_support_amount IS NULL AND donor.max_support_amount IS NOT NULL
+                  THEN COALESCE(donor.support_amount, NULLIF(member.support_amount, ''))
+              ELSE COALESCE(NULLIF(member.support_amount, ''), donor.support_amount)
+          END)
 """
 
 # 한 축이라도 비면 후보 — YOUTH(audience)가 채워져도 비어있는 stage는 키워드로 채운다.

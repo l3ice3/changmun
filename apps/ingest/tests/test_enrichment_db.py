@@ -171,6 +171,31 @@ class TestDedupAndPersonaFlow:
             member = cursor.fetchone()
         assert member == (300000000, 50000000000, "기업당 3억원")  # 두 donor의 값을 모두 상속
 
+    def test_inherited_max_overrides_total_only_text(self, conn):
+        """총예산 원문만 가진 멤버가 max를 상속받으면 원문도 donor 것을 따른다 — 총예산 문구가
+        상속된 max와 함께 기업당 지원액처럼 서빙되는 것 방지 (Codex #69, api-spec §1)."""
+        insert_row(conn, "bizinfo", "s", "2099년 초격차 스타트업 창업기업 모집 공고",
+                   summary="기업당 최대 1.5억원 지원")
+        total_only_id = insert_row(conn, "ontong-youth", "t", "[전국] 초격차 스타트업 창업기업 모집",
+                                   summary="총 사업비 100억원 규모")
+
+        def snapshot():
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT max_support_amount, total_program_budget, support_amount"
+                    " FROM opportunity WHERE id=%s", (total_only_id,))
+                return cursor.fetchone()
+
+        dedup.run(conn)
+        amounts.apply(conn)
+        state_first = snapshot()
+        amounts.apply(conn)
+        state_second = snapshot()
+
+        # max 상속 → 원문도 donor의 max 문구로 덮임(자체 총예산 문구 아님), 자체 총예산 값은 보존
+        assert state_first == (150000000, 10000000000, "최대 1.5억원")
+        assert state_second == state_first  # 재실행 멱등
+
     def test_closed_canonical_repromoted(self, conn):
         """AC-010: canonical이 마감되면 진행 중 레코드가 승격된다 (그룹 보존)."""
         kstartup_id = insert_row(conn, "k-startup", "d",

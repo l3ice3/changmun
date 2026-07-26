@@ -57,6 +57,8 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `source` | enum | (없음) | 출처 필터: `k-startup` · `bizinfo` · `ontong-youth`. 잘못된 값 → 400 (AC-014) |
 | `status` | enum | `open` | `open`=진행중(상시·기간미상 포함) / `all` |
 | `q` | string | (없음) | 부분일치 검색(title+summary, pg_trgm). **최소 2글자**, 1글자 → 400 (AC-020) |
+| `hasAmount` | boolean | (없음) | `true`=지원금 확인 공고만(`maxSupportAmount` non-null). `true`/`false` 외 값 → 400 (AC-033) |
+| `minAmount` | int | (없음) | 최대 지원액 하한(원 단위, ≥0). 지정 시 금액 미상(NULL)은 자동 제외. 비숫자·음수 → 400 (AC-033). **확장 예약**: 구간 검색 필요 시 `maxAmount`(상한) 추가 예정 — 클라이언트는 하한 단독 계약에 과결합하지 않는다 |
 | `ids` | csv | (없음) | 찜 조회. 최대 50개. **지정 시 다른 필터 무시**, 요청 순서대로 반환, 없는 id는 누락(에러 아님 — AC-023) |
 | `sort` | enum | `deadline` | 정렬 |
 | `page` | int | 1 | 1-base. 범위 초과 → 200 + 빈 items (AC-014) |
@@ -83,6 +85,8 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
       "targetStartupStage": ["PRE_STARTUP"],
       "targetAudienceType": ["GENERAL", "UNIV_STUDENT"],
       "eligibilityDetail": "예비창업자(사업자등록 이력이 없는 자) ...",
+      "supportAmount": "최대 1억원",
+      "maxSupportAmount": 100000000,
       "detailUrl": "https://www.k-startup.go.kr/..."
     }
   ],
@@ -94,6 +98,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 ```
 - 카드에 필요한 전부 포함(`screens.md` S1). `eligibilityDetail`은 프론트가 1줄 말줄임.
 - 결과 0건 → `200` + `"items": []` (AC-012).
+- `supportAmount`(원문 표기)·`maxSupportAmount`(기업당/1인당 최대 지원액, 원 단위 — data-model `max_support_amount`)는 미상이면 `null`(억지 채움 금지 — FR-008). 카드 표시는 **"최대 X원" 사실 서술까지만**, 수령 보장 표현 금지(FR-008 가드레일). `total_program_budget`(사업단 예산)은 사용자 필터·카드 대상 아님(집계용). **총예산 원문만 잡힌 공고(`max_support_amount` NULL)도 두 필드 `null`로 서빙** — DB의 `support_amount` 원문(검수용 보존)을 그대로 싣지 않는다.
 
 ### GET /api/v1/opportunities/stats — 홈 지표
 홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` 기준 count. (literal 경로라 `/{id}`보다 우선 매칭)
@@ -121,7 +126,6 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
   "...리스트 항목과 동일 필드...": "...",
   "summary": "본 사업은 혁신적인 아이디어를 보유한 예비창업자의 사업화를 지원...",
   "organizationType": "중앙부처",
-  "supportAmount": null,
   "applyUrl": "https://www.k-startup.go.kr/apply/...",
   "matchedTerms": [
     { "term": "사업화자금", "description": "아이디어를 실제 제품/서비스로 만드는 데 쓰도록 주는 돈" }
@@ -163,7 +167,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 }
 ```
 - `eventType` 화이트리스트: `list_view` · `detail_view` · `outbound_click` · `bookmark_add` · `bookmark_remove` · `search`
-- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `source`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`
+- `payload` 키 화이트리스트(이벤트별 정의, 그 외 키 거부) — **PII 차단 장치** (AC-027). 허용 키: `opportunityId`, `persona`, `region`, `category`, `source`, `statusFilter`, `q`, `page`, `linkType`, `resultCount`, `hasAmount`, `minAmount`
 - `occurredAt` 생략 시 서버 수신 시각.
 
 ### 응답 `202`
@@ -222,3 +226,4 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | AC-019~021 | §1 `q`(2글자 최소, 파라미터 바인딩) |
 | AC-022~024 | §1 `ids`(순서 보존·누락 허용·canonical 무관) |
 | AC-025~027 | §4 eventType·payload 화이트리스트·202 |
+| AC-031~033 | §1 `hasAmount`·`minAmount` 파라미터 + `maxSupportAmount`·`supportAmount` 응답 노출 |

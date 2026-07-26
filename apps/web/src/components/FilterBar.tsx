@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CATEGORIES, PERSONA_OPTIONS, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
+import { AMOUNT_OPTIONS, CATEGORIES, PERSONA_OPTIONS, REGIONS, SOURCE_OPTIONS } from "@/lib/labels";
 import { Dropdown } from "./Dropdown";
 
 export function FilterBar() {
@@ -17,10 +17,23 @@ export function FilterBar() {
     router.push(`${pathname}?${next.toString()}`);
   }
 
+  // 지원금 필터는 UI 선택 하나가 쿼리 키 2개(hasAmount/minAmount)로 갈라진다 — 항상 한쪽만 남긴다.
+  function updateAmount(value: string) {
+    const next = new URLSearchParams(params.toString());
+    next.delete("hasAmount");
+    next.delete("minAmount");
+    if (value === "has") next.set("hasAmount", "true");
+    else if (value) next.set("minAmount", value);
+    next.delete("page");
+    router.push(`${pathname}?${next.toString()}`);
+  }
+
   const persona = params.get("persona") ?? "";
   const source = params.get("source") ?? "";
   const region = params.get("region") ?? "";
   const category = params.get("category") ?? "";
+  const amount =
+    params.get("minAmount") ?? (params.get("hasAmount") === "true" ? "has" : "");
   const showClosed = params.get("status") === "all";
   const sort = params.get("sort") ?? "deadline";
 
@@ -57,6 +70,14 @@ export function FilterBar() {
         value={source}
         options={SOURCE_OPTIONS}
         onSelect={(value) => update("source", value)}
+      />
+
+      <Dropdown
+        label="지원금"
+        allLabel="지원금 전체"
+        value={amount}
+        options={AMOUNT_OPTIONS}
+        onSelect={updateAmount}
       />
 
       {/* 우측 = 보기 방식(마감 포함 토글 + 정렬). 좌측 = 결과를 좁히는 조건(지역·분야). */}

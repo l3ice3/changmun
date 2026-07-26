@@ -112,7 +112,9 @@ public class OpportunityService {
             request.category(),
             request.source(),
             request.searchTerm(),
-            request.onlyOpen());
+            request.onlyOpen(),
+            request.requireAmount(),
+            request.minAmount());
     return OpportunitySearchCriteria.of(request.persona(), filters);
   }
 }

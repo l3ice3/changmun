@@ -24,6 +24,8 @@ export interface OpportunityCard {
   targetStartupStage: string[] | null;
   targetAudienceType: string[] | null;
   eligibilityDetail: string | null;
+  supportAmount: string | null;
+  maxSupportAmount: number | null;
   detailUrl: string;
 }
 
@@ -40,7 +42,6 @@ export interface OtherSource {
 export interface OpportunityDetail extends OpportunityCard {
   summary: string | null;
   organizationType: string | null;
-  supportAmount: string | null;
   applyUrl: string | null;
   matchedTerms: GlossaryEntry[];
   otherSources: OtherSource[];
