@@ -412,19 +412,25 @@ When:  민간 수집 배치를 실행한다
 Then:  소스별 레코드가 review_status='pending'으로 적재되고,
        external_id·title·detail_url·source가 NOT NULL이며,
        raw에 공고 본문 전문이 없다(사실 필드 + 원문 URL + 수집 메타만 — data-model §6-F)
+And:   민간 source 행을 review_status 없이(NULL) INSERT하면
+       DB 제약 ck_opportunity_review_status로 실패한다
+       (상태 누락이 NULL=공공으로 해석돼 검수 게이트를 우회하는 경로 차단 — fail-closed)
 ```
 **검증**
 - [ ] 자동: `apps/ingest/tests/` — 소스별 fixture 파싱 + 필수 필드 + raw 정책(전문 부재) 검증
+- [ ] 자동: 실DB 통합(pytest) 또는 리포지토리 슬라이스(Testcontainers) — 민간 source + review_status NULL INSERT가 제약 위반으로 거부됨
 
 #### AC-035: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
 ```gherkin
 Given: review_status가 'pending'·'rejected'·'approved'인 민간 공고 각 1건 + 공공 공고(NULL) 1건
-When:  리스트·검색(q)·상세({id})·찜(ids=) 조회를 각각 호출한다
-Then:  'pending'·'rejected'는 네 경로 모두에서 나타나지 않고,
-       'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND)
+When:  리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats) 조회를 각각 호출한다
+Then:  'pending'·'rejected'는 다섯 경로 모두에서 나타나지 않고,
+       'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND).
+       stats는 open·newToday·closingSoon 세 집계 모두에서 pending·rejected를 제외한다
+       (기존 stats 쿼리는 is_canonical만 세므로 — 민간 행은 기본 is_canonical=true라 필터 누락 시 카운트에 샌다)
 ```
 **검증**
-- [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — 네 경로 각각
+- [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — 다섯 경로 각각(stats는 집계 3종 전부)
 
 #### AC-036: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
 ```gherkin
