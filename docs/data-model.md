@@ -312,7 +312,7 @@ END AS d_day
 | 소풍벤처스 | `/oauth2/`만 차단 | ✅ `/contents` | **편입(파일럿)** |
 | KB이노베이션허브 | 전면 허용+sitemap | ✅ | **편입(파일럿)** — 연 1~2회로 빈도 낮음 |
 | 디캠프 | 일반 봇 허용, AI봇 전면 차단+`ai-train=no` | 실사 403 | **보류** — 차단 의사 관측, 재확인 후 판단 |
-| 스파크랩 | 전면 허용 | 게시판 없음(뉴스레터만) | **크롤링 부적합** — 뉴스레터 구독 채널로 |
+| 스파크랩 | 전면 허용 | 게시판 없음(뉴스레터만) | **크롤링 부적합** — 뉴스레터 구독 채널로. 수동 등록하려면 **`source` enum 편입이 선행**(§6-F 규칙 11) — 현재 미편입이므로 백로그 |
 | 프라이머 | **서면 허가 요구 명시** | — | **불가** — 허가 요청이 선행 |
 | 언더독스 | **전면 금지(`Disallow: /`)** | — | **불가** |
 | 신한 스퀘어브릿지 | 전면 허용 | ❌ JS 렌더링 | Tier 2 후보(보류) |
@@ -399,13 +399,23 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
 
 1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않는다** (AC-035).
 2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-010)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-034). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
-3. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. **재수집 UPSERT는 내용 필드만 갱신** — `review_status`·`first_seen_at` 불변(반려 공고 부활 금지 — AC-036).
-4. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
-5. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
-6. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
-7. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
-8. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅. **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
-9. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
+3. **적재**: 민간 크롤러는 항상 `review_status='pending'` + `is_canonical=false`로 INSERT(canonical은 승인 시점에 확정 — 규칙 7·8). 재수집 UPSERT는 **내용 필드만 갱신**하고 `first_seen_at`은 불변.
+4. **재수집 시 `review_status` 전이 — 승인은 "그 시점 내용"에 대한 승인이다**: 상태별로 다르게 처리한다.
+   - `rejected` → **불변**(반려 공고가 재수집으로 부활 금지 — AC-036).
+   - `pending` → **불변**(검수 대기 유지 — 내용만 최신화).
+   - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-039). 핵심 필드 = `application_deadline`·`application_start_date`·`title`·`support_amount`(및 파생 금액 2종). 그 밖의 필드(요약·기관 표기 등) 변경은 승인을 유지한다.
+
+   **왜**: 검수 게이트의 존재 이유가 "기계 파싱을 사람이 보증한다"인데, 최초 승인만 검수하면 **이후의 마감일 변경·오파싱이 무검증으로 그대로 노출**된다 — 가드레일 2(마감일 정확성)가 승인 이후 구간에서 통째로 비는 셈. 되돌림은 재검수까지 며칠 미노출을 감수하는 선택이며, 그 반대(틀린 마감일 노출)가 더 큰 해라는 판단이다. 민간 공고량이 소스당 연 1~5건이라 재검수 부담도 작다.
+   **구현 메모**: staged 컬럼·content hash 없이 **UPSERT 직전에 기존 행 값과 새 파싱 값을 비교**해 판정한다(스키마 추가 없음).
+5. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
+6. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
+7. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
+8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 공공과 중복이면 `is_canonical=false` 유지(그룹 멤버), 단독이면 `true`.
+   **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-036).
+9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
+10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅(승인은 규칙 8의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
+11. **수동 등록도 정식 편입된 source만**: 뉴스레터 채널(PRD FR-010 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
+12. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
 
 ---
 
