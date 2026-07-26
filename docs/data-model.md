@@ -83,7 +83,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `apply_url` | TEXT | YES | `biz_aply_url` → 비면 `aply_mthd_onli_rcpt_istc`(URL일 때) |
 | `source_status` | VARCHAR(10) | YES | `rcrt_prgs_yn` (Y/N) |
 | `dedup_group_id` | BIGINT | YES | 출처 간 동일 공고 클러스터 (null=단독). dedup 배치가 채움 |
-| `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true. K-Startup 우선 |
+| `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true — **민간은 `false`로 적재**(승인 시 확정, §6-F 규칙 3·8). 선정 순위는 **노출 가능성 → 출처(K-Startup 우선) → 정보량 → id**(§6-D 규칙 5) |
 | `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-010, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **NULL 허용은 공공 3소스로 CHECK 제약이 한정**(민간·신규 source는 상태 필수 — §6-F 규칙 2). **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
 | `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등). **민간 소스는 예외 — 본문 전문 미수집**(§6-F) |
 | `first_seen_at` | TIMESTAMPTZ | NO | 최초 수집 (UPSERT 때 갱신 안 함) |
@@ -426,7 +426,7 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
 5. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
 6. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
 7. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. canonical 선정은 **§6-D 규칙 5를 그대로 따른다 — ① 노출 가능성 → ② 출처(K-Startup > 기타 공공 > **민간**) → ③ 정보량 → ④ id**. 민간이 낮은 건 ②뿐이므로, **마감된 공공 건과 진행 중인 승인 민간 건이 같은 그룹이면 민간이 canonical이 된다**(①이 먼저다). 출처 순위를 앞에 두면 마감 공공 행이 대표가 되어 기본 `status=open` 목록에서 그룹째 사라진다(AC-010 위반).
-8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 공공과 중복이면 `is_canonical=false` 유지(그룹 멤버), 단독이면 `true`.
+8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 단독이면 `is_canonical=true`. 그룹에 속하면 **규칙 7의 순위로 그룹 canonical을 재선정**한다 — 출처만 보고 "공공과 중복이면 민간은 무조건 false"로 처리하면 안 된다. 마감된 공공 건과 진행 중인 승인 민간 건이 중복일 때 민간이 대표가 되어야 그룹이 기본 `status=open` 목록에 남는다(①이 ②보다 먼저 — AC-010·AC-036).
    **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-036).
 
    **검수 판정 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성) — 승인·반려 둘 다**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, **승인이든 반려든** 판정 UPDATE에 **`WHERE id = :id AND updated_at = :seen_at` 조건을 건다**. 0행이 갱신되면 판정을 취소하고 "수집 배치가 내용을 바꿨다 — 다시 검수하라"고 알린다.
