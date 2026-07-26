@@ -84,7 +84,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `source_status` | VARCHAR(10) | YES | `rcrt_prgs_yn` (Y/N) |
 | `dedup_group_id` | BIGINT | YES | 출처 간 동일 공고 클러스터 (null=단독). dedup 배치가 채움 |
 | `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true. K-Startup 우선 |
-| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-010, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
+| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-010, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **NULL 허용은 공공 3소스로 CHECK 제약이 한정**(민간·신규 source는 상태 필수 — §6-F 규칙 2). **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
 | `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등). **민간 소스는 예외 — 본문 전문 미수집**(§6-F) |
 | `first_seen_at` | TIMESTAMPTZ | NO | 최초 수집 (UPSERT 때 갱신 안 함) |
 | `updated_at` | TIMESTAMPTZ | NO | 매 UPSERT 갱신 |
@@ -161,7 +161,7 @@ WHERE (:category IS NULL OR category = :category)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
   AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
-  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids= 포함) 공통 불변식 (FR-010, §6-F)
+  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids=·stats 집계 포함) 공통 불변식 (FR-010, §6-F)
 ORDER BY application_deadline ASC NULLS LAST
 LIMIT :size OFFSET :offset;
 ```
@@ -378,19 +378,32 @@ END AS d_day
 ALTER TABLE opportunity ADD COLUMN review_status VARCHAR(10);
 -- NULL = 공공 소스(검수 불요 — 기존 행 백필 불요, 공공 경로 의미 무변경)
 -- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-010)
+
+-- NULL 허용은 공공 3소스 화이트리스트에만. 그 밖의 모든 source는 세 상태 중 하나가 필수다.
+-- IS NOT NULL을 명시적으로 AND 하는 이유: CHECK는 식이 NULL이면 통과시키는데
+-- `NULL IN (...)`는 false가 아니라 NULL이라, 이 가드가 없으면 정작 막으려던 "상태 누락" 행이 통과한다.
+ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_review_status CHECK (
+    CASE WHEN source IN ('k-startup', 'bizinfo', 'ontong-youth')
+         THEN review_status IS NULL
+         ELSE review_status IS NOT NULL
+              AND review_status IN ('pending', 'approved', 'rejected')
+    END
+);
+
 CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE review_status = 'pending';  -- 검수 큐 조회용
 ```
 
 ### 규칙
 
-1. **서빙 불변식**: 리스트·검색·상세·`ids=` **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지 (AC-035).
-2. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. **재수집 UPSERT는 내용 필드만 갱신** — `review_status`·`first_seen_at` 불변(반려 공고 부활 금지 — AC-036).
-3. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
-4. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
-5. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
-6. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
-7. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅. **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
-8. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
+1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않는다** (AC-035).
+2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-010)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-034). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
+3. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. **재수집 UPSERT는 내용 필드만 갱신** — `review_status`·`first_seen_at` 불변(반려 공고 부활 금지 — AC-036).
+4. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
+5. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
+6. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
+7. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
+8. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅. **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
+9. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
 
 ---
 
