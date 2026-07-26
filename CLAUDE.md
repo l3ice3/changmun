@@ -9,8 +9,8 @@
 ## 문서 맵 (작업 전 반드시 해당 문서 확인)
 | 무엇을 할 때 | 보는 문서 |
 |---|---|
-| 기능 요구사항·엣지 케이스 | `docs/PRD.md` (FR-001~007) |
-| 완료 판정 기준 | `docs/AC.md` (AC-001~027, DoD) |
+| 기능 요구사항·엣지 케이스 | `docs/PRD.md` (FR-001~010) |
+| 완료 판정 기준 | `docs/AC.md` (AC-001~039, CC-01~07, Phase 1·2 DoD) |
 | DB 스키마·소스 매핑·dedup | `docs/data-model.md` (**LOCKED** — 변경은 3인 합의 필수) |
 | API 요청/응답 형식 | `docs/api-spec.md` (필드명·enum 임의 변경 금지) |
 | 화면·배지·페르소나 탭 | `docs/screens.md` |
