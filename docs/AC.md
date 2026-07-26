@@ -30,7 +30,7 @@
 | FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
-| FR-010 | 민간 공고 수집 (하이브리드) | AC-034 ~ AC-038 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트. 소스 실사 이력은 data-model 소스 레지스트리 |
+| FR-010 | 민간 공고 수집 (하이브리드) | AC-034 ~ AC-039 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-039). 소스 실사 이력은 data-model 소스 레지스트리 |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -440,9 +440,14 @@ When:  검수 CLI로 1건은 페르소나 태깅(표준 코드 또는 '미상'=N
 Then:  승인 건은 approved + 태깅값이 반영돼 서빙에 나타나고,
        반려 건은 rejected 유지(재수집이 review_status를 pending으로 되돌리지 않음),
        두 건 모두 내용 필드(title 등)는 재수집으로 갱신된다(UPSERT — first_seen_at 불변)
+And:   공공 공고와 중복인 pending 건을 승인하면, 승인 트랜잭션 안에서
+       dedup_group_id·is_canonical이 함께 확정된다 —
+       승인 "직후"(다음 수집 배치 전) 리스트·검색을 조회해도
+       공공 원본과 민간 중복본이 동시에 노출되는 구간이 없다 (data-model §6-F 규칙 8)
 ```
 **검증**
 - [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·review_status 불변)
+- [ ] 자동: 실DB 통합 — 중복 건 승인 **직후**(배치 재실행 전) 조회에 canonical 1건만 노출
 
 #### AC-037: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
 ```gherkin
@@ -464,6 +469,18 @@ Then:  배치는 실패하지 않고, 리포트에 해당 소스 "0건 — 파�
 ```
 **검증**
 - [ ] 자동: pytest — 0건 리포트 경고 + pending 잔량 표기
+
+#### AC-039: 승인 후 핵심 필드가 바뀌면 재검수로 되돌아간다 (Edge / Must)
+```gherkin
+Given: approved 상태로 서빙 중인 민간 공고 1건
+When:  원문에서 마감일(또는 제목·모집시작일·금액 표기)이 변경된 fixture로 재수집한다
+Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아가며,
+       해당 공고는 재검수 전까지 모든 서빙 경로에서 사라진다(AC-035 준용).
+       요약·기관 표기 등 핵심 외 필드만 바뀐 경우에는 approved가 유지된다
+       (승인은 "그 시점 내용"에 대한 승인 — 변경된 마감일이 무검증 노출되면 가드레일 2 위반)
+```
+**검증**
+- [ ] 자동: pytest — 핵심 필드 변경 → pending 강등 / 비핵심 변경 → approved 유지 (실DB 재수집 통합)
 
 ---
 
