@@ -379,6 +379,14 @@ ALTER TABLE opportunity ADD COLUMN review_status VARCHAR(10);
 -- NULL = 공공 소스(검수 불요 — 기존 행 백필 불요, 공공 경로 의미 무변경)
 -- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-010)
 
+-- source는 레지스트리에 편입된 7종만. 오타·미편입 값(예: 'sparklabs')이 들어오면
+-- 목록엔 뜨는데 그 값으로 source 필터를 걸면 api-spec enum 검증에서 400이 나는
+-- 계약 불일치가 생긴다(규칙 11이 절차로 막는 것을 DB로도 막는다).
+ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_source CHECK (
+    source IN ('k-startup', 'bizinfo', 'ontong-youth',
+               'asan-nanum', 'kakao-impact', 'sopoong', 'kb-innovation-hub')
+);
+
 -- NULL 허용은 공공 3소스 화이트리스트에만. 그 밖의 모든 source는 세 상태 중 하나가 필수다.
 -- IS NOT NULL을 명시적으로 AND 하는 이유: CHECK는 식이 NULL이면 통과시키는데
 -- `NULL IN (...)`는 false가 아니라 NULL이라, 이 가드가 없으면 정작 막으려던 "상태 누락" 행이 통과한다.
@@ -393,11 +401,12 @@ ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_review_status CHECK (
 CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE review_status = 'pending';  -- 검수 큐 조회용
 ```
 
-**마이그레이션 안전성 (로컬 실측 2026-07-26)**: 적재된 29,874행의 `source`는 `k-startup`(29,452)·`ontong-youth`(325)·`bizinfo`(97) 셋뿐 — 전부 THEN 분기(`review_status IS NULL`)를 만족하므로 **CHECK 추가 시 기존 행 위반 0건, 백필 불요**. 제약 추가는 테이블 전체 스캔 + ACCESS EXCLUSIVE 락이지만 3만 행 규모라 순간이다.
+**마이그레이션 안전성 (로컬 실측 2026-07-26)**: 적재된 29,874행의 `source`는 `k-startup`(29,452)·`ontong-youth`(325)·`bizinfo`(97) 셋뿐 — 전부 편입 7종 안에 있고(`ck_opportunity_source` 통과) THEN 분기(`review_status IS NULL`)를 만족하므로 **두 CHECK 추가 시 기존 행 위반 0건, 백필 불요**. 제약 추가는 테이블 전체 스캔 + ACCESS EXCLUSIVE 락이지만 3만 행 규모라 순간이다.
 
 ### 규칙
 
-1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않는다** (AC-035).
+1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)**·**상세 응답의 `otherSources`(dedup 그룹 형제 조회)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않고, 승인된 공고의 형제 목록에도 실리지 않는다** (AC-035).
+   > `otherSources`는 최상위 조회가 아니라 **승인된 공고 안에 중첩돼 나가는 노출**이라 놓치기 쉽다 — 현행 `findGroupSiblings`는 `dedup_group_id`만 보고 그룹 전체를 가져오므로, 필터를 빠뜨리면 상세를 404로 막아도 민간 미검수 행의 `source`·`detailUrl`이 공공 공고 응답에 실려 나간다.
 2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-010)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-034). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
 3. **적재**: 민간 크롤러는 항상 `review_status='pending'` + `is_canonical=false`로 INSERT(canonical은 승인 시점에 확정 — 규칙 7·8). 재수집 UPSERT는 **내용 필드만 갱신**하고 `first_seen_at`은 불변.
 4. **재수집 시 `review_status` 전이 — 승인은 "그 시점 내용"에 대한 승인이다**: 상태별로 다르게 처리한다.
@@ -412,9 +421,12 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
 7. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. **canonical 우선순위: K-Startup > 기타 공공 > 민간**(§6-D 준용 — 공공 중복 게재 시 민간은 그룹 멤버로 유지).
 8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 공공과 중복이면 `is_canonical=false` 유지(그룹 멤버), 단독이면 `true`.
    **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-036).
+
+   **승인 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성)**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, 승인 UPDATE에 **`WHERE id = :id AND updated_at = :seen_at` 조건을 건다**. 0행이 갱신되면 승인을 취소하고 "수집 배치가 내용을 바꿨다 — 다시 검수하라"고 알린다. 왜: 검수자가 화면을 읽은 뒤 승인을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은 `pending`이라 규칙 4의 강등도 안 걸린다) **사람이 본 값과 공개되는 값이 달라져** 검수 게이트가 다시 우회된다 (AC-036).
 9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
 10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅(승인은 규칙 8의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
-11. **수동 등록도 정식 편입된 source만**: 뉴스레터 채널(PRD FR-010 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
+11. **수동 등록도 정식 편입된 source만 — DB가 강제한다**: 뉴스레터 채널(PRD FR-010 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
+    절차만으로는 오타 한 번에 뚫리므로 위 **`ck_opportunity_source`가 편입 7종만 통과**시킨다(AC-034). 규칙 2와 마찬가지로 **신규 소스 편입 시 두 제약을 함께 ALTER**해야 한다 — `ck_opportunity_source`(값 허용) + 공공이면 `ck_opportunity_review_status`(NULL 허용 분기).
 12. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
 
 ---
