@@ -538,6 +538,6 @@ CREATE INDEX idx_bookmark_user ON bookmark (user_id);
 **남은 확인(스키마 변경 아님):**
 1. 더 많은 페이지로 각 소스의 category·지역·대상 값 전체 집합 확정.
 2. `getBusinessInformation01`의 `biz_supt_bdgt_info`로 `support_amount` 보강 여부.
-3. ~~출처 간 dedup~~ → **§6-D로 확정 설계 완료**(스코어링 임계 0.85·canonical=K-Startup 우선·페르소나 3단계). 남은 건 임계값 튜닝(실데이터로 오합치율 검증).
+3. ~~출처 간 dedup~~ → **§6-D로 확정 설계 완료**(스코어링 임계 0.85·canonical 선정은 노출 가능성 → 출처 → 정보량 → id·페르소나 3단계). 남은 건 임계값 튜닝(실데이터로 오합치율 검증).
 4. R&D(SMTECH·과기부)·중소벤처24: 기업마당과 중복 가능성 높음 → 중복률 실측 후 Phase 2 결정.
 5. `screens.md`에서 노출 컬럼 확정 → eligibility_detail·apply_url·organization_type 표시 범위.
