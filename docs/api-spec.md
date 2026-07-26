@@ -42,7 +42,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `sort`: `deadline`(기본) · `latest`(`first_seen_at DESC`)
 - `region`: **16개 시도** 라벨 또는 `전국` (URL 인코딩된 한글 그대로. 2026 행정구역 통합 반영 — 광주+전남은 `전남광주` 단일 라벨, data-model §7). **요청은 단일 지역**(필터 1개), **응답 `region`은 배열**(공고가 복수 지역일 수 있음 — 서버는 공고의 region 배열에 요청 지역이 포함되면 매칭)
 - `category`: 표준 11종+`기타` 라벨 그대로 (data-model §7)
-- `source`(응답): 공공 `k-startup` · `bizinfo` · `ontong-youth` + 민간(FR-010) `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장)
+- `source`(응답): 공공 `k-startup` · `bizinfo` · `ontong-youth` + 민간(FR-010) `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장). **프론트 `SOURCE_LABELS`에 4종 한글 라벨 추가 필수**(PRD FR-010 10항) — 누락 시 카드에 내부 값이 그대로 노출되고 출처 필터에서 빠진다
 
 ---
 
