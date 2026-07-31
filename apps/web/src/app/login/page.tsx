@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { loginUrl, PROVIDERS } from "@/lib/auth";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { InertBackground } from "@/components/InertBackground";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { WindowMark } from "@/components/WindowMark";
@@ -28,12 +29,13 @@ export default function LoginPage() {
       <InertBackground />
       {/* 로고 링크는 hero-sea 밖(형제)에 — .hero-sea > *가 position/z-index를 덮어써
           카드 래퍼가 클릭을 가로채는 버그 방지(홈 복귀가 안 되던 원인). */}
-      <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
-        <WindowMark className="h-10 w-10" />
-        {/* 밝은 물결 배경에서 블루베리 글자가 묻혀 흰색 + 은은한 섀도로 (QA #17). */}
-        <span className="brand-logo text-[25px] text-hero-text [text-shadow:0_1px_12px_rgba(10,20,50,0.55)]">
-          창문
-        </span>
+      {/* 글자 속 ㅁ이 곧 창문 — 좌상단은 워드마크만(마크 중복 제거, 팀 합의).
+          밝은 물결 배경 위 — 항상 밝은 잉크(onDark) + 은은한 드롭섀도(QA #17 유지). */}
+      <Link href="/" className="absolute left-8 top-7 z-10 flex items-center">
+        <BrandWordmark
+          tone="onDark"
+          className="h-[19px] w-auto [filter:drop-shadow(0_1px_10px_rgba(10,20,50,0.55))]"
+        />
       </Link>
       {/* pt-24 = 상단 로고 영역(≈68px) 예약 — 저높이 모바일에서 카드와 로고 겹침 방지 (Codex #46). */}
       <div className="hero-sea flex min-h-full w-full items-center justify-center px-4 pb-14 pt-24">
