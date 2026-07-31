@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { WindowMark } from "@/components/WindowMark";
 import { COMPANY } from "@/lib/links";
 
@@ -31,7 +32,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-[760px] px-4 py-14">
       <div className="flex items-center gap-3">
         <WindowMark className="h-11 w-11" />
-        <span className="brand-logo text-[28px] text-hero">창문</span>
+        <BrandWordmark className="h-[24px] w-auto" />
       </div>
 
       <h1 className="mt-8 text-[27px] font-semibold leading-snug tracking-tight text-ink">

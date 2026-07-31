@@ -52,6 +52,9 @@
 
 :root {
   color-scheme: light;
+  /* BrandWordmark 잉크 그라데이션 — 마크 프레임과 동일 계열(라이트). 다크는 아래에서 밝게. */
+  --wm-ink-a: #8a96f9;
+  --wm-ink-b: #4c5ae2;
 }
 
 /*
@@ -82,6 +85,9 @@ html.dark {
 
   /* 워드마크 텍스트 + WindowMark 사각형 공용. 다크 배경에서 글자가 읽히고 흰 창살도 보이는 중간 블루베리. */
   --color-hero: #6b78f0;
+  /* BrandWordmark 잉크 — 다크 배경 위 밝은 잉크로 전환 */
+  --wm-ink-a: #a7b1ff;
+  --wm-ink-b: #7b87f5;
 
   --color-success: #34d399;
   --color-success-soft: #122a22;
@@ -108,13 +114,6 @@ body {
 .tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
-}
-
-/* 브랜드 워드마크 — 디스플레이 폰트(우아한 명조). 로고 텍스트에만 적용. */
-.brand-logo {
-  font-family: "Gowun Batang", "Pretendard Variable", serif;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 /* 탭/프레스 피드백 — scale(0.97) ~120ms (DESIGN.md §6). */

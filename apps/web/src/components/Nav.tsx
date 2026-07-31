@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthMenu } from "./AuthMenu";
+import { BrandWordmark } from "./BrandWordmark";
 import { WindowMark } from "./WindowMark";
 
 const LINKS = [
@@ -23,7 +24,7 @@ export function Nav() {
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4">
         <Link href="/" className="press flex items-center gap-2">
           <WindowMark className="h-7 w-7" />
-          <span className="brand-logo text-[20px] text-hero">창문</span>
+          <BrandWordmark className="h-[18px] w-auto" />
         </Link>
         <div className="flex items-center gap-1.5">
           <nav className="flex items-center gap-1 text-[14px]">
