@@ -40,13 +40,13 @@ export function BrandWordmark({
         </linearGradient>
       </defs>
       <g stroke={ink} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none">
-        {/* 창: ㅊ — 점획·가로·다리 연결(六 구조) */}
-        <line x1="36" y1="6" x2="36" y2="16" />
-        <line x1="14" y1="22" x2="58" y2="22" />
-        <line x1="36" y1="22" x2="13" y2="44" />
-        <line x1="36" y1="22" x2="59" y2="44" />
-        {/* 창: ㅇ */}
-        <circle cx="36" cy="68" r="17.5" />
+        {/* 창: ㅊ — 점획·가로·다리 연결(六 구조). 다리가 바보다 넓게 퍼지는 게 ㅊ의 시그니처 */}
+        <line x1="40" y1="6" x2="40" y2="16" />
+        <line x1="20" y1="22" x2="60" y2="22" />
+        <line x1="40" y1="22" x2="17" y2="43" />
+        <line x1="40" y1="22" x2="63" y2="43" />
+        {/* 창: ㅇ — 받침은 ㅊ 밑이 아니라 글자 블록 중앙 축에(받침으로 읽히게) */}
+        <circle cx="48" cy="68" r="17.5" />
         {/* 창: ㅏ */}
         <line x1="84" y1="6" x2="84" y2="94" />
         <line x1="86" y1="50" x2="99" y2="50" />
