@@ -53,7 +53,7 @@ export function Sidebar() {
       {/* 로고와 메뉴·아이템 사이 간격은 넉넉하게 — 촘촘함 해소 (QA #17).
           마크 대신 워드마크(글자 속 ㅁ이 곧 창문 — 팀 합의, QA #28). */}
       <Link href="/" aria-label="창문 홈" className="press mb-10">
-        <BrandWordmark className="h-auto w-16" />
+        <BrandWordmark className="h-auto w-[52px]" />
       </Link>
       <nav className="flex flex-col gap-4">
         {ITEMS.map(({ href, label, Icon }) => {

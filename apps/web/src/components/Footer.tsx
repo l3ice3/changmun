@@ -39,7 +39,7 @@ export function Footer() {
     <footer className="mt-16 border-t border-hair bg-bg-alt">
       <div className="mx-auto max-w-[1400px] px-4 py-12">
         <div className="flex items-center gap-2.5">
-          <BrandWordmark className="h-[20px] w-auto" />
+          <BrandWordmark className="h-[17px] w-auto" />
         </div>
         <p className="mt-4 max-w-xl text-[14px] font-medium leading-relaxed text-secondary">
           {SLOGAN}

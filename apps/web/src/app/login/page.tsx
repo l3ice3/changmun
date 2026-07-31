@@ -34,7 +34,7 @@ export default function LoginPage() {
       <Link href="/" className="absolute left-8 top-7 z-10 flex items-center">
         <BrandWordmark
           tone="onDark"
-          className="h-[22px] w-auto [filter:drop-shadow(0_1px_10px_rgba(10,20,50,0.55))]"
+          className="h-[19px] w-auto [filter:drop-shadow(0_1px_10px_rgba(10,20,50,0.55))]"
         />
       </Link>
       {/* pt-24 = 상단 로고 영역(≈68px) 예약 — 저높이 모바일에서 카드와 로고 겹침 방지 (Codex #46). */}

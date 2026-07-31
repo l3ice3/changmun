@@ -23,7 +23,7 @@ export function Nav() {
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4">
         {/* 글자 속 ㅁ이 곧 창문 — 마크 중복이라 워드마크만 (팀 합의) */}
         <Link href="/" className="press flex items-center">
-          <BrandWordmark className="h-[20px] w-auto" />
+          <BrandWordmark className="h-[17px] w-auto" />
         </Link>
         <div className="flex items-center gap-1.5">
           <nav className="flex items-center gap-1 text-[14px]">

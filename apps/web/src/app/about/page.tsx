@@ -31,7 +31,7 @@ export default function AboutPage() {
     <div className="mx-auto max-w-[760px] px-4 py-14">
       {/* 글자 속 ㅁ이 곧 창문 — 워드마크만 (팀 합의) */}
       <div className="flex items-center">
-        <BrandWordmark className="h-[26px] w-auto" />
+        <BrandWordmark className="h-[22px] w-auto" />
       </div>
 
       <h1 className="mt-8 text-[27px] font-semibold leading-snug tracking-tight text-ink">
