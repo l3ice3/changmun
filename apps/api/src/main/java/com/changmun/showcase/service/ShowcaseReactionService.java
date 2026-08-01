@@ -1,7 +1,6 @@
 package com.changmun.showcase.service;
 
 import com.changmun.common.web.NotFoundException;
-import com.changmun.showcase.domain.ShowcaseCheer;
 import com.changmun.showcase.domain.ShowcaseCheerId;
 import com.changmun.showcase.domain.ShowcaseComment;
 import com.changmun.showcase.domain.ShowcaseProduct;
@@ -46,12 +45,15 @@ public class ShowcaseReactionService {
     return ShowcaseDetailResponse.from(product, reactions, comments);
   }
 
+  /** 응원 토글 — 삭제(반환 행 수로 존재 판정) 우선, 없었으면 멱등 삽입. 연타 경쟁에도 500 없음(Codex #78 P2). */
   @Transactional
   public ShowcaseCheerResponse toggleCheer(Long productId, Long userId) {
     showcaseService.findApproved(productId);
-    ShowcaseCheerId cheerId = new ShowcaseCheerId(productId, userId);
-    boolean cheered = !cheerRepository.existsById(cheerId);
-    applyCheer(cheerId, productId, userId, cheered);
+    int deleted = cheerRepository.deleteCheer(productId, userId);
+    boolean cheered = deleted == 0;
+    if (cheered) {
+      cheerRepository.insertCheer(productId, userId);
+    }
     return new ShowcaseCheerResponse(cheered, cheerRepository.countByIdProductId(productId));
   }
 
@@ -81,14 +83,6 @@ public class ShowcaseReactionService {
         cheerRepository.existsById(new ShowcaseCheerId(product.getId(), viewerUserId));
     boolean mine = product.getOwnerUserId().equals(viewerUserId);
     return new ShowcaseReactions(cheers, cheeredByMe, mine);
-  }
-
-  private void applyCheer(ShowcaseCheerId cheerId, Long productId, Long userId, boolean cheered) {
-    if (cheered) {
-      cheerRepository.save(ShowcaseCheer.of(productId, userId));
-      return;
-    }
-    cheerRepository.deleteById(cheerId);
   }
 
   private ShowcaseCommentResponse toComment(ShowcaseCommentRow row, Long viewerUserId) {

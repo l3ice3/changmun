@@ -93,9 +93,23 @@ export function showcaseImageUrl(id: number): string {
   return `${API_BASE}/showcase/${id}/image`;
 }
 
+// 상태 코드를 보존하는 에러 — 호출부가 404(진짜 없음)와 일시 오류(500·네트워크)를 구분한다(Codex #78 P2).
+export class ShowcaseApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`showcase api ${status}`);
+    this.status = status;
+  }
+}
+
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ShowcaseApiError && error.status === 404;
+}
+
 async function parseOrThrow<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    throw new Error(`showcase api ${res.status}`);
+    throw new ShowcaseApiError(res.status);
   }
   return (await res.json()) as T;
 }
@@ -167,7 +181,7 @@ export async function deleteShowcase(id: number): Promise<void> {
     method: "DELETE",
     credentials: "include",
   });
-  if (!res.ok) throw new Error(`showcase api ${res.status}`);
+  if (!res.ok) throw new ShowcaseApiError(res.status);
 }
 
 export async function toggleShowcaseCheer(
@@ -187,7 +201,7 @@ export async function addShowcaseComment(id: number, body: string): Promise<void
     body: JSON.stringify({ body }),
     credentials: "include",
   });
-  if (!res.ok) throw new Error(`showcase api ${res.status}`);
+  if (!res.ok) throw new ShowcaseApiError(res.status);
 }
 
 export async function deleteShowcaseComment(commentId: number): Promise<void> {
@@ -195,5 +209,5 @@ export async function deleteShowcaseComment(commentId: number): Promise<void> {
     method: "DELETE",
     credentials: "include",
   });
-  if (!res.ok) throw new Error(`showcase api ${res.status}`);
+  if (!res.ok) throw new ShowcaseApiError(res.status);
 }

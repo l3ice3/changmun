@@ -27,6 +27,7 @@ function MineContent() {
   const justSubmitted = searchParams.get("submitted") === "1";
   const [items, setItems] = useState<ShowcaseMine[] | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     getMe().then((me) => {
@@ -38,10 +39,16 @@ function MineContent() {
     });
   }, []);
 
+  // 성공했을 때만 목록에서 제거 — 실패를 성공처럼 처리하지 않는다(Codex #78 P2).
   async function onDelete(id: number) {
     if (!window.confirm("제품을 삭제할까요?")) return;
-    await deleteShowcase(id).catch(() => null);
-    setItems((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
+    setActionError(null);
+    try {
+      await deleteShowcase(id);
+      setItems((prev) => (prev ? prev.filter((item) => item.id !== id) : prev));
+    } catch {
+      setActionError("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
   }
 
   return (
@@ -51,6 +58,9 @@ function MineContent() {
         <p className="mt-3 rounded-lg bg-success-soft px-3 py-2 text-[13px] font-medium text-success">
           접수됐어요! 팀 검수 후 쇼케이스에 공개돼요.
         </p>
+      ) : null}
+      {actionError ? (
+        <p className="mt-3 text-[13px] font-medium text-danger">{actionError}</p>
       ) : null}
 
       <div className="mt-6">

@@ -10,27 +10,40 @@ import {
   deleteShowcase,
   deleteShowcaseComment,
   fetchShowcaseDetail,
+  isNotFound,
   SHOWCASE_CATEGORY_LABELS,
   showcaseImageUrl,
   toggleShowcaseCheer,
   type ShowcaseDetail,
 } from "@/lib/showcase";
 
-// S6 쇼케이스 상세 — 승인작만 조회 가능(그 외 404 → 빈 상태). 응원·댓글은 로그인 필요.
+const ACTION_FAILED_MESSAGE = "요청에 실패했어요. 잠시 후 다시 시도해주세요.";
+
+// S6 쇼케이스 상세 — 승인작만 조회 가능. 404(진짜 없음)와 일시 오류(재시도)를 구분한다(Codex #78 P2).
+// 쓰기 실패 시 입력을 지우거나 이동하지 않고 오류를 안내한다(Codex #78 P2).
 export default function ShowcaseDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const productId = Number(params.id);
   const [detail, setDetail] = useState<ShowcaseDetail | null>(null);
   const [missing, setMissing] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
+    setFailed(false);
     fetchShowcaseDetail(productId)
       .then(setDetail)
-      .catch(() => setMissing(true));
+      .catch((error) => {
+        if (isNotFound(error)) {
+          setMissing(true);
+          return;
+        }
+        setFailed(true);
+      });
   }, [productId]);
 
   useEffect(() => {
@@ -50,6 +63,21 @@ export default function ShowcaseDetailPage() {
       </div>
     );
   }
+  if (failed) {
+    return (
+      <div className="mx-auto max-w-[760px] px-4 py-14 text-center">
+        <p className="text-[15px] font-medium text-ink">제품을 불러오지 못했어요</p>
+        <p className="mt-1 text-[13px] text-muted">잠시 후 다시 시도해주세요.</p>
+        <button
+          type="button"
+          onClick={reload}
+          className="press mt-5 inline-flex h-10 items-center rounded-full btn-sheen px-6 text-[14px] font-medium text-white"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
   if (detail === null) {
     return <p className="py-20 text-center text-[13px] text-muted">불러오는 중…</p>;
   }
@@ -59,9 +87,14 @@ export default function ShowcaseDetailPage() {
       router.push("/login");
       return;
     }
-    const result = await toggleShowcaseCheer(productId).catch(() => null);
-    if (result && detail) {
-      setDetail({ ...detail, cheers: result.cheers, cheeredByMe: result.cheered });
+    setActionError(null);
+    try {
+      const result = await toggleShowcaseCheer(productId);
+      if (detail) {
+        setDetail({ ...detail, cheers: result.cheers, cheeredByMe: result.cheered });
+      }
+    } catch {
+      setActionError(ACTION_FAILED_MESSAGE);
     }
   }
 
@@ -73,21 +106,38 @@ export default function ShowcaseDetailPage() {
     }
     if (!comment.trim()) return;
     setBusy(true);
-    await addShowcaseComment(productId, comment.trim()).catch(() => null);
-    setComment("");
-    setBusy(false);
-    reload();
+    setActionError(null);
+    try {
+      await addShowcaseComment(productId, comment.trim());
+      setComment("");
+      reload();
+    } catch {
+      // 실패 시 입력을 지우지 않는다 — 작성 내용 보존 + 오류 안내.
+      setActionError("댓글 등록에 실패했어요. 내용은 남아 있으니 다시 시도해주세요.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onDeleteComment(commentId: number) {
-    await deleteShowcaseComment(commentId).catch(() => null);
-    reload();
+    setActionError(null);
+    try {
+      await deleteShowcaseComment(commentId);
+      reload();
+    } catch {
+      setActionError(ACTION_FAILED_MESSAGE);
+    }
   }
 
   async function onDeleteProduct() {
     if (!window.confirm("제품을 삭제할까요? 응원과 댓글도 함께 삭제돼요.")) return;
-    await deleteShowcase(productId).catch(() => null);
-    router.push("/showcase");
+    setActionError(null);
+    try {
+      await deleteShowcase(productId);
+      router.push("/showcase");
+    } catch {
+      setActionError("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
   }
 
   return (
@@ -153,6 +203,10 @@ export default function ShowcaseDetailPage() {
           </span>
         ) : null}
       </div>
+
+      {actionError ? (
+        <p className="mt-3 text-[13px] font-medium text-danger">{actionError}</p>
+      ) : null}
 
       <div className="mt-8 whitespace-pre-wrap rounded-[14px] border border-hair bg-bg-alt px-5 py-5 text-[14.5px] leading-relaxed text-secondary">
         {detail.description}
