@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrowseSection, type BrowseOption } from "@/components/BrowseSection";
 import { Hero } from "@/components/Hero";
+import { ShowcaseWeekly } from "@/components/ShowcaseWeekly";
 import { fetchOpportunities, fetchStats, type OpportunityCard } from "@/lib/api";
 import {
   CATEGORIES,
@@ -85,6 +86,9 @@ export default async function Home() {
             전체 공고 모두 보기
           </Link>
         </div>
+
+        {/* 쇼케이스 주간 모아보기 — 공고 섹션과 시각적으로 구분되는 보조 섹션(기획안 S-5) */}
+        <ShowcaseWeekly />
       </div>
     </div>
   );

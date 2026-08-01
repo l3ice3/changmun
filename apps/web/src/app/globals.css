@@ -110,6 +110,21 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* 쇼케이스 등록 폼 공용 입력 — 토큰만 사용(다크 대응은 토큰이 담당). */
+.input-base {
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.input-base:focus {
+  outline: 2px solid var(--color-accent-bright);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
 /* 로고 광택 버튼 — 마크 v3 sheen 팔레트의 버튼용 다크 튜닝(QA #31).
    글린트 밴드는 좁게 유지 — 흰 텍스트 대비는 짙은 밴드(#4650d8 이하)가 담당.
    브랜드 고정색이라 라이트/다크 동일(로고와 같은 원리). hover는 background-image
