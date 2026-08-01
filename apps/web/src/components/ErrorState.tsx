@@ -10,7 +10,7 @@ export function ErrorState({ retryHref }: { retryHref: string }) {
       </p>
       <Link
         href={retryHref}
-        className="press mt-5 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white"
+        className="press mt-5 rounded-lg btn-sheen px-4 py-2 text-[13px] font-medium text-white"
       >
         다시 시도
       </Link>

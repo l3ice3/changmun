@@ -69,7 +69,7 @@ export default function AboutPage() {
         </p>
         <Link
           href="/search"
-          className="press mt-3 inline-flex h-11 items-center rounded-full bg-accent px-6 text-[14px] font-medium text-white hover:bg-accent-hover"
+          className="press mt-3 inline-flex h-11 items-center rounded-full btn-sheen px-6 text-[14px] font-medium text-white"
         >
           공고 탐색하기
         </Link>

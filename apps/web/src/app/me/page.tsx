@@ -158,7 +158,7 @@ export default function MyPage() {
         <p className="mt-2 text-[14px] text-muted">마이페이지는 로그인 후 이용할 수 있어요.</p>
         <Link
           href="/login"
-          className="press mt-6 inline-flex h-11 items-center rounded-full bg-accent px-6 text-[14px] font-medium text-white hover:bg-accent-hover"
+          className="press mt-6 inline-flex h-11 items-center rounded-full btn-sheen px-6 text-[14px] font-medium text-white"
         >
           로그인하러 가기
         </Link>
@@ -178,7 +178,7 @@ export default function MyPage() {
               type="button"
               disabled={busy}
               onClick={() => fileInput.current?.click()}
-              className="press rounded-full bg-accent px-4 py-2 text-[13.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+              className="press rounded-full btn-sheen px-4 py-2 text-[13.5px] font-medium text-white disabled:opacity-50"
             >
               사진 변경
             </button>
