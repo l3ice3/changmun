@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandWordmark } from "./BrandWordmark";
 import { ThemeToggle } from "./ThemeToggle";
+import { WindowMark } from "./WindowMark";
 
 function ExploreIcon() {
   return (
@@ -51,9 +52,10 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen w-[84px] shrink-0 flex-col items-center border-r border-hair bg-bg py-4 lg:flex">
       {/* 로고와 메뉴·아이템 사이 간격은 넉넉하게 — 촘촘함 해소 (QA #17).
-          마크 대신 워드마크(글자 속 ㅁ이 곧 창문 — 팀 합의, QA #28). */}
-      <Link href="/" aria-label="창문 홈" className="press mb-10">
-        <BrandWordmark className="h-auto w-[52px]" />
+          락업 = 마크(색) + 심플 워드마크(단색) — 팀 피드백으로 마크 복귀 (QA #30). */}
+      <Link href="/" aria-label="창문 홈" className="press mb-10 flex items-center gap-1">
+        <WindowMark className="h-7 w-7 shrink-0" />
+        <BrandWordmark className="h-auto w-[42px] text-hero" />
       </Link>
       <nav className="flex flex-col gap-4">
         {ITEMS.map(({ href, label, Icon }) => {

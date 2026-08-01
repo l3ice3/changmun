@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { WindowMark } from "@/components/WindowMark";
 import { COMPANY } from "@/lib/links";
 
 export const metadata: Metadata = {
@@ -29,9 +30,10 @@ const VALUES = [
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-[760px] px-4 py-14">
-      {/* 글자 속 ㅁ이 곧 창문 — 워드마크만 (팀 합의) */}
-      <div className="flex items-center">
-        <BrandWordmark className="h-[22px] w-auto" />
+      {/* 락업 = 마크(색) + 심플 워드마크(단색) — 팀 피드백으로 마크 복귀 (QA #30) */}
+      <div className="flex items-center gap-3">
+        <WindowMark className="h-11 w-11" />
+        <BrandWordmark className="h-[24px] w-auto text-hero" />
       </div>
 
       <h1 className="mt-8 text-[27px] font-semibold leading-snug tracking-tight text-ink">
