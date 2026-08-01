@@ -216,7 +216,35 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 6. AC 교차 참조 (판정용 요약)
+## 6. 쇼케이스 (FR-010 — 창업자 제품 홍보의 장, 스코프 확장 2026-08-01)
+
+선검수 후게시 — 공개 조회(리스트·상세·이미지·주간)는 **APPROVED만** 반환. 쓰기·본인 조회는 로그인 필요(미인증 `401`). 에러 형식·code는 §0 공통.
+
+| 메서드 · 경로 | 역할 |
+|---|---|
+| `GET /api/v1/showcase?category=&sort=&page=&size=` | 승인작 리스트. `category` ∈ `APP_WEB`·`COMMERCE`·`CONTENT`·`LOCAL`·`ETC`(생략=전체), `sort` ∈ `latest`(기본)·`cheers`, page 1-base(기본 size 12, 최대 50). 미지 값 `400 INVALID_PARAM` |
+| `GET /api/v1/showcase/weekly` | 주간 모아보기 — 최근 7일 승인작 응원순 최대 6건. `{ "items": [카드…] }` |
+| `GET /api/v1/showcase/{id}` | 상세(승인작만 `200`, 그 외 `404`). 로그인 시 `cheeredByMe`·`mine`·댓글 `mine` 채움 |
+| `GET /api/v1/showcase/{id}/image` | 대표 이미지 바이너리(승인작+이미지 있을 때만, 아니면 `404`) |
+| `GET /api/v1/showcase/mine` | 🔒 내 등록물 목록(검수 상태·거절 사유 포함). `{ "items": [...] }` |
+| `GET /api/v1/showcase/mine/{id}` | 🔒 소유자 편집용 조회(검수 상태 무관, 본인 것만 — 남의 것 `404`) |
+| `POST /api/v1/showcase` | 🔒 등록(multipart: `name`·`tagline`·`description`·`url?`·`category`·`makerName`·`image?`). `202` + `{ "id": n }` — 선검수(`PENDING`) 접수 |
+| `PUT /api/v1/showcase/{id}` | 🔒 본인 수정(같은 multipart, `image` 생략 시 기존 유지) → 재검수(`PENDING`). `202` |
+| `DELETE /api/v1/showcase/{id}` | 🔒 본인 삭제(응원·댓글 연쇄 삭제). `204` |
+| `PUT /api/v1/showcase/{id}/cheer` | 🔒 응원 토글. `{ "cheered": true, "cheers": 12 }` |
+| `POST /api/v1/showcase/{id}/comments` | 🔒 댓글 작성 `{ "body": "…" }`(1000자 이하). `201` + `{ "id": n }` |
+| `DELETE /api/v1/showcase/comments/{commentId}` | 🔒 본인 댓글 삭제(소프트). `204` |
+
+**필드 규칙**
+- 길이: name≤80 · tagline≤120 · description≤5000 · url≤500(http(s):// 시작) · makerName≤60. 위반 `400 INVALID_PARAM`.
+- 이미지: 1MB 이하 JPEG/PNG/WebP(프로필 이미지와 동일 정책).
+- 카드 필드: `id`·`name`·`tagline`·`category`·`makerName`·`cheers`·`hasImage`·`approvedAt`.
+- 상세 추가 필드: `description`·`url`·`cheeredByMe`·`mine`·`comments[]`(`id`·`displayName`·`body`·`mine`·`createdAt`).
+- **PII 최소**: 계정 정보는 응답에 싣지 않는다 — 표시명은 등록 팀명(`makerName`)과 댓글의 이메일 로컬파트 마스킹(`ar***`)뿐.
+
+---
+
+## 7. AC 교차 참조 (판정용 요약)
 | AC | 이 문서의 근거 |
 |---|---|
 | AC-011 | §1 persona 파라미터 + canonical 노출 + 정렬 규칙 |
@@ -227,3 +255,4 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | AC-022~024 | §1 `ids`(순서 보존·누락 허용·canonical 무관) |
 | AC-025~027 | §4 eventType·payload 화이트리스트·202 |
 | AC-031~033 | §1 `hasAmount`·`minAmount` 파라미터 + `maxSupportAmount`·`supportAmount` 응답 노출 |
+| AC-034~038 | §6 쇼케이스 — 선검수 노출 규칙·응원 토글·댓글 마스킹·본인 관리·400/401/404 |

@@ -406,6 +406,54 @@ CREATE INDEX idx_bookmark_user ON bookmark (user_id);
 
 ---
 
+## 8-B. 쇼케이스 (스코프 확장 — 2026-08-01 사장님 단독 승인, `기획안-쇼케이스.md`)
+
+창업자 제품 홍보의 장. 선검수 후게시 — 여기의 `status`는 **쇼케이스 검수 상태**로, 공고의 "저장 금지 status(마감 산식)"와 무관한 별개 컬럼이다. 마이그레이션 `V20260801_1100__create_showcase.sql`.
+
+```sql
+CREATE TABLE showcase_product (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    owner_user_id BIGINT       NOT NULL REFERENCES app_user (id),
+    name          VARCHAR(80)  NOT NULL,
+    tagline       VARCHAR(120) NOT NULL,
+    description   TEXT         NOT NULL,
+    url           VARCHAR(500),
+    image         BYTEA,                  -- 1MB 제한(서비스 검증), 프로필 이미지와 동일 방식
+    image_type    VARCHAR(30),
+    category      VARCHAR(30)  NOT NULL,  -- APP_WEB | COMMERCE | CONTENT | LOCAL | ETC
+    maker_name    VARCHAR(60)  NOT NULL,  -- 등록 시 입력한 팀명(표시명) — 계정 정보 비노출
+    status        VARCHAR(10)  NOT NULL DEFAULT 'PENDING',  -- PENDING | APPROVED | REJECTED
+    reject_reason VARCHAR(200),
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    approved_at   TIMESTAMPTZ,
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE TABLE showcase_cheer (   -- 1인 1제품 1응원(복합 PK). 무결제 수요 신호
+    product_id BIGINT NOT NULL REFERENCES showcase_product (id) ON DELETE CASCADE,
+    user_id    BIGINT NOT NULL REFERENCES app_user (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (product_id, user_id)
+);
+CREATE TABLE showcase_comment ( -- 소프트 삭제(deleted_at)
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES showcase_product (id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES app_user (id),
+    body VARCHAR(1000) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+```
+
+**검수 운영(관리자 UI 없음 — DB 수동, 주 10건 초과 시 최소 승인 페이지 재논의):**
+```sql
+-- 승인
+UPDATE showcase_product SET status='APPROVED', approved_at=now(), updated_at=now() WHERE id=?;
+-- 거절
+UPDATE showcase_product SET status='REJECTED', reject_reason='사유', updated_at=now() WHERE id=?;
+```
+
+---
+
 ## 9. 주요 설계 결정 & 트레이드오프
 
 | 결정 | 이유 | 트레이드오프 |

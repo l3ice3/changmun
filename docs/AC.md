@@ -30,6 +30,7 @@
 | FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
+| FR-010 | 쇼케이스 (창업자 제품 홍보) | AC-034 ~ AC-038 | 구현 — 선검수 후게시·리스트/상세·응원·댓글·주간 모아보기. AC-034~037 자동 테스트 Pass(슬라이스 6케이스 + E2E 8케이스, 실 PostgreSQL). AC-038(웹 화면)은 수동 절차 Pass(2026-08-01 로컬 검증: 리스트·상세·404·로그인 게이트·홈 주간 섹션). 검수는 DB 수동(data-model §8-B) |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -399,6 +400,61 @@ Then:  세 경우 모두 400 INVALID_PARAM을 반환한다 (AC-014 준용)
 ```
 **검증**
 - [ ] 자동: 요청 파싱 단위 테스트 + E2E(MockMvc) 400 검증
+
+---
+
+### FR-010: 쇼케이스 — 창업자 제품 홍보의 장
+
+#### AC-034: 등록은 선검수로 접수되고, 승인 전에는 공개 지면에 나오지 않는다 (Happy / Must)
+```gherkin
+Given: 로그인 사용자
+When:  POST /api/v1/showcase (유효한 multipart)
+Then:  202 + id 반환, status=PENDING으로 저장되고,
+       GET /api/v1/showcase 리스트와 GET /{id} 상세(404)에 노출되지 않는다.
+       DB에서 APPROVED로 승인하면 리스트·상세에 노출된다
+```
+**검증**
+- [x] 자동: `ShowcaseServiceTest`(숨김/승인 노출) + `ShowcaseApiTest`(202·리스트 빈 배열·승인 후 200)
+
+#### AC-035: 본인 수정은 재검수로 돌아가고, 남의 글 수정·삭제는 404다 (Edge / Must)
+```gherkin
+Given: APPROVED 상태의 내 제품 / 다른 사용자의 제품
+When:  PUT /api/v1/showcase/{id} (본인) / PUT·DELETE (남의 것)
+Then:  본인 수정은 202 + status=PENDING 복귀(공개 지면에서 내려감),
+       남의 것은 404 NOT_FOUND (존재 노출 방지)
+```
+**검증**
+- [x] 자동: `ShowcaseServiceTest#editingResetsToPending`·`#editingOthersProductIsNotFound`
+
+#### AC-036: 응원은 1인 1제품 토글이다 (Happy / Must)
+```gherkin
+Given: 승인된 제품 + 로그인 사용자
+When:  PUT /api/v1/showcase/{id}/cheer 를 두 번 호출
+Then:  1회차 { cheered: true, cheers: 1 } / 2회차 { cheered: false, cheers: 0 }
+```
+**검증**
+- [x] 자동: `ShowcaseApiTest#cheerToggles`
+
+#### AC-037: 댓글 작성자는 마스킹 표시명으로만 노출된다 — PII 최소 (Must)
+```gherkin
+Given: 승인된 제품 + 로그인 사용자(email archer@example.com)
+When:  댓글 작성 후 상세 조회
+Then:  comments[].displayName == "ar***" (이메일 원문·계정 정보 미노출),
+       본인 댓글은 mine=true (삭제 버튼 노출용)
+```
+**검증**
+- [x] 자동: `ShowcaseApiTest#commentShowsMaskedDisplayName`
+
+#### AC-038: 웹 지면 — 전용 탭·빈 상태·로그인 게이트·홈 주간 섹션 (수동 / Must)
+```gherkin
+Given: 웹(/showcase, /showcase/new, 홈)
+Then:  쇼케이스 리스트는 승인작만 카드로 노출(카테고리·정렬 칩 동작),
+       검수 중 제품 상세 진입 시 빈 상태(404) 화면,
+       비로그인 등록 페이지는 로그인 유도 화면,
+       홈 하단 "이번 주 새로 열린 창" 섹션은 최근 7일 승인작이 있을 때만 노출(공고 지면과 분리)
+```
+**검증**
+- [x] 수동: 2026-08-01 로컬 확인(리스트·상세·404·로그인 게이트·홈 섹션·모바일 Nav 메뉴)
 
 ---
 
