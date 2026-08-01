@@ -9,6 +9,7 @@ import { WindowMark } from "./WindowMark";
 const LINKS = [
   { href: "/", label: "홈" },
   { href: "/search", label: "검색" },
+  { href: "/showcase", label: "쇼케이스" },
   { href: "/bookmarks", label: "찜" },
 ];
 

@@ -34,9 +34,20 @@ function BookmarkIcon() {
   );
 }
 
+function ShowcaseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6">
+      <path d="M4.5 9 6 4.5h12L19.5 9" strokeLinejoin="round" />
+      <path d="M5 9h14v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9z" strokeLinejoin="round" />
+      <path d="M9.5 13h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const ITEMS = [
   { href: "/", label: "탐색", Icon: ExploreIcon },
   { href: "/search", label: "검색", Icon: SearchIcon },
+  { href: "/showcase", label: "쇼케이스", Icon: ShowcaseIcon },
   { href: "/bookmarks", label: "찜", Icon: BookmarkIcon },
 ];
 
