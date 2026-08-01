@@ -137,7 +137,7 @@ export function BrowseSection({
                     }}
                     className={`flex w-full items-center rounded-lg px-2.5 py-2 text-left text-[14px] ${
                       value === option.value
-                        ? "bg-surface-blue font-medium text-accent"
+                        ? "btn-sheen font-medium text-white"
                         : "text-secondary hover:bg-surface"
                     }`}
                   >

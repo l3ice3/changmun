@@ -88,7 +88,7 @@ export function FilterBar() {
           aria-pressed={showClosed}
           className={`press h-9 rounded-full px-3.5 text-[14px] ${
             showClosed
-              ? "bg-surface-blue font-medium text-accent"
+              ? "btn-sheen font-medium text-white"
               : "bg-surface text-secondary"
           }`}
         >
@@ -121,7 +121,7 @@ function SortChip({
       type="button"
       onClick={() => onPick("sort", value)}
       className={`press rounded-full px-3 py-1.5 ${
-        active ? "bg-surface-blue font-medium text-accent" : "text-muted hover:text-secondary"
+        active ? "btn-sheen font-medium text-white" : "text-muted hover:text-secondary"
       }`}
     >
       {label}
