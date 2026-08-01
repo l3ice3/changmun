@@ -59,7 +59,7 @@ export function AuthMenu() {
     return (
       <Link
         href="/login"
-        className="press rounded-full bg-mark-deep px-5 py-2.5 text-[14px] font-medium text-white hover:bg-accent"
+        className="press rounded-full btn-sheen px-5 py-2.5 text-[14px] font-medium text-white"
       >
         로그인
       </Link>

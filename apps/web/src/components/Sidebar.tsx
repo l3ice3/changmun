@@ -65,7 +65,7 @@ export function Sidebar() {
               aria-current={active ? "page" : undefined}
               className={`press flex w-[64px] flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] ${
                 active
-                  ? "bg-surface-blue font-medium text-accent"
+                  ? "btn-sheen font-medium text-white"
                   : "text-muted hover:bg-surface hover:text-secondary"
               }`}
             >

@@ -35,7 +35,7 @@ export function Pagination({ basePath, params, page, totalPages }: Props) {
           aria-current={number === page ? "page" : undefined}
           className={`tnum press grid h-9 min-w-9 place-items-center rounded-lg px-2 text-[13px] ${
             number === page
-              ? "bg-accent font-medium text-white"
+              ? "btn-sheen font-medium text-white"
               : "border border-line text-secondary hover:border-edge"
           }`}
         >

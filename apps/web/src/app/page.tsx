@@ -80,7 +80,7 @@ export default async function Home() {
         <div className="mt-12 text-center">
           <Link
             href="/search"
-            className="press inline-flex h-12 items-center rounded-full bg-surface-blue px-7 text-[15px] font-medium text-accent hover:bg-accent hover:text-white"
+            className="press inline-flex h-12 items-center rounded-full btn-sheen px-7 text-[15px] font-medium text-white"
           >
             전체 공고 모두 보기
           </Link>

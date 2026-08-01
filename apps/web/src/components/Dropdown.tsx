@@ -80,7 +80,7 @@ export function Dropdown({ label, allLabel, value, options, onSelect }: Dropdown
         onClick={() => setOpen((prev) => !prev)}
         className={`press flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[14px] ${
           active
-            ? "border-edge bg-surface-blue font-medium text-accent"
+            ? "border-transparent btn-sheen font-medium text-white"
             : "border-line bg-surface text-secondary hover:border-strong"
         }`}
       >
@@ -125,7 +125,7 @@ function Option({
       aria-selected={selected}
       onClick={onPick}
       className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] ${
-        selected ? "bg-surface-blue font-medium text-accent" : "text-secondary hover:bg-surface"
+        selected ? "btn-sheen font-medium text-white" : "text-secondary hover:bg-surface"
       }`}
     >
       {label}

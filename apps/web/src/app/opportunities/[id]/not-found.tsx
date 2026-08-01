@@ -11,7 +11,7 @@ export default function NotFound() {
       </p>
       <Link
         href="/"
-        className="press mt-6 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white"
+        className="press mt-6 rounded-lg btn-sheen px-4 py-2 text-[13px] font-medium text-white"
       >
         진행 중인 공고 보기
       </Link>
