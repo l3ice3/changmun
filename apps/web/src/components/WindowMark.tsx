@@ -1,76 +1,52 @@
 import { useId } from "react";
 
-// 창문 로고 v2 — "새벽빛 창": 배경 박스 없이 창문 단독. 블루베리 그라데이션 프레임 +
-// 창밖 새벽 하늘(딥블루→라벤더→핑크→피치). 브랜드 미션(밤에서 기회를 내다보는 창)을 담는다.
-// 그라데이션 id는 useId — 한 화면에 여러 개 렌더돼도 충돌하지 않게.
+// 창문 로고 v3 — "빛나는 창틀"(QA #30): 내부 채움 없이 라인만 남긴 심플 창.
+// 십자 창살 변주 = 가로 창살을 위쪽 1/3(트랜섬)로 올려 건축적인 리듬을 준다.
+// 프레임은 블루베리 메탈릭 광택 — 밝음→깊음→글린트→깊음 밴딩 + 안쪽 흰 베벨 라인으로
+// 금속 테두리처럼 빛이 도는 느낌. 그라데이션 id는 useId(한 화면 다중 렌더 충돌 방지),
+// line 요소는 바운딩박스가 0폭이라 전부 userSpaceOnUse 좌표 고정.
 export function WindowMark({ className }: { className?: string }) {
   const uid = useId();
-  const frameId = `${uid}-frame`;
-  const skyId = `${uid}-sky`;
-  const shadeId = `${uid}-shade`;
+  const sheenId = `${uid}-sheen`;
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
       <defs>
-        {/* line 요소는 바운딩박스가 0폭이라 기본 그라데이션이 렌더되지 않음 → userSpaceOnUse로 좌표 고정 */}
         <linearGradient
-          id={frameId}
+          id={sheenId}
           gradientUnits="userSpaceOnUse"
           x1="21"
           y1="11"
           x2="79"
           y2="89"
         >
-          <stop offset="0" stopColor="#8A96F9" />
-          <stop offset="1" stopColor="#4C5AE2" />
-        </linearGradient>
-        <linearGradient
-          id={skyId}
-          gradientUnits="userSpaceOnUse"
-          x1="50"
-          y1="14.6"
-          x2="50"
-          y2="85.4"
-        >
-          <stop offset="0" stopColor="#5466EB" />
-          <stop offset="0.42" stopColor="#8B8AF0" />
-          <stop offset="0.62" stopColor="#CD9CD6" />
-          <stop offset="0.78" stopColor="#F7AB7A" />
-          <stop offset="1" stopColor="#FFCB8A" />
-        </linearGradient>
-        <linearGradient
-          id={shadeId}
-          gradientUnits="userSpaceOnUse"
-          x1="50"
-          y1="14.6"
-          x2="50"
-          y2="85.4"
-        >
-          <stop offset="0" stopColor="#181C46" stopOpacity="0.28" />
-          <stop offset="0.2" stopColor="#181C46" stopOpacity="0" />
+          <stop offset="0" stopColor="#b3bcff" />
+          <stop offset="0.28" stopColor="#6b78f0" />
+          <stop offset="0.5" stopColor="#4650d8" />
+          <stop offset="0.68" stopColor="#8d98fa" />
+          <stop offset="1" stopColor="#3a46c4" />
         </linearGradient>
       </defs>
-      {/* 창밖 새벽 하늘 + 상단 인너 섀도(프레임 뒤 깊이감) */}
-      <rect x="24.6" y="14.6" width="50.8" height="70.8" rx="9" fill={`url(#${skyId})`} />
-      <rect x="24.6" y="14.6" width="50.8" height="70.8" rx="9" fill={`url(#${shadeId})`} />
-      {/* 프레임 + 창살 — 블루베리 빛깔 */}
+      {/* 창살 변주 — 십자를 중심에서 우상단으로 살짝 비껴 비대칭 4분할(창 리듬).
+          정중앙+세로 관통은 십자가로, 세로 하단만은 T로 오독 — 오프셋이 정답. */}
       <line
-        x1="50"
+        x1="57.5"
         y1="17"
-        x2="50"
+        x2="57.5"
         y2="83"
-        stroke={`url(#${frameId})`}
+        stroke={`url(#${sheenId})`}
         strokeWidth="6"
         strokeLinecap="round"
       />
       <line
         x1="27"
-        y1="50"
+        y1="43.5"
         x2="73"
-        y2="50"
-        stroke={`url(#${frameId})`}
+        y2="43.5"
+        stroke={`url(#${sheenId})`}
         strokeWidth="6"
         strokeLinecap="round"
       />
+      {/* 프레임 + 안쪽 베벨 글린트(금속 광 한 줄) */}
       <rect
         x="24.6"
         y="14.6"
@@ -78,8 +54,19 @@ export function WindowMark({ className }: { className?: string }) {
         height="70.8"
         rx="9.5"
         fill="none"
-        stroke={`url(#${frameId})`}
+        stroke={`url(#${sheenId})`}
         strokeWidth="7.2"
+      />
+      <rect
+        x="28.6"
+        y="18.6"
+        width="42.8"
+        height="62.8"
+        rx="6.5"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.4"
+        strokeWidth="1.4"
       />
     </svg>
   );
