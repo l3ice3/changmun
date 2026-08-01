@@ -33,7 +33,7 @@ export default function AboutPage() {
       {/* 락업 = 마크(색) + 심플 워드마크(단색) — 팀 피드백으로 마크 복귀 (QA #30) */}
       <div className="flex items-center gap-3">
         <WindowMark className="h-11 w-11" />
-        <BrandWordmark className="h-[24px] w-auto text-hero" />
+        <BrandWordmark className="h-[24px] w-auto" />
       </div>
 
       <h1 className="mt-8 text-[27px] font-semibold leading-snug tracking-tight text-ink">

@@ -33,7 +33,7 @@ export default function LoginPage() {
           밝은 물결 배경 위 흰 글자 + 은은한 드롭섀도(QA #17 유지). */}
       <Link href="/" className="absolute left-8 top-7 z-10 flex items-center gap-2.5">
         <WindowMark className="h-10 w-10" />
-        <BrandWordmark className="h-[22px] w-auto text-hero-text [filter:drop-shadow(0_1px_10px_rgba(10,20,50,0.55))]" />
+        <BrandWordmark className="h-[22px] w-auto [filter:drop-shadow(0_1px_10px_rgba(10,20,50,0.55))]" />
       </Link>
       {/* pt-24 = 상단 로고 영역(≈68px) 예약 — 저높이 모바일에서 카드와 로고 겹침 방지 (Codex #46). */}
       <div className="hero-sea flex min-h-full w-full items-center justify-center px-4 pb-14 pt-24">

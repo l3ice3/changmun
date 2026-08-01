@@ -25,7 +25,7 @@ export function Nav() {
         {/* 락업 = 마크(색) + 심플 워드마크(단색) — 팀 피드백으로 마크 복귀 (QA #30) */}
         <Link href="/" className="press flex items-center gap-2">
           <WindowMark className="h-7 w-7" />
-          <BrandWordmark className="h-[17px] w-auto text-hero" />
+          <BrandWordmark className="h-[17px] w-auto" />
         </Link>
         <div className="flex items-center gap-1.5">
           <nav className="flex items-center gap-1 text-[14px]">

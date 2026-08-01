@@ -41,7 +41,7 @@ export function Footer() {
       <div className="mx-auto max-w-[1400px] px-4 py-12">
         <div className="flex items-center gap-2.5">
           <WindowMark className="h-7 w-7" />
-          <BrandWordmark className="h-[17px] w-auto text-hero" />
+          <BrandWordmark className="h-[17px] w-auto" />
         </div>
         <p className="mt-4 max-w-xl text-[14px] font-medium leading-relaxed text-secondary">
           {SLOGAN}

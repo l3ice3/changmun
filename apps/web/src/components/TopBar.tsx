@@ -10,7 +10,7 @@ export function TopBar() {
     <header className="hidden h-[72px] items-center bg-bg lg:flex">
       <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-3.5">
         <Link href="/" aria-label="창문 홈" className="press inline-flex items-center">
-          <BrandWordmark className="h-[24px] w-auto text-hero" />
+          <BrandWordmark className="h-[24px] w-auto" />
         </Link>
         <div className="flex items-center gap-3">
           <TopSearch />
