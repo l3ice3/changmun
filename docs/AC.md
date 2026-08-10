@@ -31,7 +31,7 @@
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
 | FR-010 | 쇼케이스 (창업자 제품 홍보) | AC-034 ~ AC-038 | 구현 — 선검수 후게시·리스트/상세·응원·댓글·주간 모아보기. AC-034~037 자동 테스트 Pass(슬라이스 6케이스 + E2E 8케이스, 실 PostgreSQL). AC-038(웹 화면)은 수동 절차 Pass(2026-08-01 로컬 검증: 리스트·상세·404·로그인 게이트·홈 주간 섹션). 검수는 DB 수동(data-model §8-B) |
-| FR-011 | 민간 공고 수집 (하이브리드) | AC-039 ~ AC-044 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-044). 소스 실사 이력은 data-model 소스 레지스트리. **번호 재배정(2026-08-10)**: 원안은 FR-010/AC-034~039였으나 쇼케이스가 먼저 머지돼 같은 번호를 점유 → FR-011/AC-039~044로 이관. **AC-039~044는 data-model v2 저장 계층(§2, 3인 합의 대상)을 전제로 기술** — v2 미합의 시 v1 컬럼 기준으로 되돌려야 한다 |
+| FR-011 | 민간 공고 수집 (하이브리드) | AC-039 ~ AC-044 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(적재는 pending, 상태 전이는 검수자 판정 한 방향 — AC-044). 소스 실사 이력은 data-model 소스 레지스트리. **번호 재배정(2026-08-10)**: 원안은 FR-010/AC-034~039였으나 쇼케이스가 먼저 머지돼 같은 번호를 점유 → FR-011/AC-039~044로 이관. **AC-039~044는 data-model v2 저장 계층(§2, 3인 합의 대상)을 전제로 기술** — v2 미합의 시 v1 컬럼 기준으로 되돌려야 한다 |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -503,9 +503,8 @@ Given: fixture를 두 벌로 나눈다 —
        (A) 최상위 경로용: 단독(멤버 1개) 민간 공고 3건 — pending·rejected·approved 각 1건 +
            공공(not_required) 1건. 넷 다 opportunity 행을 하나씩 갖고,
            병합 결과 is_visible은 approved·공공만 true다(§2-C 불변식 1).
-           ※ pending 건은 규칙 4의 강등이 실제로 만드는 상태다 —
-             한 번 승인돼 is_visible=true였던 단독 건이 마감일 변경으로 pending이 되고
-             재병합에서 is_visible이 false로 내려간 뒤의 배치라야 게이트를 진짜로 검증한다.
+           ※ pending 건은 아직 아무도 판정하지 않은 상태이고,
+             rejected 건은 사람이 반려한 상태다. 둘 다 is_visible=false여야 한다.
        (B) otherSources용: pending·rejected·approved 민간 + 공공 4개 source_record가
            **한 opportunity에 매달려** 있고 대표는 공공 멤버
 When:  (A)로 리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats)를 각각 호출하고,
@@ -591,39 +590,30 @@ Then:  배치는 실패하지 않고, 리포트에 해당 소스 "0건 — 파�
 **검증**
 - [ ] 자동: pytest — 0건 리포트 경고 + pending 잔량 표기
 
-#### AC-044: 승인 후 핵심 필드가 바뀌면 재검수로 되돌아간다 (Edge / Must)
+#### AC-044: 재수집은 내용만 갱신하고 승인 상태를 건드리지 않는다 (Edge / Must)
 ```gherkin
 Given: approved 상태로 서빙 중인 민간 source_record 1건 (검수 시 수동 태깅 완료)
-When:  원문에서 마감일(또는 제목)이 변경된 fixture로 재수집한다
-Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아가며(§6-F 규칙 4의 UPSERT 한 문장),
-       is_publishable이 false가 되고 재병합으로 그 공고는
-       재검수 전까지 모든 서빙 경로에서 사라진다(AC-040 준용).
-       그 밖의 필드(금액 표기·모집시작일·요약·기관 표기)만 바뀐 경우에는 approved가 유지되고
-       내용만 갱신된다 — 새로 읽어온 값이 어제 값보다 정확하므로 숨길 이유가 없다.
-       제목은 글 번호 재활용(전혀 다른 공고가 같은 external_id로 들어옴)을,
-       마감일은 마감된 공고를 열린 것처럼 보여주는 사고를 막는 트리거다
-And:   강등된 멤버가 그룹의 대표였다면, 같은 트랜잭션의 재병합이
-       남은 is_publishable 멤버 중에서 representative_record_id를 다시 뽑는다.
-       남은 멤버가 없으면 is_visible=false가 된다 —
-       어느 쪽이든 opportunity 행 자체는 남아 **id와 상세 URL이 흔들리지 않는다**(§2-C 불변식 2·3)
-And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
-       원문이 그대로면 재수집을 **2회 이상** 반복해도 강등되지 않는다 —
-       상속은 opportunity에만 쓰이고 source_record에는 자체 파싱값만 있어
-       비교 대상(저장값 vs EXCLUDED)이 매 배치 동일하기 때문이다.
-       v1은 상속이 멤버 컬럼을 덮어써 매 배치 강등되는 무한 루프였고,
-       이를 우회하려 raw에 별도 스냅샷을 저장해야 했다(§2-E — v2에서 삭제)
-And:   **eligibility_detail(지원 대상·자격 문구)이 바뀌면 강등되지 않고**,
+When:  마감일·제목·금액 표기가 각각 바뀐 fixture로 재수집한다
+Then:  내용 필드는 전부 갱신되고 review_status는 'approved' 그대로이며,
+       공고는 계속 노출된다 (first_seen_at 불변)
+       — 크롤러가 새로 읽은 값이 어제 값보다 정확하므로 숨길 이유가 없다.
+         검수가 판단한 건 "이 공고를 실을 만한가"이고 마감일이 바뀐다고 달라지지 않는다
+And:   rejected 건도 재수집으로 부활하지 않고, pending 건도 그대로 대기한다
+       (상태 전이는 검수자의 판정 한 방향뿐 — pending → approved/rejected)
+And:   제목이 통째로 바뀌면(같은 external_id에 전혀 다른 공고) 상태는 그대로 두되
+       수집 리포트에 경고가 남아 사람이 검수 큐에 다시 넣을 수 있다.
+       게시판 글 번호 재활용이 유일하게 남는 위험인데,
+       파일럿 4소스의 식별자는 재사용되지 않는 체계라 발생 가능성이 낮다
+And:   eligibility_detail(지원 대상·자격 문구)이 바뀌면
        그 실체의 manual_*·manual_tagged_at만 비워져 태깅 큐로 간다(§6-F 규칙 10).
-       공고는 계속 노출되고 페르소나 탭에서만 "조건 미상"으로 빠진다 —
+       상태는 approved 그대로고 공고도 계속 노출되며 페르소나 탭에서만 "조건 미상"으로 빠진다 —
        민간은 검수자가 이 문구를 읽고 페르소나를 매기므로 태그의 근거는 사라지지만,
        태그가 낡았다고 멀쩡한 공고를 숨길 이유는 없다(절대규칙 8)
 ```
 **검증**
-- [ ] 자동: pytest — 제목·마감일 변경 → pending 강등 / 그 밖의 필드(금액·모집시작일·요약) 변경 → approved 유지 + 내용 갱신 (실DB 재수집 통합)
-- [ ] 자동: 실DB 통합 — `eligibility_detail`만 변경 → **강등 없이** `manual_*`·`manual_tagged_at`만 초기화되고 공고는 계속 노출되는지
-- [ ] 자동: 실DB 통합 — 민간 approved 2건(A=대표·B=멤버)이 한 opportunity에 있는 상태에서 A 강등 → B가 대표로 승격되고 `is_visible`·`id`가 유지돼 리스트에 계속 노출
-- [ ] 자동: 실DB 통합 — 상속 금액을 가진 승인 건에 **동일 fixture로 2회 재수집** → `review_status='approved'` 유지(오탐 = 무한 강등 루프 회귀 방지)
-- [ ] 자동: 실DB 통합 — 원문 동일 + 금액 파서만 바꾼 재수집 → `pending` 강등(누락 회귀 방지). 위 항목과 **짝으로** 둔다 — 한쪽만 두면 반대 방향으로 단순화된다
+- [ ] 자동: pytest 실DB 재수집 통합 — 마감일·제목·금액을 바꿔도 `review_status`가 전부 불변이고 내용만 갱신되는지. UPSERT의 `DO UPDATE SET` 목록에 `review_status`가 들어가면 실패해야 한다
+- [ ] 자동: 동 — 제목 전면 변경 시 리포트에 경고 항목이 남는지(상태는 불변)
+- [ ] 자동: 동 — `eligibility_detail`만 변경 → 상태 불변 + `manual_*`·`manual_tagged_at` 초기화 + 공고 계속 노출
 
 ---
 
