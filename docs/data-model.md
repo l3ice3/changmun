@@ -269,8 +269,10 @@ CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_vis
    `opportunity_merge_log`에 남아 상세가 생존 실체로 리다이렉트된다(§6-D 단계 4-B).
 4. `target_startup_stage`·`target_audience_type` = **`is_publishable` 멤버들의 자체 파싱값 합집합 ∪ `manual_*`**.
    수동 태깅이 병합의 *출력*이 아니라 *입력*이라, 매일 재병합해도 사람의 판단이 지워지지 않고
-   나중에 공공 멤버가 그룹에 붙어 구조화 신호가 생기면 합집합으로 함께 산다. `manual_*` 세 컬럼은
-   **병합 배치의 쓰기 대상이 아니다**(§6-D 단계 6 · §6-F 규칙 9).
+   나중에 공공 멤버가 그룹에 붙어 구조화 신호가 생기면 합집합으로 함께 산다.
+   **`manual_*` 세 컬럼을 쓰는 주체는 검수 CLI와 §6-D 단계 4-B(분할·강등 시 초기화)뿐이다** —
+   일상 경로인 materialize UPSERT(§6-D 단계 6)의 `DO UPDATE SET` 목록에서는 제외한다.
+   "배치는 절대 못 쓴다"가 아니라 **"일상 병합은 못 쓰고, 명시적 초기화만 쓴다"**가 규칙이다.
 
 ```sql
 -- 아직 되돌려지지 않은 그룹 병합 1건 = 1행. 두 가지 일을 한다:
@@ -673,8 +675,15 @@ END AS d_day
    - `rejected` → **불변**(반려 공고가 재수집으로 부활 금지 — AC-041).
    - `pending` → **불변**(검수 대기 유지 — 내용만 최신화).
    - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-044).
-     핵심 필드 = `title` · `application_start_date` · `application_deadline` · `support_amount` ·
-     `max_support_amount` · `total_program_budget`. 그 밖(요약·기관 표기 등)은 승인을 유지한다.
+     핵심 필드 = `title` · `application_start_date` · `application_deadline` · **`eligibility_detail`**
+     (지원 대상·자격 문구) · `support_amount` · `max_support_amount` · `total_program_budget`.
+     그 밖(요약·기관 표기 등)은 승인을 유지한다.
+     **`eligibility_detail`이 핵심인 이유**: 민간은 구조화 필드가 없어 검수자가 **이 문구를 읽고**
+     페르소나를 수동 태깅한다(규칙 9). 문구가 바뀌면 태그의 근거가 사라져 자격 설명과 페르소나가
+     **둘 다 낡은 채로** 계속 노출된다 — 마감일 변경과 같은 종류의 사고다.
+     **강등 시 그 실체의 `manual_*`·`manual_tagged_at`도 비운다**(불변식 4가 허용하는 초기화 경로):
+     사람이 무엇을 보고 태깅했는지 더는 보장할 수 없으니 "조건 미상"으로 돌리고 재승인 때 다시
+     매긴다. 분할 규칙(§6-D 단계 4-B)과 같은 근거다.
 
    **왜**: 최초 승인만 검수하면 이후의 마감일 변경·오파싱이 무검증으로 노출된다 — 가드레일 2가
    승인 이후 구간에서 통째로 빈다. 재검수까지 며칠 미노출을 감수하는 선택이며, 그 반대(틀린
@@ -690,12 +699,14 @@ END AS d_day
        review_status = CASE
            WHEN source_record.review_status = 'approved'
             AND (source_record.title, source_record.application_start_date,
-                 source_record.application_deadline, source_record.support_amount,
-                 source_record.max_support_amount, source_record.total_program_budget)
+                 source_record.application_deadline, source_record.eligibility_detail,
+                 source_record.support_amount, source_record.max_support_amount,
+                 source_record.total_program_budget)
                 IS DISTINCT FROM
                 (EXCLUDED.title, EXCLUDED.application_start_date,
-                 EXCLUDED.application_deadline, EXCLUDED.support_amount,
-                 EXCLUDED.max_support_amount, EXCLUDED.total_program_budget)
+                 EXCLUDED.application_deadline, EXCLUDED.eligibility_detail,
+                 EXCLUDED.support_amount, EXCLUDED.max_support_amount,
+                 EXCLUDED.total_program_budget)
            THEN 'pending'
            ELSE source_record.review_status      -- rejected·pending·not_required 불변
        END,
