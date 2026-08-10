@@ -622,19 +622,21 @@ And:   원문이 그대로여도 **파서가 바뀌어** max_support_amount가 �
 #### AC-045: 그룹이 병합·분할돼도 상세 URL·찜·수동 태그가 살아남는다 (Edge / Must)
 > v2 이관 후에만 성립한다(실체 = `opportunity` 1행). FR-002 dedup의 요구지만 판정은 Phase 2 DoD에서 한다.
 ```gherkin
-Given: 실체 A(id=100, 북마크 2건, 수동 태그 PRE_STARTUP)와
-       실체 B(id=200, 북마크 1건 — 그중 1명은 A도 찜함, 태그 없음)가 별개 그룹이고,
+Given: 실체 A(id=100, 찜 u1·u2, 수동 태그 PRE_STARTUP, 멤버 first_seen_at이 더 이름)와
+       실체 B(id=200, 찜 u1·u3 — u1은 A도 찜한 중복, 태그 없음)가 별개 그룹이고,
        두 그룹이 같은 공고로 판정되도록 마감일·제목이 수렴한 fixture
+       ※ survivor가 A로 확정되게 first_seen_at을 fixture에서 고정한다 —
+         어느 쪽이 survivor인지에 따라 아래 건수가 달라지므로 열어 두면 안 된다
 When:  dedup + 병합 배치를 실행한다
-Then:  두 실체가 하나로 합쳐지고 survivor는 멤버 first_seen_at이 이른 쪽이다
-       (동률이면 id가 작은 쪽 — §6-D 단계 4-B)
-And:   흡수된 id로 상세를 조회하면 opportunity_merge_log를 통해 survivor로 리다이렉트된다
+Then:  두 실체가 A로 합쳐진다 (survivor = 멤버 first_seen_at 최소 → 동률이면 id 최소)
+And:   흡수된 id(200)로 상세를 조회하면 opportunity_merge_log를 통해 A로 리다이렉트된다
        (색인된 SEO URL이 404가 되지 않는다 — 병합은 id 불변식의 유일한 예외다)
-And:   북마크는 **2건**이 남아 전부 survivor를 가리킨다 —
-       원래 3행이지만 양쪽을 찜했던 사용자는 UNIQUE(user_id, opportunity_id) 충돌로
-       1행이 지워진다. **그 사용자의 찜 자체는 사라지지 않는다**(survivor 쪽에 남음)
+And:   찜은 **3건**이 남아 전부 A를 가리킨다 — u1·u2는 이미 A였고 u3만 옮겨진다.
+       u1의 B쪽 찜은 UNIQUE(user_id, opportunity_id) 충돌로 지워지지만
+       **u1의 찜 자체는 사라지지 않는다**(A 쪽에 남음)
 And:   opportunity_merge_log에 이 병합 1행이 남는다 —
-       absorbed_id·survivor_id·record_ids(옮긴 멤버)·bookmark_ids(실제로 옮겨진 찜 2건)
+       absorbed_id=200 · survivor_id=100 · record_ids(B의 멤버) ·
+       **bookmark_ids = u3의 찜 1건**(실제로 옮겨진 행만 — u1의 지워진 행은 안 담긴다)
 And:   수동 태그는 합집합으로 살아남는다(한쪽만 있으면 그 값,
        manual_tagged_at은 더 늦은 쪽)
 When:  이어서 제목·기관이 갈라져 stale 그룹이 해제되는 fixture로 다시 실행하면
@@ -646,7 +648,8 @@ And:   **갈라져 나온 멤버 집합이 merge_log 어느 행의 record_ids와
        bookmark_ids의 찜을 그 id로 돌려놓고 로그 행을 지운다** —
        오합치를 해제했는데도 옛 상세 URL이 계속 틀린 실체로 리다이렉트되고
        찜이 엉뚱한 공고에 남으면 dedup의 비파괴 원칙이 실체층에서만 깨진다
-And:   병합 때 중복으로 지워졌던 찜은 복구되지 않는다
+And:   u3의 찜이 되살아난 B(200)로 돌아간다(bookmark_ids 1건)
+And:   병합 때 중복으로 지워졌던 u1의 B쪽 찜은 **복구되지 않는다** — u1은 A만 찜한 상태로 남는다
        (bookmark_ids에는 실제로 옮겨진 행만 담긴다 — 문서화된 한계, §6-D 단계 4-B)
 And:   갈라진 쪽 공고는 pending으로 강등되지 않고 계속 노출되며(내용 승인은 유효),
        manual_tagged_at IS NULL 이라 **태깅 큐**에 잡힌다.
@@ -672,12 +675,16 @@ Then:  merged_at이 더 늦은 A→C 행과 일치하므로 **A**가 되살아�
 And:   "옮겨지기 직전 id" 컬럼 하나로 구현하면 이 케이스가 실패한다 —
        a는 A를, b는 B를 가리켜 {a,b}가 어느 값과도 일치하지 않는다
        (그래서 provenance를 병합 단위로 기록한다)
+And:   A→C 병합으로 A의 opportunity 행이 지워질 때 **B→A 로그가 함께 사라지지 않는다** —
+       survivor_id에 FK/CASCADE를 걸면 여기서 지워져 리다이렉트 체인도 중첩 부활도 깨진다
+       (이 표는 현재 실체가 아니라 과거 사건을 기록한다 — §2-C)
 ```
 **검증**
-- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑 2건·`merge_log` 1행·태그 합집합) / 분할(id 승계·갈라진 쪽 미태깅) 각각
+- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·찜 3건 잔존·`bookmark_ids` 1건·`merge_log` 1행·태그 합집합) / 분할(id 승계·갈라진 쪽 미태깅) 각각
 - [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · 로그 행 삭제 · 찜 복귀를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
 - [ ] 자동: **2중 흡수 후 부분 분할** — B·C를 A에 흡수한 뒤 B만 분할 → B 부활 + C 로그 유지 / 이어서 B 멤버의 일부만 분할 → 새 id 발급(부활 안 함). 앞 항목은 멤버 이력 없이도 우연히 통과할 수 있어 이 케이스가 실제 판정 근거다
 - [ ] 자동: **중첩 병합 되돌리기** — `B→A`, `A→C` 뒤 `{a,b}` 분할 → **A** 부활(B 아님)이고 `B→A` 로그는 남는지. 컬럼형 provenance로 구현하면 실패해야 하는 케이스다
+- [ ] 자동: 동 — `A→C` 시점에 `B→A` 로그가 **살아남는지**(`survivor_id`에 FK/CASCADE가 붙으면 실패한다). 이어서 `b`만 분할해 B가 부활하는 것까지 한 테스트로 확인
 - [ ] 자동: 분할로 태그를 잃은 공고가 **태깅 큐**에 잡히고 `review_status`는 `approved` 그대로인지(검수 큐만 보는 구현에서 누락되는 경로 — §6-F 규칙 10)
 - [ ] 자동: 동 — 배정 트랜잭션이 중간에 실패하면 `opportunity_id`가 가리키는 실체 행이 없는 멤버가 **0건**(4-B~6이 한 트랜잭션)
 - [ ] 자동: API 슬라이스 — 흡수된 id의 상세 요청이 survivor로 리다이렉트(404 아님)
