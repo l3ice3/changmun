@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthMenu } from "./AuthMenu";
+import { BrandWordmark } from "./BrandWordmark";
 import { WindowMark } from "./WindowMark";
 
 const LINKS = [
   { href: "/", label: "홈" },
   { href: "/search", label: "검색" },
+  { href: "/showcase", label: "쇼케이스" },
   { href: "/bookmarks", label: "찜" },
 ];
 
@@ -21,9 +23,10 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-hair bg-bg/90 backdrop-blur lg:hidden">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4">
+        {/* 락업 = 마크(색) + 심플 워드마크(단색) — 팀 피드백으로 마크 복귀 (QA #30) */}
         <Link href="/" className="press flex items-center gap-2">
           <WindowMark className="h-7 w-7" />
-          <span className="brand-logo text-[20px] text-hero">창문</span>
+          <BrandWordmark className="h-[17px] w-auto" />
         </Link>
         <div className="flex items-center gap-1.5">
           <nav className="flex items-center gap-1 text-[14px]">

@@ -110,11 +110,38 @@ body {
   font-feature-settings: "tnum";
 }
 
-/* 브랜드 워드마크 — 디스플레이 폰트(우아한 명조). 로고 텍스트에만 적용. */
-.brand-logo {
-  font-family: "Gowun Batang", "Pretendard Variable", serif;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+/* 쇼케이스 등록 폼 공용 입력 — 토큰만 사용(다크 대응은 토큰이 담당). */
+.input-base {
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.input-base:focus {
+  outline: 2px solid var(--color-accent-bright);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+/* 로고 광택 버튼 — 마크 v3 sheen 팔레트의 버튼용 다크 튜닝(QA #31).
+   글린트 밴드는 좁게 유지 — 흰 텍스트 대비는 짙은 밴드(#4650d8 이하)가 담당.
+   브랜드 고정색이라 라이트/다크 동일(로고와 같은 원리). hover는 background-image
+   위에 bg-* 토큰이 안 먹으므로 brightness로. */
+.btn-sheen {
+  background-image: linear-gradient(
+    135deg,
+    #5462e6 0%,
+    #4650d8 42%,
+    #7d89f4 54%,
+    #4650d8 66%,
+    #3a46c4 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+.btn-sheen:hover {
+  filter: brightness(1.07);
 }
 
 /* 탭/프레스 피드백 — scale(0.97) ~120ms (DESIGN.md §6). */

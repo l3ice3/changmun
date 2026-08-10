@@ -53,7 +53,7 @@
 - **DB 스키마 변경** — `/db/migrations` Flyway SQL 추가 외 경로 금지. `ddl-auto`는 `validate` 고정.
 - **계약 문서 변경을 코드 PR에 슬쩍 섞기** — PRD·AC·api-spec, 특히 `data-model.md`(**LOCKED**, 3인 합의).
 - **API 필드명·enum·에러 형식 변경** — `api-spec.md` 그대로.
-- **Out-of-Scope 기능 추가** — 추천·알림·관리자 UI(민간 검수 웹 화면 포함). (로그인·민간 수집(FR-010 하이브리드)은 In-Scope 확장 — 단 헤드리스 브라우저·차단 우회·전수 크롤링·화이트리스트 밖 소스는 계속 금지.)
+- **Out-of-Scope 기능 추가** — 추천·알림·관리자 UI(민간 검수 웹 화면 포함). (로그인·민간 수집(FR-011 하이브리드)은 In-Scope 확장 — 단 헤드리스 브라우저·차단 우회·전수 크롤링·화이트리스트 밖 소스는 계속 금지.)
 - **운영 설정·외부 키** — API 키 발급/커밋, branch protection 등은 `manual-required`(사람 작업, `git.md`).
 
 ---

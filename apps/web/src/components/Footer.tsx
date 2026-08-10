@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { COMPANY, FOOTER_LINKS, type SiteLink } from "@/lib/links";
+import { BrandWordmark } from "./BrandWordmark";
 import { WindowMark } from "./WindowMark";
 
 // 브랜드 미션 voice. 카피 가드레일 준수(합격 보장 표현 금지) — "내 단계에 맞는 것만 골라" 표현.
@@ -40,7 +41,7 @@ export function Footer() {
       <div className="mx-auto max-w-[1400px] px-4 py-12">
         <div className="flex items-center gap-2.5">
           <WindowMark className="h-7 w-7" />
-          <span className="brand-logo text-[22px] text-hero">창문</span>
+          <BrandWordmark className="h-[17px] w-auto" />
         </div>
         <p className="mt-4 max-w-xl text-[14px] font-medium leading-relaxed text-secondary">
           {SLOGAN}

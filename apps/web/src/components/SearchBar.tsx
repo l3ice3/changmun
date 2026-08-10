@@ -37,8 +37,8 @@ export function SearchBar({ variant = "plain", initial = "" }: Props) {
     ? "h-[42px] flex-1 rounded-[10px] bg-white px-3.5 text-[14px] text-ink placeholder:text-muted outline-none"
     : "h-[42px] flex-1 rounded-[10px] border border-line bg-surface px-3.5 text-[14px] text-ink placeholder:text-muted outline-none focus:border-edge";
   const buttonClass = hero
-    ? "h-[42px] rounded-[10px] bg-accent-bright px-5 text-[14px] font-medium text-white"
-    : "h-[42px] rounded-[10px] bg-accent px-5 text-[14px] font-medium text-white hover:bg-accent-hover";
+    ? "h-[42px] rounded-[10px] btn-sheen px-5 text-[14px] font-medium text-white"
+    : "h-[42px] rounded-[10px] btn-sheen px-5 text-[14px] font-medium text-white";
 
   return (
     <form onSubmit={submit} className="w-full">

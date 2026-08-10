@@ -84,7 +84,7 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 | `source_status` | VARCHAR(10) | YES | `rcrt_prgs_yn` (Y/N) |
 | `dedup_group_id` | BIGINT | YES | 출처 간 동일 공고 클러스터 (null=단독). dedup 배치가 채움 |
 | `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true — **민간은 `false`로 적재**(승인 시 확정, §6-F 규칙 3·8). 선정 순위는 **노출 가능성 → 출처(K-Startup 우선) → 정보량 → id**(§6-D 규칙 5) |
-| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-010, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **NULL 허용은 공공 3소스로 CHECK 제약이 한정**(민간·신규 source는 상태 필수 — §6-F 규칙 2). **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
+| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-011, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **NULL 허용은 공공 3소스로 CHECK 제약이 한정**(민간·신규 source는 상태 필수 — §6-F 규칙 2). **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
 | `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등). **민간 소스는 예외 — 본문 전문 미수집**(§6-F) |
 | `first_seen_at` | TIMESTAMPTZ | NO | 최초 수집 (UPSERT 때 갱신 안 함) |
 | `updated_at` | TIMESTAMPTZ | NO | 매 UPSERT 갱신 |
@@ -161,7 +161,7 @@ WHERE (:category IS NULL OR category = :category)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
   AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
-  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids=·stats 집계 포함) 공통 불변식 (FR-010, §6-F)
+  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids=·stats 집계 포함) 공통 불변식 (FR-011, §6-F)
 ORDER BY application_deadline ASC NULLS LAST
 LIMIT :size OFFSET :offset;
 ```
@@ -288,11 +288,11 @@ END AS d_day
 
 ## 소스 레지스트리 & 비(非)API 소스 정책
 
-- **`source` enum (확정):** 공공 `k-startup`(메인) · `bizinfo`(창업분야만) · `ontong-youth`(창업 슬라이스만) + **민간 화이트리스트(FR-010 파일럿)** `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. external_id 체계가 소스마다 다름(`pbanc_sn` 숫자 / `pblancId` 문자열 / `plcyNo` 20자리 / 민간은 §6-F) → `external_id`는 VARCHAR(64).
+- **`source` enum (확정):** 공공 `k-startup`(메인) · `bizinfo`(창업분야만) · `ontong-youth`(창업 슬라이스만) + **민간 화이트리스트(FR-011 파일럿)** `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. external_id 체계가 소스마다 다름(`pbanc_sn` 숫자 / `pblancId` 문자열 / `plcyNo` 20자리 / 민간은 §6-F) → `external_id`는 VARCHAR(64).
 - **비API 공공 소스 = 크롤링 영역 = 제외 유지:** 공공기관이어도 **API가 없고 로그인·JS로 막힌 곳**(CCEI, 전국 테크노파크, 지역기관 다수)은 민간과 동일 취급. CCEI 공식 창업 공고는 K-Startup/기업마당이 대부분 커버하므로 직접 수집 가치 낮음. 커버리지 갭이 실증되면 편입 체크리스트로 재검토.
 - **R&D(SMTECH·과기부)·중소벤처24:** API는 있으나 기업마당과 중복 큼 → Phase 2(중복률 실측 후).
 
-### 민간 소스 편입 체크리스트 (FR-010 — 신규 소스는 전 항목 통과 + 3인 합의 필수)
+### 민간 소스 편입 체크리스트 (FR-011 — 신규 소스는 전 항목 통과 + 3인 합의 필수)
 
 1. **robots.txt가 수집 경로를 허용**한다 (확인 일자·내용 기록. AI봇 차단 등 부분 신호도 기록해 판단 근거로).
 2. **정적 HTML 또는 RSS로 수집 가능** (Tier 1 — 헤드리스 브라우저 필요하면 편입 불가, Tier 2·3은 별도 합의).
@@ -369,7 +369,7 @@ END AS d_day
 
 ---
 
-## 6-F. 민간 소스 공통 규칙 (FR-010 — 하이브리드) 【2026-07-26 신설 — 3인 합의 대상】
+## 6-F. 민간 소스 공통 규칙 (FR-011 — 하이브리드) 【2026-07-26 신설 — 3인 합의 대상】
 
 > 파일럿 4소스: `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub` (편입 근거·실사는 소스 레지스트리). 소스별 상세 필드 매핑은 구현 시 각 소스 파일 + 본 절에 확정 기록(§6-B·6-C 선례).
 
@@ -379,7 +379,7 @@ END AS d_day
 -- V{타임스탬프}__add_review_status.sql
 ALTER TABLE opportunity ADD COLUMN review_status VARCHAR(10);
 -- NULL = 공공 소스(검수 불요 — 기존 행 백필 불요, 공공 경로 의미 무변경)
--- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-010)
+-- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-011)
 
 -- source는 레지스트리에 편입된 7종만. 오타·미편입 값(예: 'sparklabs')이 들어오면
 -- 목록엔 뜨는데 그 값으로 source 필터를 걸면 api-spec enum 검증에서 400이 나는
@@ -407,14 +407,14 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
 
 ### 규칙
 
-1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)**·**상세 응답의 `otherSources`(dedup 그룹 형제 조회)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않고, 승인된 공고의 형제 목록에도 실리지 않는다** (AC-035).
+1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)**·**상세 응답의 `otherSources`(dedup 그룹 형제 조회)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않고, 승인된 공고의 형제 목록에도 실리지 않는다** (AC-040).
    > `otherSources`는 최상위 조회가 아니라 **승인된 공고 안에 중첩돼 나가는 노출**이라 놓치기 쉽다 — 현행 `findGroupSiblings`는 `dedup_group_id`만 보고 그룹 전체를 가져오므로, 필터를 빠뜨리면 상세를 404로 막아도 민간 미검수 행의 `source`·`detailUrl`이 공공 공고 응답에 실려 나간다.
-2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-010)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-034). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
+2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-011)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-044). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
 3. **적재**: 민간 크롤러는 항상 `review_status='pending'` + `is_canonical=false`로 INSERT(canonical은 승인 시점에 확정 — 규칙 7·8). 재수집 UPSERT는 **내용 필드만 갱신**하고 `first_seen_at`은 불변.
 4. **재수집 시 `review_status` 전이 — 승인은 "그 시점 내용"에 대한 승인이다**: 상태별로 다르게 처리한다.
-   - `rejected` → **불변**(반려 공고가 재수집으로 부활 금지 — AC-036).
+   - `rejected` → **불변**(반려 공고가 재수집으로 부활 금지 — AC-041).
    - `pending` → **불변**(검수 대기 유지 — 내용만 최신화).
-   - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-039). 핵심 필드 = `application_deadline`·`application_start_date`·`title`·`support_amount`(및 파생 금액 2종). 그 밖의 필드(요약·기관 표기 등) 변경은 승인을 유지한다.
+   - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-044). 핵심 필드 = `application_deadline`·`application_start_date`·`title`·`support_amount`(및 파생 금액 2종). 그 밖의 필드(요약·기관 표기 등) 변경은 승인을 유지한다.
 
    **왜**: 검수 게이트의 존재 이유가 "기계 파싱을 사람이 보증한다"인데, 최초 승인만 검수하면 **이후의 마감일 변경·오파싱이 무검증으로 그대로 노출**된다 — 가드레일 2(마감일 정확성)가 승인 이후 구간에서 통째로 비는 셈. 되돌림은 재검수까지 며칠 미노출을 감수하는 선택이며, 그 반대(틀린 마감일 노출)가 더 큰 해라는 판단이다. 민간 공고량이 소스당 연 1~5건이라 재검수 부담도 작다.
    **비교 기준은 DB 컬럼이 아니라 수집 스냅샷이다 — 그리고 스냅샷은 원문 필드 + 자체 파싱 결과 둘 다 담는다**: 강등 판정은 **`raw`에 보존된 직전 스냅샷 vs 이번 수집의 같은 항목**을 비교하며, 스냅샷에는 ① 원문에서 뽑은 사실 필드(제목·기간·금액 표기 등 — 규칙 5)와 ② **그 원문으로 자체 파싱한 결과(상속·수동 태깅 이전 값 — 금액 2종 등)** 를 함께 넣는다. `raw`는 JSONB라 스키마 추가는 없다.
@@ -428,12 +428,12 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
    그대로 DB 비교를 하면 **원문이 한 글자도 안 바뀌었는데 매 배치마다 "핵심 필드 변경"으로 판정돼 강등된다** — 사람이 재승인해도 다음 배치가 또 강등시키는 무한 루프가 되어 해당 공고가 사실상 영구 미노출이 된다.
 
    > 정리하면 이 비교는 **두 방향으로 틀릴 수 있고 둘 다 막아야 한다**: DB 컬럼과 비교하면 안 바뀐 걸 바뀌었다고 보고(오탐 → 무한 강등 루프), 원문 필드만 비교하면 바뀐 걸 안 바뀌었다고 본다(누락 → 파서 변경분 무검증 노출). **상속 전 자체 파싱 결과까지 담은 스냅샷**이 양쪽을 동시에 만족하는 유일한 기준이다.
-   **강등도 canonical 재선정과 원자적이다**: 강등되는 행이 그룹의 canonical이었다면, **같은 트랜잭션에서 그룹의 남은 멤버(`approved`·공공) 중 canonical을 다시 뽑는다**(우선순위는 규칙 7). 남은 멤버가 없으면 그룹 전체가 미노출로 남는다(전부 검수 대기이므로 정상). 왜: 강등된 행은 규칙 7에 따라 dedup 대상에서 빠지는데 남은 멤버는 `is_canonical=false`인 채라, 재선정하지 않으면 **승인돼 있던 공고가 그룹째 리스트·검색에서 사라진다**(AC-039).
+   **강등도 canonical 재선정과 원자적이다**: 강등되는 행이 그룹의 canonical이었다면, **같은 트랜잭션에서 그룹의 남은 멤버(`approved`·공공) 중 canonical을 다시 뽑는다**(우선순위는 규칙 7). 남은 멤버가 없으면 그룹 전체가 미노출로 남는다(전부 검수 대기이므로 정상). 왜: 강등된 행은 규칙 7에 따라 dedup 대상에서 빠지는데 남은 멤버는 `is_canonical=false`인 채라, 재선정하지 않으면 **승인돼 있던 공고가 그룹째 리스트·검색에서 사라진다**(AC-044).
 5. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
-6. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-037).
+6. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-042).
 7. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. canonical 선정은 **§6-D 규칙 5를 그대로 따른다 — ① 노출 가능성 → ② 출처(K-Startup > 기타 공공 > **민간**) → ③ 정보량 → ④ id**. 민간이 낮은 건 ②뿐이므로, **마감된 공공 건과 진행 중인 승인 민간 건이 같은 그룹이면 민간이 canonical이 된다**(①이 먼저다). 출처 순위를 앞에 두면 마감 공공 행이 대표가 되어 기본 `status=open` 목록에서 그룹째 사라진다(AC-010 위반).
-8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 단독이면 `is_canonical=true`. 그룹에 속하면 **규칙 7의 순위로 그룹 canonical을 재선정**한다 — 출처만 보고 "공공과 중복이면 민간은 무조건 false"로 처리하면 안 된다. 마감된 공공 건과 진행 중인 승인 민간 건이 중복일 때 민간이 대표가 되어야 그룹이 기본 `status=open` 목록에 남는다(①이 ②보다 먼저 — AC-010·AC-036).
-   **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-036).
+8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 단독이면 `is_canonical=true`. 그룹에 속하면 **규칙 7의 순위로 그룹 canonical을 재선정**한다 — 출처만 보고 "공공과 중복이면 민간은 무조건 false"로 처리하면 안 된다. 마감된 공공 건과 진행 중인 승인 민간 건이 중복일 때 민간이 대표가 되어야 그룹이 기본 `status=open` 목록에 남는다(①이 ②보다 먼저 — AC-010·AC-041).
+   **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-041).
 
    **검수 판정 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성) — 승인·반려 둘 다**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, **승인이든 반려든** 판정 UPDATE를 이렇게 건다:
 
@@ -446,12 +446,12 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
    ```
 
    0행이 갱신되면 판정을 취소하고 "내용이 바뀌었거나 이미 판정됐다 — 다시 검수하라"고 알린다.
-   **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의 경합을, `review_status = 'pending'` 비교는 *다른 검수자*와의 경합을 막는다. 그리고 `SET`에서 `updated_at`을 올리는 게 필수다 — `updated_at`은 `DEFAULT now()`일 뿐 **자동 갱신 트리거가 없어서**(§2 스키마), 판정이 이 값을 안 건드리면 같은 행을 함께 읽은 두 검수자의 **반대 판정이 둘 다 성공해 나중 것이 앞선 결정을 조용히 덮는다**(AC-036).
-   **왜**: 검수자가 화면을 읽은 뒤 판정을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은 `pending`이라 규칙 4의 강등도 안 걸린다) **사람이 본 값과 확정되는 값이 달라진다**. 승인 쪽은 미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — 규칙 4에서 `rejected`는 이후 재수집에도 불변이라, 보지도 않은 새 내용이 영구 반려로 굳고 **검수 큐에 다시 나타나지 않아 그대로 유실**된다 (AC-036).
+   **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의 경합을, `review_status = 'pending'` 비교는 *다른 검수자*와의 경합을 막는다. 그리고 `SET`에서 `updated_at`을 올리는 게 필수다 — `updated_at`은 `DEFAULT now()`일 뿐 **자동 갱신 트리거가 없어서**(§2 스키마), 판정이 이 값을 안 건드리면 같은 행을 함께 읽은 두 검수자의 **반대 판정이 둘 다 성공해 나중 것이 앞선 결정을 조용히 덮는다**(AC-041).
+   **왜**: 검수자가 화면을 읽은 뒤 판정을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은 `pending`이라 규칙 4의 강등도 안 걸린다) **사람이 본 값과 확정되는 값이 달라진다**. 승인 쪽은 미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — 규칙 4에서 `rejected`는 이후 재수집에도 불변이라, 보지도 않은 새 내용이 영구 반려로 굳고 **검수 큐에 다시 나타나지 않아 그대로 유실**된다 (AC-041).
 9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
 10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅(승인은 규칙 8의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
-11. **수동 등록도 정식 편입된 source만 — DB가 강제한다**: 뉴스레터 채널(PRD FR-010 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
-    절차만으로는 오타 한 번에 뚫리므로 위 **`ck_opportunity_source`가 편입 7종만 통과**시킨다(AC-034). 규칙 2와 마찬가지로 **신규 소스 편입 시 두 제약을 함께 ALTER**해야 한다 — `ck_opportunity_source`(값 허용) + 공공이면 `ck_opportunity_review_status`(NULL 허용 분기).
+11. **수동 등록도 정식 편입된 source만 — DB가 강제한다**: 뉴스레터 채널(PRD FR-011 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
+    절차만으로는 오타 한 번에 뚫리므로 위 **`ck_opportunity_source`가 편입 7종만 통과**시킨다(AC-039). 규칙 2와 마찬가지로 **신규 소스 편입 시 두 제약을 함께 ALTER**해야 한다 — `ck_opportunity_source`(값 허용) + 공공이면 `ck_opportunity_review_status`(NULL 허용 분기).
 12. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
 
 ---
@@ -521,6 +521,56 @@ CREATE TABLE bookmark (
     CONSTRAINT uq_bookmark UNIQUE (user_id, opportunity_id)
 );
 CREATE INDEX idx_bookmark_user ON bookmark (user_id);
+```
+
+---
+
+## 8-B. 쇼케이스 (스코프 확장 — 2026-08-01 사장님 단독 승인, `기획안-쇼케이스.md`)
+
+> **LOCKED 변경 결정 기록**: 3인 합의 절차는 사장님 지시(2026-08-01, "합의 안 해도 돼, 그냥 진행")로 생략 — 이 절과 `기획안-쇼케이스.md` §9가 합의 기록을 대체한다. 팀 공지는 디스코드 #32. (Codex #78 P1 대응)
+
+창업자 제품 홍보의 장. 선검수 후게시 — 여기의 `status`는 **쇼케이스 검수 상태**로, 공고의 "저장 금지 status(마감 산식)"와 무관한 별개 컬럼이다. 마이그레이션 `V20260801_1100__create_showcase.sql`.
+
+```sql
+CREATE TABLE showcase_product (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    owner_user_id BIGINT       NOT NULL REFERENCES app_user (id),
+    name          VARCHAR(80)  NOT NULL,
+    tagline       VARCHAR(120) NOT NULL,
+    description   TEXT         NOT NULL,
+    url           VARCHAR(500),
+    image         BYTEA,                  -- 1MB 제한(서비스 검증), 프로필 이미지와 동일 방식
+    image_type    VARCHAR(30),
+    category      VARCHAR(30)  NOT NULL,  -- APP_WEB | COMMERCE | CONTENT | LOCAL | ETC
+    maker_name    VARCHAR(60)  NOT NULL,  -- 등록 시 입력한 팀명(표시명) — 계정 정보 비노출
+    status        VARCHAR(10)  NOT NULL DEFAULT 'PENDING',  -- PENDING | APPROVED | REJECTED
+    reject_reason VARCHAR(200),
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    approved_at   TIMESTAMPTZ,
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE TABLE showcase_cheer (   -- 1인 1제품 1응원(복합 PK). 무결제 수요 신호
+    product_id BIGINT NOT NULL REFERENCES showcase_product (id) ON DELETE CASCADE,
+    user_id    BIGINT NOT NULL REFERENCES app_user (id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (product_id, user_id)
+);
+CREATE TABLE showcase_comment ( -- 소프트 삭제(deleted_at)
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES showcase_product (id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES app_user (id),
+    body VARCHAR(1000) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+```
+
+**검수 운영(관리자 UI 없음 — DB 수동, 주 10건 초과 시 최소 승인 페이지 재논의):**
+```sql
+-- 승인
+UPDATE showcase_product SET status='APPROVED', approved_at=now(), updated_at=now() WHERE id=?;
+-- 거절
+UPDATE showcase_product SET status='REJECTED', reject_reason='사유', updated_at=now() WHERE id=?;
 ```
 
 ---

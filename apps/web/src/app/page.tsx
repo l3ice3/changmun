@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrowseSection, type BrowseOption } from "@/components/BrowseSection";
 import { Hero } from "@/components/Hero";
+import { ShowcaseWeekly } from "@/components/ShowcaseWeekly";
 import { fetchOpportunities, fetchStats, type OpportunityCard } from "@/lib/api";
 import {
   CATEGORIES,
@@ -80,11 +81,14 @@ export default async function Home() {
         <div className="mt-12 text-center">
           <Link
             href="/search"
-            className="press inline-flex h-12 items-center rounded-full bg-surface-blue px-7 text-[15px] font-medium text-accent hover:bg-accent hover:text-white"
+            className="press inline-flex h-12 items-center rounded-full btn-sheen px-7 text-[15px] font-medium text-white"
           >
             전체 공고 모두 보기
           </Link>
         </div>
+
+        {/* 쇼케이스 주간 모아보기 — 공고 섹션과 시각적으로 구분되는 보조 섹션(기획안 S-5) */}
+        <ShowcaseWeekly />
       </div>
     </div>
   );

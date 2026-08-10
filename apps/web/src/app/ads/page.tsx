@@ -53,7 +53,7 @@ export default function AdsPage() {
         </ul>
         <a
           href={`mailto:${ADS_EMAIL}?subject=[광고문의]`}
-          className="press mt-5 inline-flex h-11 items-center rounded-full bg-accent px-6 text-[14px] font-medium text-white hover:bg-accent-hover"
+          className="press mt-5 inline-flex h-11 items-center rounded-full btn-sheen px-6 text-[14px] font-medium text-white"
         >
           {ADS_EMAIL}
         </a>

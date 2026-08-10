@@ -34,9 +34,20 @@ function BookmarkIcon() {
   );
 }
 
+function ShowcaseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6">
+      <path d="M4.5 9 6 4.5h12L19.5 9" strokeLinejoin="round" />
+      <path d="M5 9h14v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9z" strokeLinejoin="round" />
+      <path d="M9.5 13h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const ITEMS = [
   { href: "/", label: "탐색", Icon: ExploreIcon },
   { href: "/search", label: "검색", Icon: SearchIcon },
+  { href: "/showcase", label: "쇼케이스", Icon: ShowcaseIcon },
   { href: "/bookmarks", label: "찜", Icon: BookmarkIcon },
 ];
 
@@ -50,7 +61,8 @@ export function Sidebar() {
   const pathname = usePathname();
   return (
     <aside className="sticky top-0 hidden h-screen w-[84px] shrink-0 flex-col items-center border-r border-hair bg-bg py-4 lg:flex">
-      {/* 로고와 메뉴·아이템 사이 간격은 넉넉하게 — 촘촘함 해소 (QA #17). */}
+      {/* 로고와 메뉴·아이템 사이 간격은 넉넉하게 — 촘촘함 해소 (QA #17).
+          레일은 마크만, 워드마크(글자)는 상단바 원래 자리로 (QA #30). */}
       <Link href="/" aria-label="창문 홈" className="press mb-10">
         <WindowMark className="h-10 w-10" />
       </Link>
@@ -64,7 +76,7 @@ export function Sidebar() {
               aria-current={active ? "page" : undefined}
               className={`press flex w-[64px] flex-col items-center gap-1 rounded-xl py-2.5 text-[11px] ${
                 active
-                  ? "bg-surface-blue font-medium text-accent"
+                  ? "btn-sheen font-medium text-white"
                   : "text-muted hover:bg-surface hover:text-secondary"
               }`}
             >

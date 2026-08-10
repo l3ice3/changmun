@@ -42,7 +42,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `sort`: `deadline`(기본) · `latest`(`first_seen_at DESC`)
 - `region`: **16개 시도** 라벨 또는 `전국` (URL 인코딩된 한글 그대로. 2026 행정구역 통합 반영 — 광주+전남은 `전남광주` 단일 라벨, data-model §7). **요청은 단일 지역**(필터 1개), **응답 `region`은 배열**(공고가 복수 지역일 수 있음 — 서버는 공고의 region 배열에 요청 지역이 포함되면 매칭)
 - `category`: 표준 11종+`기타` 라벨 그대로 (data-model §7)
-- `source`(응답): 공공 `k-startup` · `bizinfo` · `ontong-youth` + 민간(FR-010) `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장). **프론트 `SOURCE_LABELS`에 4종 한글 라벨 추가 필수**(PRD FR-010 10항) — 누락 시 카드에 내부 값이 그대로 노출되고 출처 필터에서 빠진다
+- `source`(응답): 공공 `k-startup` · `bizinfo` · `ontong-youth` + 민간(FR-011) `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장). **프론트 `SOURCE_LABELS`에 4종 한글 라벨 추가 필수**(PRD FR-011 10항) — 누락 시 카드에 내부 값이 그대로 노출되고 출처 필터에서 빠진다
 
 ---
 
@@ -54,7 +54,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `persona` | enum | (없음) | 페르소나 탭. 잘못된 값 → 400 (AC-014) |
 | `region` | string | (없음) | 시도 필터 |
 | `category` | string | (없음) | 카테고리 필터 |
-| `source` | enum | (없음) | 출처 필터: §0 공통 enum의 `source` 값(공공 3 + 민간 4 — FR-010). 잘못된 값 → 400 (AC-014) |
+| `source` | enum | (없음) | 출처 필터: §0 공통 enum의 `source` 값(공공 3 + 민간 4 — FR-011). 잘못된 값 → 400 (AC-014) |
 | `status` | enum | `open` | `open`=진행중(상시·기간미상 포함) / `all` |
 | `q` | string | (없음) | 부분일치 검색(title+summary, pg_trgm). **최소 2글자**, 1글자 → 400 (AC-020) |
 | `hasAmount` | boolean | (없음) | `true`=지원금 확인 공고만(`maxSupportAmount` non-null). `true`/`false` 외 값 → 400 (AC-033) |
@@ -101,7 +101,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `supportAmount`(원문 표기)·`maxSupportAmount`(기업당/1인당 최대 지원액, 원 단위 — data-model `max_support_amount`)는 미상이면 `null`(억지 채움 금지 — FR-008). 카드 표시는 **"최대 X원" 사실 서술까지만**, 수령 보장 표현 금지(FR-008 가드레일). `total_program_budget`(사업단 예산)은 사용자 필터·카드 대상 아님(집계용). **총예산 원문만 잡힌 공고(`max_support_amount` NULL)도 두 필드 `null`로 서빙** — DB의 `support_amount` 원문(검수용 보존)을 그대로 싣지 않는다.
 
 ### GET /api/v1/opportunities/stats — 홈 지표
-홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` **AND `(review_status IS NULL OR review_status = 'approved')`** 기준 count(민간 검수 전·반려 공고는 세 집계 어디에도 포함 안 됨 — FR-010, data-model §6-F). (literal 경로라 `/{id}`보다 우선 매칭)
+홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` **AND `(review_status IS NULL OR review_status = 'approved')`** 기준 count(민간 검수 전·반려 공고는 세 집계 어디에도 포함 안 됨 — FR-011, data-model §6-F). (literal 경로라 `/{id}`보다 우선 매칭)
 | 필드 | 정의 |
 |---|---|
 | `open` | 진행 중(상시·기간미상 포함, `CLOSED` 제외) |
@@ -137,7 +137,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 ```
 - `matchedTerms`: summary·eligibilityDetail에서 glossary 매칭된 용어만(0개면 빈 배열 — AC-015, 프론트는 빈 배열 시 영역 미표시).
 - `applyUrl` null 가능 → 프론트는 "공고 원문 보기"만 (AC-017).
-- `otherSources`: dedup 그룹 내 비-canonical 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능. **검수 게이트 적용 대상** — 형제 조회에도 `(review_status IS NULL OR review_status = 'approved')`를 걸어 민간 pending·rejected의 `source`·`detailUrl`이 승인된 공고 응답에 실리지 않게 한다(FR-010, AC-035).
+- `otherSources`: dedup 그룹 내 비-canonical 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능. **검수 게이트 적용 대상** — 형제 조회에도 `(review_status IS NULL OR review_status = 'approved')`를 걸어 민간 pending·rejected의 `source`·`detailUrl`이 승인된 공고 응답에 실리지 않게 한다(FR-011, AC-040).
 - 마감 공고도 `200` + `status="CLOSED"` (AC-018). 없는 id → `404` (AC-016).
 
 ---
@@ -216,7 +216,35 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 
 ---
 
-## 6. AC 교차 참조 (판정용 요약)
+## 6. 쇼케이스 (FR-010 — 창업자 제품 홍보의 장, 스코프 확장 2026-08-01)
+
+선검수 후게시 — 공개 조회(리스트·상세·이미지·주간)는 **APPROVED만** 반환. 쓰기·본인 조회는 로그인 필요(미인증 `401`). 에러 형식·code는 §0 공통.
+
+| 메서드 · 경로 | 역할 |
+|---|---|
+| `GET /api/v1/showcase?category=&sort=&page=&size=` | 승인작 리스트. `category` ∈ `APP_WEB`·`COMMERCE`·`CONTENT`·`LOCAL`·`ETC`(생략=전체), `sort` ∈ `latest`(기본)·`cheers`, page 1-base(기본 size 12, 최대 50). 미지 값 `400 INVALID_PARAM` |
+| `GET /api/v1/showcase/weekly` | 주간 모아보기 — 최근 7일 승인작 응원순 최대 6건. `{ "items": [카드…] }` |
+| `GET /api/v1/showcase/{id}` | 상세(승인작만 `200`, 그 외 `404`). 로그인 시 `cheeredByMe`·`mine`·댓글 `mine` 채움 |
+| `GET /api/v1/showcase/{id}/image` | 대표 이미지 바이너리(승인작+이미지 있을 때만, 아니면 `404`) |
+| `GET /api/v1/showcase/mine` | 🔒 내 등록물 목록(검수 상태·거절 사유 포함). `{ "items": [...] }` |
+| `GET /api/v1/showcase/mine/{id}` | 🔒 소유자 편집용 조회(검수 상태 무관, 본인 것만 — 남의 것 `404`) |
+| `POST /api/v1/showcase` | 🔒 등록(multipart: `name`·`tagline`·`description`·`url?`·`category`·`makerName`·`image?`). `202` + `{ "id": n }` — 선검수(`PENDING`) 접수 |
+| `PUT /api/v1/showcase/{id}` | 🔒 본인 수정(같은 multipart, `image` 생략 시 기존 유지) → 재검수(`PENDING`). `202` |
+| `DELETE /api/v1/showcase/{id}` | 🔒 본인 삭제(응원·댓글 연쇄 삭제). `204` |
+| `PUT /api/v1/showcase/{id}/cheer` | 🔒 응원 토글. `{ "cheered": true, "cheers": 12 }` |
+| `POST /api/v1/showcase/{id}/comments` | 🔒 댓글 작성 `{ "body": "…" }`(1000자 이하). `201` + `{ "id": n }` |
+| `DELETE /api/v1/showcase/comments/{commentId}` | 🔒 본인 댓글 삭제(소프트). `204` |
+
+**필드 규칙**
+- 길이: name≤80 · tagline≤120 · description≤5000 · url≤500(http(s):// 시작) · makerName≤60. 위반 `400 INVALID_PARAM`.
+- 이미지: 1MB 이하 JPEG/PNG/WebP(프로필 이미지와 동일 정책).
+- 카드 필드: `id`·`name`·`tagline`·`category`·`makerName`·`cheers`·`hasImage`·`approvedAt`.
+- 상세 추가 필드: `description`·`url`·`cheeredByMe`·`mine`·`comments[]`(`id`·`displayName`·`body`·`mine`·`createdAt`).
+- **PII 최소**: 계정 정보는 응답에 싣지 않는다 — 표시명은 등록 팀명(`makerName`)과 댓글의 이메일 로컬파트 마스킹(`ar***`)뿐.
+
+---
+
+## 7. AC 교차 참조 (판정용 요약)
 | AC | 이 문서의 근거 |
 |---|---|
 | AC-011 | §1 persona 파라미터 + canonical 노출 + 정렬 규칙 |
@@ -227,3 +255,4 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | AC-022~024 | §1 `ids`(순서 보존·누락 허용·canonical 무관) |
 | AC-025~027 | §4 eventType·payload 화이트리스트·202 |
 | AC-031~033 | §1 `hasAmount`·`minAmount` 파라미터 + `maxSupportAmount`·`supportAmount` 응답 노출 |
+| AC-034~038 | §6 쇼케이스 — 선검수 노출 규칙·응원 토글·댓글 마스킹·본인 관리·400/401/404 |

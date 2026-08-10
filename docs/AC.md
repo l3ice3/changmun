@@ -30,7 +30,8 @@
 | FR-007 | 행동 로그 | AC-025 ~ AC-027 | 구현(서버) — POST /events 202, eventType·payload 키 화이트리스트(PII 차단). AC-025·027 Pass(단위+E2E). AC-026(fire-and-forget)는 프론트 |
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
-| FR-010 | 민간 공고 수집 (하이브리드) | AC-034 ~ AC-039 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-039). 소스 실사 이력은 data-model 소스 레지스트리 |
+| FR-010 | 쇼케이스 (창업자 제품 홍보) | AC-034 ~ AC-038 | 구현 — 선검수 후게시·리스트/상세·응원·댓글·주간 모아보기. AC-034~037 자동 테스트 Pass(슬라이스 6케이스 + E2E 8케이스, 실 PostgreSQL). AC-038(웹 화면)은 수동 절차 Pass(2026-08-01 로컬 검증: 리스트·상세·404·로그인 게이트·홈 주간 섹션). 검수는 DB 수동(data-model §8-B) |
+| FR-011 | 민간 공고 수집 (하이브리드) | AC-039 ~ AC-044 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-044). 소스 실사 이력은 data-model 소스 레지스트리. **번호 재배정(2026-08-10)**: 원안은 FR-010/AC-034~039였으나 쇼케이스가 먼저 머지돼 같은 번호를 점유 → FR-011/AC-039~044로 이관 |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -403,9 +404,64 @@ Then:  세 경우 모두 400 INVALID_PARAM을 반환한다 (AC-014 준용)
 
 ---
 
-### FR-010: 민간 공고 수집 (하이브리드)
+### FR-010: 쇼케이스 — 창업자 제품 홍보의 장
 
-#### AC-034: 화이트리스트 4소스가 pending으로 적재된다 (Happy / Must)
+#### AC-034: 등록은 선검수로 접수되고, 승인 전에는 공개 지면에 나오지 않는다 (Happy / Must)
+```gherkin
+Given: 로그인 사용자
+When:  POST /api/v1/showcase (유효한 multipart)
+Then:  202 + id 반환, status=PENDING으로 저장되고,
+       GET /api/v1/showcase 리스트와 GET /{id} 상세(404)에 노출되지 않는다.
+       DB에서 APPROVED로 승인하면 리스트·상세에 노출된다
+```
+**검증**
+- [x] 자동: `ShowcaseServiceTest`(숨김/승인 노출) + `ShowcaseApiTest`(202·리스트 빈 배열·승인 후 200)
+
+#### AC-035: 본인 수정은 재검수로 돌아가고, 남의 글 수정·삭제는 404다 (Edge / Must)
+```gherkin
+Given: APPROVED 상태의 내 제품 / 다른 사용자의 제품
+When:  PUT /api/v1/showcase/{id} (본인) / PUT·DELETE (남의 것)
+Then:  본인 수정은 202 + status=PENDING 복귀(공개 지면에서 내려감),
+       남의 것은 404 NOT_FOUND (존재 노출 방지)
+```
+**검증**
+- [x] 자동: `ShowcaseServiceTest#editingResetsToPending`·`#editingOthersProductIsNotFound`
+
+#### AC-036: 응원은 1인 1제품 토글이다 (Happy / Must)
+```gherkin
+Given: 승인된 제품 + 로그인 사용자
+When:  PUT /api/v1/showcase/{id}/cheer 를 두 번 호출
+Then:  1회차 { cheered: true, cheers: 1 } / 2회차 { cheered: false, cheers: 0 }
+```
+**검증**
+- [x] 자동: `ShowcaseApiTest#cheerToggles`
+
+#### AC-037: 댓글 작성자는 마스킹 표시명으로만 노출된다 — PII 최소 (Must)
+```gherkin
+Given: 승인된 제품 + 로그인 사용자(email archer@example.com)
+When:  댓글 작성 후 상세 조회
+Then:  comments[].displayName == "ar***" (이메일 원문·계정 정보 미노출),
+       본인 댓글은 mine=true (삭제 버튼 노출용)
+```
+**검증**
+- [x] 자동: `ShowcaseApiTest#commentShowsMaskedDisplayName`
+
+#### AC-038: 웹 지면 — 전용 탭·빈 상태·로그인 게이트·홈 주간 섹션 (수동 / Must)
+```gherkin
+Given: 웹(/showcase, /showcase/new, 홈)
+Then:  쇼케이스 리스트는 승인작만 카드로 노출(카테고리·정렬 칩 동작),
+       검수 중 제품 상세 진입 시 빈 상태(404) 화면,
+       비로그인 등록 페이지는 로그인 유도 화면,
+       홈 하단 "이번 주 새로 열린 창" 섹션은 최근 7일 승인작이 있을 때만 노출(공고 지면과 분리)
+```
+**검증**
+- [x] 수동: 2026-08-01 로컬 확인(리스트·상세·404·로그인 게이트·홈 섹션·모바일 Nav 메뉴)
+
+---
+
+### FR-011: 민간 공고 수집 (하이브리드)
+
+#### AC-039: 화이트리스트 4소스가 pending으로 적재된다 (Happy / Must)
 ```gherkin
 Given: 화이트리스트 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub)의 실제 응답 표본 fixture
 When:  민간 수집 배치를 실행한다
@@ -420,12 +476,12 @@ And:   미편입 source(오타 'asan-nanm' · 백로그 'sparklabs')는 review_s
        (미편입 값은 목록엔 뜨지만 같은 값의 source 필터가 400이 되는 계약 불일치를 만든다)
 ```
 **검증**
-- [ ] **수동(웹)**: 민간 4소스 각각 1건을 승인한 뒤 카드·상세의 출처 표기가 **한글 라벨**(아산나눔재단·카카오임팩트·소풍벤처스·KB이노베이션허브)로 뜨고, 출처 필터에 네 항목이 선택 가능한지. `SOURCE_LABELS` 누락 시 `sourceLabel()`이 `asan-nanum` 같은 내부 값을 그대로 노출하고 필터에서도 사라진다(PRD FR-010 10항)
+- [ ] **수동(웹)**: 민간 4소스 각각 1건을 승인한 뒤 카드·상세의 출처 표기가 **한글 라벨**(아산나눔재단·카카오임팩트·소풍벤처스·KB이노베이션허브)로 뜨고, 출처 필터에 네 항목이 선택 가능한지. `SOURCE_LABELS` 누락 시 `sourceLabel()`이 `asan-nanum` 같은 내부 값을 그대로 노출하고 필터에서도 사라진다(PRD FR-011 10항)
 - [ ] 자동: `apps/ingest/tests/` — 소스별 fixture 파싱 + 필수 필드 + raw 정책(전문 부재) 검증
 - [ ] 자동: 실DB 통합(pytest) 또는 리포지토리 슬라이스(Testcontainers) — 민간 source + review_status NULL INSERT가 제약 위반으로 거부됨
 - [ ] 자동: 동 — 미편입/오타 source INSERT가 `ck_opportunity_source` 위반으로 거부됨
 
-#### AC-035: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
+#### AC-040: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
 ```gherkin
 Given: fixture를 두 벌로 나눈다 —
        (A) 최상위 경로용: **is_canonical=true인 단독 민간 공고** pending 1건·rejected 1건
@@ -452,7 +508,7 @@ And:   공공 건 상세의 otherSources에는 'approved' 형제만 실리고
 - [ ] 자동: 동 — (B) 단일 그룹 fixture로 공공 canonical 상세 응답의 `otherSources` 중첩 검증
 - [ ] **회귀 방지 확인**: 쿼리에서 `review_status` 조건만 제거하면 (A) 테스트가 **실패해야** 한다. 통과한다면 fixture가 `is_canonical`에 기대고 있는 것이므로 fixture를 고친다(이 AC의 이전 판이 그 함정에 빠졌다)
 
-#### AC-036: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
+#### AC-041: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
 ```gherkin
 Given: pending 민간 공고 2건
 When:  검수 CLI로 1건은 페르소나 태깅(표준 코드 또는 '미상'=NULL)과 함께 승인, 1건은 반려한 뒤,
@@ -480,7 +536,7 @@ And:   검수자가 pending 내용을 읽은 뒤 판정을 확정하기 전에 �
 - [ ] 자동: 실DB 경합 통합 — 읽기 후 판정 전에 UPSERT를 끼워넣고 **승인·반려 각각** 거부되는지(낙관적 동시성 — 배치와의 경합)
 - [ ] 자동: 실DB 경합 통합 — **두 검수자가 같은 pending 행을 읽은 뒤 서로 반대 판정**(승인 vs 반려)을 하면 **먼저 커밋한 쪽만 성공**하고 나중 판정은 0행으로 거부되는지(검수자 간 경합 — `review_status='pending'` 조건 + 판정 시 `updated_at` 갱신이 없으면 나중 판정이 앞선 결정을 덮는다)
 
-#### AC-037: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
+#### AC-042: 크롤링 예절 — robots 불허·차단 시 소스를 포기한다 (Negative / Must)
 ```gherkin
 Given: robots.txt가 수집 경로를 Disallow하는 소스 A + HTTP 403/429를 반환하는 소스 B + 정상 소스 C
 When:  민간 수집 배치를 실행한다
@@ -491,7 +547,7 @@ Then:  A는 콘텐츠 요청 없이 스킵, B는 즉시 중단·스킵되고 각
 **검증**
 - [ ] 자동: pytest — robots 파서 판정·403/429 처리·UA 헤더·딜레이 파라미터 (우회 로직이 없음을 코드 리뷰로 확인)
 
-#### AC-038: 파싱 0건이면 파손 의심 경고를 남긴다 (Edge / Must)
+#### AC-043: 파싱 0건이면 파손 의심 경고를 남긴다 (Edge / Must)
 ```gherkin
 Given: 정상 수집 이력이 있는 민간 소스의 목록 페이지가 개편되어 파싱 결과가 0건이 되는 fixture
 When:  수집 배치를 실행한다
@@ -501,12 +557,12 @@ Then:  배치는 실패하지 않고, 리포트에 해당 소스 "0건 — 파�
 **검증**
 - [ ] 자동: pytest — 0건 리포트 경고 + pending 잔량 표기
 
-#### AC-039: 승인 후 핵심 필드가 바뀌면 재검수로 되돌아간다 (Edge / Must)
+#### AC-044: 승인 후 핵심 필드가 바뀌면 재검수로 되돌아간다 (Edge / Must)
 ```gherkin
 Given: approved 상태로 서빙 중인 민간 공고 1건
 When:  원문에서 마감일(또는 제목·모집시작일·금액 표기)이 변경된 fixture로 재수집한다
 Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아가며,
-       해당 공고는 재검수 전까지 모든 서빙 경로에서 사라진다(AC-035 준용).
+       해당 공고는 재검수 전까지 모든 서빙 경로에서 사라진다(AC-040 준용).
        요약·기관 표기 등 핵심 외 필드만 바뀐 경우에는 approved가 유지된다
        (승인은 "그 시점 내용"에 대한 승인 — 변경된 마감일이 무검증 노출되면 가드레일 2 위반)
 And:   강등된 건이 dedup 그룹의 canonical이었다면, 같은 트랜잭션에서
@@ -523,9 +579,9 @@ And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
 - [ ] 자동: 실DB 통합 — 민간 approved 2건(A=canonical·B=멤버)이 한 그룹인 상태에서 A 강등 → B가 canonical로 승격돼 리스트에 계속 노출
 - [ ] 자동: 실DB 통합 — 금액 상속받은 승인 건을 **원문 무변경으로 2회 재수집** → approved 유지(강등 0회). 상속·수동 태깅 컬럼이 오탐을 만들지 않는지
 - [ ] 자동: 실DB 통합 — **원문(raw 사실 필드)은 그대로인데 금액 파서 결과만 달라지는** 경우(오추출 수정·규칙 승격 시나리오) → `pending` 강등되는지. 원문 필드만 비교하면 스냅샷이 같아 통과해 버리고 **바뀐 금액이 무검증으로 카드·필터에 나간다**
-- [ ] **수동(웹)**: 승인돼 웹에 캐시된 민간 공고를 강등시킨 뒤, **ISR 주기(24h)를 기다리지 않고** **홈(`/`)·`/search`·상세** 셋을 모두 새로고침 → 세 곳 다 사라지는지 확인. 홈은 페르소나·출처·분야·지역 섹션이 각각 `fetchOpportunities()`로 캐시되므로 목록·상세만 무효화하면 홈에 옛 마감일이 하루 남는다(PRD FR-010 9항 — E2E 자동화는 Phase 2라 수동 절차)
-- [ ] **수동(웹, Negative)**: revalidation 엔드포인트를 일부러 실패시킨 상태(5xx·타임아웃)로 강등 → ① 판정은 DB에 남고 ② 리포트에 ERROR가 뜨며 ③ 재시도 명령(`--flush-cache`) 실행 후 홈·`/search`·상세에서 사라지는지. 실패가 조용히 넘어가면 무효화가 없는 것과 같다(PRD FR-010 9항)
-- [ ] **수동(웹, Negative — 인증)**: revalidation 엔드포인트를 **시크릿 없이 / 틀린 시크릿으로** 호출 → 401·403으로 거부되고 **캐시가 비워지지 않는지**. 인증이 없으면 외부에서 반복 호출해 ISR 캐시를 상시 비우고 origin(EC2 단일 인스턴스)에 부하를 밀어 넣을 수 있다(PRD FR-010 9항)
+- [ ] **수동(웹)**: 승인돼 웹에 캐시된 민간 공고를 강등시킨 뒤, **ISR 주기(24h)를 기다리지 않고** **홈(`/`)·`/search`·상세** 셋을 모두 새로고침 → 세 곳 다 사라지는지 확인. 홈은 페르소나·출처·분야·지역 섹션이 각각 `fetchOpportunities()`로 캐시되므로 목록·상세만 무효화하면 홈에 옛 마감일이 하루 남는다(PRD FR-011 9항 — E2E 자동화는 Phase 2라 수동 절차)
+- [ ] **수동(웹, Negative)**: revalidation 엔드포인트를 일부러 실패시킨 상태(5xx·타임아웃)로 강등 → ① 판정은 DB에 남고 ② 리포트에 ERROR가 뜨며 ③ 재시도 명령(`--flush-cache`) 실행 후 홈·`/search`·상세에서 사라지는지. 실패가 조용히 넘어가면 무효화가 없는 것과 같다(PRD FR-011 9항)
+- [ ] **수동(웹, Negative — 인증)**: revalidation 엔드포인트를 **시크릿 없이 / 틀린 시크릿으로** 호출 → 401·403으로 거부되고 **캐시가 비워지지 않는지**. 인증이 없으면 외부에서 반복 호출해 ISR 캐시를 상시 비우고 origin(EC2 단일 인스턴스)에 부하를 밀어 넣을 수 있다(PRD FR-011 9항)
 - [ ] **수동(웹, Negative — 배치 보험)**: 위 실패를 **`--flush-cache` 없이 미복구로 둔 채** 다음 일 1회 배치를 실행 → 배치 말미 재무효화로 세 경로가 갱신되는지. 이 시나리오가 없으면 보험 경로(9항 ③)를 아예 구현하지 않아도 AC가 전부 통과하고, **운영자가 ERROR를 놓친 경우 캐시가 24h 남는다**
 
 ---
@@ -546,7 +602,7 @@ And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
 
 ## 4. Definition of Done (Phase 1 / MVP)
 
-- [ ] 매핑 테이블에서 **Phase 1 범위 FR(FR-001~009)의 모든 Must AC 통과** (Should는 가능한 만큼, 미통과 시 명시). **FR-010은 Phase 2라 이 게이트에서 제외** — 아래 별도 DoD로 판정한다(그러지 않으면 Phase 2 미구현 때문에 Phase 1 출시 판정이 영구히 불가능해진다)
+- [ ] 매핑 테이블에서 **Phase 1 범위 FR(FR-001~009)의 모든 Must AC 통과** (Should는 가능한 만큼, 미통과 시 명시). **FR-010(쇼케이스)은 스코프 확장, FR-011은 Phase 2라 이 게이트에서 제외** — 아래 별도 DoD로 판정한다(그러지 않으면 Phase 2 미구현 때문에 Phase 1 출시 판정이 영구히 불가능해진다)
 - [ ] 공통 AC CC-01~07 만족
 - [ ] 빌드/린트/타입 체크 에러 0
 - [ ] 자동 테스트 스위트 전체 통과 (ingest pytest + Spring 테스트)
@@ -557,17 +613,17 @@ And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
 
 ---
 
-## 4-2. Definition of Done (Phase 2 — FR-010 민간 하이브리드 수집)
+## 4-2. Definition of Done (Phase 2 — FR-011 민간 하이브리드 수집)
 
-> Phase 1 출시와 독립적으로 판정한다. 이 DoD는 FR-010 **구현 PR**의 완료 기준이며, 현재 문서(계약)만 확정된 상태다.
+> Phase 1 출시와 독립적으로 판정한다. 이 DoD는 FR-011 **구현 PR**의 완료 기준이며, 현재 문서(계약)만 확정된 상태다.
 
-- [ ] AC-034~039의 모든 **Must AC 통과** — 각 AC의 **검증 항목 전부**(자동 + 웹 수동). 여기에 개수를 적지 않는 건 의도다: 라운드마다 항목이 늘어 숫자가 먼저 낡고, 그러면 **나중에 추가된 항목(인증 거부·배치 보험 등)이 판정에서 조용히 빠진다**
+- [ ] AC-039~044의 모든 **Must AC 통과** — 각 AC의 **검증 항목 전부**(자동 + 웹 수동). 여기에 개수를 적지 않는 건 의도다: 라운드마다 항목이 늘어 숫자가 먼저 낡고, 그러면 **나중에 추가된 항목(인증 거부·배치 보험 등)이 판정에서 조용히 빠진다**
 - [ ] `review_status` 마이그레이션 + CHECK 제약 2종(`ck_opportunity_review_status`·`ck_opportunity_source`) 적용, 기존 행 위반 0건
-- [ ] 파일럿 4소스 수집 리포트가 일 1회 정상 생성(파싱 0건 경고 + pending 잔량 포함 — AC-038)
+- [ ] 파일럿 4소스 수집 리포트가 일 1회 정상 생성(파싱 0건 경고 + pending 잔량 포함 — AC-043)
 - [ ] 검수 CLI로 승인·반려·태깅 1회씩 실제 수행(`apps/ingest` 스크립트 — 웹 검수 화면 없음)
-- [ ] 웹 캐시 무효화 경로 동작 확인(홈·`/search`·상세 3곳 + 실패 복구 3경로 — PRD FR-010 9항)
-- [ ] 민간 4종 출처 라벨·필터 노출 확인(PRD FR-010 10항)
-- [ ] 크롤링 예절 준수 확인: robots 검사·UA·딜레이 ≥1초, 우회 로직 부재를 코드 리뷰로 확인 (AC-037)
+- [ ] 웹 캐시 무효화 경로 동작 확인(홈·`/search`·상세 3곳 + 실패 복구 3경로 — PRD FR-011 9항)
+- [ ] 민간 4종 출처 라벨·필터 노출 확인(PRD FR-011 10항)
+- [ ] 크롤링 예절 준수 확인: robots 검사·UA·딜레이 ≥1초, 우회 로직 부재를 코드 리뷰로 확인 (AC-042)
 
 ---
 
@@ -575,5 +631,5 @@ And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
 - [x] 모든 AC가 FR ID와 매핑
 - [x] Then 절이 관찰 가능한 결과(상태·수치·화면)
 - [x] 판정 불가 단어("잘", "적절히") 없음
-- [x] Must FR마다 Negative AC 최소 1개 (FR-001: AC-003·004 / FR-002: AC-008 / FR-003: AC-014 / FR-004: AC-016 / FR-007: AC-026·027 / FR-010: AC-035·037)
+- [x] Must FR마다 Negative AC 최소 1개 (FR-001: AC-003·004 / FR-002: AC-008 / FR-003: AC-014 / FR-004: AC-016 / FR-007: AC-026·027 / FR-011: AC-040·042)
 - [x] 검증 방법 비어 있는 AC 없음

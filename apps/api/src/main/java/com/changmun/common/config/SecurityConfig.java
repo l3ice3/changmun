@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
@@ -60,6 +61,14 @@ public class SecurityConfig {
       AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry
           registry) {
     registry
+        // 쇼케이스 — 내 등록물은 GET이어도 인증, 그 외 GET(리스트·상세·이미지·주간)은 공개,
+        // 쓰기(등록·수정·삭제·응원·댓글)는 인증(api-spec §6).
+        .requestMatchers("/api/v1/showcase/mine", "/api/v1/showcase/mine/**")
+        .authenticated()
+        .requestMatchers(HttpMethod.GET, "/api/v1/showcase/**")
+        .permitAll()
+        .requestMatchers("/api/v1/showcase/**")
+        .authenticated()
         .requestMatchers("/api/v1/bookmarks/**", "/api/v1/users/me/**")
         .authenticated()
         .anyRequest()
