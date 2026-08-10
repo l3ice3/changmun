@@ -628,43 +628,57 @@ Given: 실체 A(id=100, 북마크 2건, 수동 태그 PRE_STARTUP)와
 When:  dedup + 병합 배치를 실행한다
 Then:  두 실체가 하나로 합쳐지고 survivor는 멤버 first_seen_at이 이른 쪽이다
        (동률이면 id가 작은 쪽 — §6-D 단계 4-B)
-And:   흡수된 id로 상세를 조회하면 opportunity_alias를 통해 survivor로 리다이렉트된다
+And:   흡수된 id로 상세를 조회하면 opportunity_merge_log를 통해 survivor로 리다이렉트된다
        (색인된 SEO URL이 404가 되지 않는다 — 병합은 id 불변식의 유일한 예외다)
 And:   북마크는 **2건**이 남아 전부 survivor를 가리킨다 —
        원래 3행이지만 양쪽을 찜했던 사용자는 UNIQUE(user_id, opportunity_id) 충돌로
        1행이 지워진다. **그 사용자의 찜 자체는 사라지지 않는다**(survivor 쪽에 남음)
-And:   옮겨진 찜에는 merged_from_id에 병합 전 실체 id가 기록된다
-       (이미 값이 있으면 유지 — 최초 출처를 보존, 체인 금지)
+And:   opportunity_merge_log에 이 병합 1행이 남는다 —
+       absorbed_id·survivor_id·record_ids(옮긴 멤버)·bookmark_ids(실제로 옮겨진 찜 2건)
 And:   수동 태그는 합집합으로 살아남는다(한쪽만 있으면 그 값,
        manual_tagged_at은 더 늦은 쪽)
 When:  이어서 제목·기관이 갈라져 stale 그룹이 해제되는 fixture로 다시 실행하면
 Then:  기존 representative_record_id를 포함한 쪽이 survivor의 id를 승계하고,
        갈라져 나온 쪽의 manual_* 는 NULL이다
        (사람이 어느 쪽을 보고 판단했는지 알 수 없다 — 미태깅으로 검수 큐에 다시 잡힌다)
-And:   **갈라져 나온 멤버가 예전에 흡수된 실체 그대로면 새 id를 발급하지 않고
-       opportunity_alias의 old_id를 되살리며, 그 멤버들의
-       merged_from_opportunity_id를 비우고 alias 행을 지운다** —
-       오합치를 해제했는데도 옛 상세 URL이 계속 틀린 실체로 리다이렉트되면
-       dedup의 비파괴 원칙이 실체층에서만 깨진다
-And:   merged_from_id = old_id 인 찜이 되살아난 id로 돌아가고 그 컬럼은 NULL이 된다.
-       단 병합 때 중복으로 지워졌던 찜은 복구되지 않는다(문서화된 한계 — §6-D 단계 4-B)
-And:   alias가 다시 병합되면 new_id가 최종 survivor로 갱신돼 리다이렉트 체인이 생기지 않는다
+And:   **갈라져 나온 멤버 집합이 merge_log 어느 행의 record_ids와 정확히 일치하면
+       새 id를 발급하지 않고 그 행의 absorbed_id를 되살리며,
+       bookmark_ids의 찜을 그 id로 돌려놓고 로그 행을 지운다** —
+       오합치를 해제했는데도 옛 상세 URL이 계속 틀린 실체로 리다이렉트되고
+       찜이 엉뚱한 공고에 남으면 dedup의 비파괴 원칙이 실체층에서만 깨진다
+And:   병합 때 중복으로 지워졌던 찜은 복구되지 않는다
+       (bookmark_ids에는 실제로 옮겨진 행만 담긴다 — 문서화된 한계, §6-D 단계 4-B)
+And:   갈라진 쪽 공고는 pending으로 강등되지 않고 계속 노출되며(내용 승인은 유효),
+       manual_tagged_at IS NULL 이라 **태깅 큐**에 잡힌다.
+       검수 큐(review_status='pending')만 보는 구현에서는
+       이 공고가 페르소나 탭에서 조용히 계속 누락된다(§6-F 규칙 10)
 
-Given: 서로 다른 실체 B·C가 A에 함께 흡수된 상태 (alias 2행: B→A, C→A)
+Given: 서로 다른 실체 B·C가 A에 함께 흡수된 상태 (merge_log 2행)
 When:  B의 멤버만 stale 판정으로 갈라진다
-Then:  merged_from_opportunity_id=B 인 멤버 집합과 정확히 일치하므로 B가 되살아나고,
-       C의 alias·provenance는 그대로 남는다
-       (alias 두 행만으로는 어느 멤버가 B 소속이었는지 고를 수 없다 —
-        이 케이스가 provenance 없이 구현 불가능함을 드러낸다)
+Then:  B의 record_ids와 정확히 일치하므로 B가 되살아나고, C의 로그 행은 그대로 남는다
+       (absorbed_id → survivor_id 두 값만으로는 어느 멤버가 B 소속이었는지 고를 수 없다 —
+        이 케이스가 멤버 이력 없이 구현 불가능함을 드러낸다)
 And:   B 멤버의 **일부만** 갈라지거나 병합 후 새로 붙은 멤버가 섞이면
        B를 되살리지 않고 **새 id를 발급한다** —
        되살린 id가 예전과 다른 공고를 가리키면 리다이렉트가 거짓말을 한다
        (새 URL이 생기는 편이 낫다)
+
+Given: 중첩 병합 — B가 A에 흡수된 뒤, 그 A(멤버 a∪b)가 다시 C에 흡수된 상태
+       (merge_log 2행: B→A(record_ids=b) · A→C(record_ids=a∪b))
+When:  {a,b}가 C에서 갈라진다
+Then:  merged_at이 더 늦은 A→C 행과 일치하므로 **A**가 되살아나고
+       (B가 아니다 — 병합은 스택처럼 쌓이므로 되돌리는 순서도 역순),
+       B→A 행은 그대로 남아 이어서 b만 갈라지면 B를 되살린다
+And:   "옮겨지기 직전 id" 컬럼 하나로 구현하면 이 케이스가 실패한다 —
+       a는 A를, b는 B를 가리켜 {a,b}가 어느 값과도 일치하지 않는다
+       (그래서 provenance를 병합 단위로 기록한다)
 ```
 **검증**
-- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑 2건·`merged_from_id` 기록·태그 합집합·alias 기록) / 분할(id 승계·갈라진 쪽 미태깅) 각각
-- [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · alias 행 삭제 · `merged_from_id` 찜 복귀 · `merged_from_opportunity_id` 초기화를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
-- [ ] 자동: **2중 흡수 후 부분 분할** — B·C를 A에 흡수한 뒤 B만 분할 → B 부활 + C alias 유지 / 이어서 B 멤버의 일부만 분할 → 새 id 발급(부활 안 함). 앞 항목은 provenance 없이도 우연히 통과할 수 있어 이 케이스가 실제 판정 근거다
+- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑 2건·`merge_log` 1행·태그 합집합) / 분할(id 승계·갈라진 쪽 미태깅) 각각
+- [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · 로그 행 삭제 · 찜 복귀를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
+- [ ] 자동: **2중 흡수 후 부분 분할** — B·C를 A에 흡수한 뒤 B만 분할 → B 부활 + C 로그 유지 / 이어서 B 멤버의 일부만 분할 → 새 id 발급(부활 안 함). 앞 항목은 멤버 이력 없이도 우연히 통과할 수 있어 이 케이스가 실제 판정 근거다
+- [ ] 자동: **중첩 병합 되돌리기** — `B→A`, `A→C` 뒤 `{a,b}` 분할 → **A** 부활(B 아님)이고 `B→A` 로그는 남는지. 컬럼형 provenance로 구현하면 실패해야 하는 케이스다
+- [ ] 자동: 분할로 태그를 잃은 공고가 **태깅 큐**에 잡히고 `review_status`는 `approved` 그대로인지(검수 큐만 보는 구현에서 누락되는 경로 — §6-F 규칙 10)
 - [ ] 자동: 동 — 배정 트랜잭션이 중간에 실패하면 `opportunity_id`가 가리키는 실체 행이 없는 멤버가 **0건**(4-B~6이 한 트랜잭션)
 - [ ] 자동: API 슬라이스 — 흡수된 id의 상세 요청이 survivor로 리다이렉트(404 아님)
 - [ ] 자동: 실DB 통합 — 금액 상속받은 승인 건을 **원문 무변경으로 2회 재수집** → approved 유지(강등 0회). 상속·수동 태깅 컬럼이 오탐을 만들지 않는지
@@ -708,7 +722,7 @@ And:   B 멤버의 **일부만** 갈라지거나 병합 후 새로 붙은 멤버
 > Phase 1 출시와 독립적으로 판정한다. 이 DoD는 FR-011 **구현 PR**의 완료 기준이며, 현재 문서(계약)만 확정된 상태다.
 
 - [ ] AC-039~045의 모든 **Must AC 통과** — 각 AC의 **검증 항목 전부**(자동 + 웹 수동). 여기에 개수를 적지 않는 건 의도다: 라운드마다 항목이 늘어 숫자가 먼저 낡고, 그러면 **나중에 추가된 항목(인증 거부·배치 보험 등)이 판정에서 조용히 빠진다**
-- [ ] **v2 저장 계층 마이그레이션(data-model §2-D) 적용** — `source_registry` seed 7종 · `opportunity`→`source_record` RENAME(id 승계) · 신 `opportunity`+`opportunity_alias` 생성 시 **현재 `is_canonical=true` 행의 id 승계** · `bookmark` FK 재지정. 이관 후 **기존 상세 URL 전량 보존**을 실측 표본으로 확인하고, 라이브 29,874행에서 제약 위반 0건
+- [ ] **v2 저장 계층 마이그레이션(data-model §2-D) 적용** — `source_registry` seed 7종 · `opportunity`→`source_record` RENAME(id 승계) · 신 `opportunity`+`opportunity_merge_log` 생성 시 **현재 `is_canonical=true` 행의 id 승계** · `bookmark` FK 재지정. 이관 후 **기존 상세 URL 전량 보존**을 실측 표본으로 확인하고, 라이브 29,874행에서 제약 위반 0건
 - [ ] **실제 v1 덤프로 업그레이드 1회 리허설** — RENAME이 인덱스·제약 이름을 옮기지 않아 `opportunity_pkey` 포함 7개가 신 테이블과 충돌한다(§2-D 3단계). 이름 정리가 신 테이블 생성보다 앞서는지를 리뷰가 아니라 **실행으로** 고정한다
 - [ ] 이관과 같은 PR에서 **v1 컬럼을 전제로 한 문서 문구 동반 갱신** — data-model §2-D 말미의 대상 목록 전부(AC-005·010·024, CC-05, api-spec §0 노출 범위, `.claude/rules/api.md`, README 등)
 - [ ] 파일럿 4소스 수집 리포트가 일 1회 정상 생성(파싱 0건 경고 + pending 잔량 포함 — AC-043)
