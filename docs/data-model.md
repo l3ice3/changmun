@@ -226,8 +226,14 @@ CREATE TABLE opportunity (
     support_amount           TEXT,
     max_support_amount       BIGINT,
     total_program_budget     BIGINT,
-    target_startup_stage     TEXT[],
+    target_startup_stage     TEXT[],      -- = 멤버 자체 파싱값 합집합 ∪ manual_* (불변식 4)
     target_audience_type     TEXT[],
+
+    -- 검수 CLI의 수동 태깅(§6-F 규칙 9) — 사람만 쓴다.
+    -- 병합 UPSERT의 DO UPDATE SET 목록에 이 세 컬럼이 들어가면 안 된다(§6-D 단계 6).
+    manual_target_startup_stage TEXT[],
+    manual_target_audience_type TEXT[],
+    manual_tagged_at         TIMESTAMPTZ,  -- 태깅 완료 시각. '미상' 태깅 = 값 NULL + 이 컬럼 기록
 
     is_visible               BOOLEAN      NOT NULL DEFAULT FALSE,  -- fail-closed 기본값
     first_seen_at            TIMESTAMPTZ  NOT NULL,   -- 멤버 중 최소(= sort=latest 계약 유지)
@@ -250,6 +256,10 @@ CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_vis
 3. `id`는 **대표가 바뀌어도 불변**이다. v1은 canonical이 교체되면 `/opportunities/{id}`의 id가
    바뀌어 **SSG/ISR로 색인된 SEO URL과 `bookmark.opportunity_id`가 대표 교체에 흔들렸다.**
    실체층이 생기면서 이 결함이 구조적으로 사라진다.
+4. `target_startup_stage`·`target_audience_type` = **멤버들의 자체 파싱값 합집합 ∪ `manual_*`**.
+   수동 태깅이 병합의 *출력*이 아니라 *입력*이라, 매일 재병합해도 사람의 판단이 지워지지 않고
+   나중에 공공 멤버가 그룹에 붙어 구조화 신호가 생기면 합집합으로 함께 산다. `manual_*` 세 컬럼은
+   **병합 배치의 쓰기 대상이 아니다**(§6-D 단계 6 · §6-F 규칙 9).
 
 > 물리 테이블인 이유: 뷰로 두면 대표 선정·상속 로직이 통째로 SQL에 들어가고 인덱스를 못 쓴다.
 > 갱신이 일 1회 배치 + 검수 판정 시점뿐이라 물리화가 정직하다.
@@ -278,6 +288,25 @@ CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_vis
 > 마이그레이션 파일은 `docs/rules/git.md`의 타임스탬프 버전명 규칙을 따른다. 3·4번이 한
 > 트랜잭션이어야 북마크가 잠시라도 끊기지 않는다.
 
+**이관 PR에서 함께 갱신해야 하는 문서 문구 (v1 컬럼 전제).** 합의 전까지는 **v1이 운영 진실**이라
+이 문구들을 미리 v2로 바꾸면 지금 코드를 만지는 사람이 없는 컬럼을 쓰게 된다. 그래서 여기서는
+**바꾸지 않고 목록으로 고정**한다 — 마이그레이션과 같은 PR에서 한 번에 갱신하고, 그 이행 여부를
+Phase 2 DoD가 판정한다(AC.md §4-2).
+
+| 위치 | v1 문구 | 이관 후 |
+|---|---|---|
+| AC-005·AC-010 | `dedup_group_id`·`is_canonical` fixture·검증 SQL | `source_record` 멤버 + `opportunity` 1행 · `representative_record_id` |
+| AC-024 | 찜한 공고가 강등돼도 유지 | **삭제**(§2-E — id가 그룹 단위라 강등이라는 사건이 없다) |
+| CC-05 | "리스트는 항상 `is_canonical=true`만" | "리스트는 항상 `is_visible`만" |
+| api-spec §0 노출 범위 · §2 `otherSources` · §3 `stats` | `is_canonical` + `review_status` 조건 | `opportunity.is_visible` / 형제만 `source_record.is_publishable` |
+| PRD FR-002 상세동작 1·2 · §5 화면 3 · 부록 데이터 모델 | `dedup_group_id` 부여 · `is_canonical` 설정 | `opportunity` 1행 생성 · `representative_record_id` |
+| CLAUDE.md 절대규칙 4 · `.claude/rules/api.md` 규칙 3·본문 예시 · `.claude/rules/ingest.md` 9 | 위와 동일 | 위와 동일 |
+| `docs/rules/persistence.md`·`testing.md`·`glossary-dev.md`·`git.md` 체크리스트 · `README.md` | 위와 동일 | 위와 동일 |
+
+> **§6-F(FR-011)와 AC-039~044는 예외로 지금 v2 기준이다.** 그 둘은 v1 코드가 아직 없는
+> 미구현 기능의 계약이라 v1로 적을 대상이 없고, 무엇보다 §6-F가 v2 스키마 위에서만 성립한다
+> (검수 게이트가 `source_record.review_status` + `opportunity.is_visible`이다).
+
 ---
 
 ### 2-E. 이 구조가 없애는 규칙들
@@ -286,7 +315,7 @@ CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_vis
 
 | v1에서 필요했던 것 | v2 |
 |---|---|
-| 구 §6-F 규칙 4 — 강등 판정용 `raw` 스냅샷(원문 필드 + 상속 전 자체 파싱 결과)을 저장·비교 (문서 ~15줄 + 전용 코드) | **삭제.** `source_record`엔 상속값이 없으므로 UPSERT의 `ON CONFLICT` 한 문장이 직전 값과 직접 비교한다(§6-F 규칙 3) |
+| 구 §6-F 규칙 4 — 강등 판정용 `raw` 스냅샷(원문 필드 + 상속 전 자체 파싱 결과)을 저장·비교 (문서 ~15줄 + 전용 코드) | **삭제.** `source_record`엔 상속값이 없으므로 UPSERT의 `ON CONFLICT` 한 문장이 직전 값과 직접 비교한다(§6-F 규칙 4) |
 | 구 §6-F 규칙 2 — `CASE` CHECK 2개 + `NULL IN (...)`은 NULL이라는 함정 주석 | `review_status NOT NULL` 4값 + CHECK 한 줄 (§2-B) |
 | 구 §6-F 규칙 8·4 — 승인/강등 시 canonical 원자적 재선정 2곳 | 그룹 1행 재병합 1곳 |
 | 서빙 전 경로에 `is_canonical = true AND (review_status IS NULL OR = 'approved')` 복붙 (+ `ids=`는 예외의 예외) | `WHERE is_visible` 하나. **예외 조항 없음** (§3) |
@@ -481,7 +510,7 @@ END AS d_day
 | 소풍벤처스 | `/oauth2/`만 차단 | ✅ `/contents` | **편입(파일럿)** |
 | KB이노베이션허브 | 전면 허용+sitemap | ✅ | **편입(파일럿)** — 연 1~2회로 빈도 낮음 |
 | 디캠프 | 일반 봇 허용, AI봇 전면 차단+`ai-train=no` | 실사 403 | **보류** — 차단 의사 관측, 재확인 후 판단 |
-| 스파크랩 | 전면 허용 | 게시판 없음(뉴스레터만) | **크롤링 부적합** — 뉴스레터 구독 채널로. 수동 등록하려면 **`source` enum 편입이 선행**(§6-F 규칙 11) — 현재 미편입이므로 백로그 |
+| 스파크랩 | 전면 허용 | 게시판 없음(뉴스레터만) | **크롤링 부적합** — 뉴스레터 구독 채널로. 수동 등록하려면 **`source_registry` 편입 + api-spec `source` enum 동기화가 선행**(§6-F 규칙 11) — 현재 미편입이므로 백로그 |
 | 프라이머 | **서면 허가 요구 명시** | — | **불가** — 허가 요청이 선행 |
 | 언더독스 | **전면 금지(`Disallow: /`)** | — | **불가** |
 | 신한 스퀘어브릿지 | 전면 허용 | ❌ JS 렌더링 | Tier 2 후보(보류) |
@@ -507,12 +536,14 @@ END AS d_day
    - **①이 최우선인 이유(AC-010)**: 마감된 레코드가 노출 가능한 공고를 대표 자리에서 가리면 기본 `status=open` 목록에서 **그룹 전체가 사라진다**. 노출 순위는 `진행중·상시(2) > 기간미상 UNDATED(1) > 마감 CLOSED(0)` — UNDATED가 CLOSED보다 위인 것은 api-spec §0이 UNDATED를 기본 노출에 포함하기 때문.
    - 구현: `apps/ingest`의 `_pick_canonical`(`dedup/engine.py`)이 이 순서 그대로다.
 6. **병합(materialize):** 대표 값 + 아래 상속 규칙을 적용해 `opportunity` 행을 UPSERT하고 `is_visible`을 확정한다. **멤버(`source_record`)를 UPDATE하지 않는다** — v1은 상속을 멤버 컬럼에 써넣어 자체 파싱값을 덮었고(§2 도입부), 그래서 이 단계가 멱등하지 않았다. v2의 병합은 입력이 같으면 결과가 같다.
+   - **UPSERT의 `DO UPDATE SET` 목록에서 `manual_target_startup_stage`·`manual_target_audience_type`·`manual_tagged_at`을 제외한다.** 병합은 이 세 컬럼을 **읽어서 `target_*`에 합칠 뿐**이고(§2-C 불변식 4) 쓰지 않는다. 제외하지 않으면 검수 CLI가 태깅한 단독 민간 공고가 다음 배치에서 NULL로 덮여 **페르소나 탭에서 사라진다** — 민간 멤버의 `source_record.target_*`는 규칙상 항상 NULL이기 때문이다(§6-F 규칙 9).
 - **서빙:** `opportunity`만 조회한다(`WHERE is_visible` — §3). 상세의 "다른 출처에서도 게재"는 멤버를 조회한다(§3 `otherSources` 쿼리).
 
 ### 페르소나 부여 3단계 폭포 (신호 강한 순)
 1. **구조화(직접):** K-Startup `biz_enyy`/`aply_trgt` → 표준 코드(§7). *최고 신뢰.* → `source_record`에 저장.
 2. **상속(dedup 보너스):** 그룹에 K-Startup 멤버가 있으면 → **병합 시 `opportunity.target_*`가 멤버들의 합집합**이 된다. 기업마당 창업분야 상당수가 추가 작업 없이 해결. (부분 신호를 가진 멤버가 있어도 union이라 더 풍부한 값이 버려지지 않는다.)
 3. **텍스트 추출(잔여분):** 기업마당 only 레코드는 `trgetNm`·제목·`bsnsSumryCn`에 **보수적 키워드 규칙**("예비창업"→PRE_STARTUP, "대학생"→UNIV_STUDENT, "N년 미만"→LT_NY). 확실한 패턴만 채움. (LLM 추출은 규칙 정밀도 부족 판명 시 후순위)
+4. **수동 태깅(민간 잔여분 — FR-011):** 민간 소스는 구조화 필드가 없고 본문 전문도 수집하지 않아 1·2·3 어느 단계도 못 채운다 → 검수자가 `opportunity.manual_*`에 직접 넣고, 병합이 이를 1~3의 결과와 **합집합**한다(§6-F 규칙 9). 사람의 판단이라 **`source_record`에는 쓰지 않는다** — 계층 경계(§2) 위반이고, 규칙 4의 강등 비교에 끼어들어 원문이 그대로여도 매 배치 강등을 만든다.
 - **신호 없음 → NULL 유지 = "조건 미상" 표기**(screens.md). 억지로 채우지 않음(가드레일 2).
 - 효과: 페르소나 탭은 `target_*` 쿼리이므로, 데이터가 채워지는 만큼 출처 무관하게 자동 작동(업력별 노출 차등도 별도 로직 불필요).
 
@@ -628,9 +659,11 @@ END AS d_day
    `pending`이라 규칙 4의 강등도 안 걸린다) 사람이 본 값과 확정되는 값이 달라진다. 승인 쪽은
    미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — `rejected`는 이후 재수집에도
    불변이라 보지도 않은 새 내용이 영구 반려로 굳고 검수 큐에 다시 나타나지 않아 유실된다.
-6. **승인은 병합과 원자적이다**: 승인 CLI는 **한 트랜잭션 안에서** ① `review_status='approved'` →
-   ② 해당 건의 dedup 판정(§6-D) → ③ 그룹 `opportunity` 재병합(대표·`is_visible` 확정)을 함께
-   커밋한다. **왜**: 승인만 먼저 커밋하고 병합을 다음 배치에 맡기면 그 사이(최대 하루) 공공
+6. **승인은 병합·태깅과 원자적이다**: 승인 CLI는 **한 트랜잭션 안에서** ① `review_status='approved'` →
+   ② 해당 건의 dedup 판정(§6-D) → ③ 그룹 `opportunity` 재병합(대표·`is_visible` 확정) →
+   ④ 수동 태깅(규칙 9)을 `manual_*`에 기록하고 그 그룹의 `target_*`만 다시 합집합, 을 함께
+   커밋한다. ④가 ③ 뒤인 이유는 단독 민간 공고의 `opportunity` 행이 ③에서 처음 생기기 때문이다.
+   **왜**: 승인만 먼저 커밋하고 병합을 다음 배치에 맡기면 그 사이(최대 하루) 공공
    원본과 민간 중복본이 나란히 노출된다 — PRD Goal 3(dedup 오합치 0)의 체감이 깨지는 구간이다.
    승인 = 공개인 이상 공개 시점에 대표가 이미 정해져 있어야 한다 (AC-041).
 7. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은
@@ -640,10 +673,22 @@ END AS d_day
    확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·
    403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-042). 차단이 반복되면 `source_registry.enabled`를
    false로 내려 수집만 멈춘다(적재된 승인 공고는 그대로 노출 — 편입 취소와 구분한다).
-9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 —
-   절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 수동 태깅은
-   계층 경계상 `source_record`가 아니라 **`opportunity`에 쓴다** — 그래야 재수집이 사람의 판단을
-   덮지 않고, 규칙 4의 비교에도 끼어들지 않는다. 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
+9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `source_record.target_*`를 NULL로 적재
+   (억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL
+   허용). 기록 위치는 **`opportunity.manual_target_startup_stage`·`manual_target_audience_type`**
+   (+ `manual_tagged_at`)이고, 서빙이 읽는 `target_*`는 병합이 **멤버 합집합 ∪ `manual_*`**로
+   계산한다(§2-C 불변식 4 · §6-D 단계 6).
+   - **`source_record`에 안 쓰는 이유**: 그 계층은 매 배치 통째로 덮어써도 안전해야 하는데,
+     수동 태그가 있으면 UPSERT가 사람의 판단을 지운다. 규칙 4의 비교에 끼어들어 원문이 그대로여도
+     강등이 걸리는 문제도 생긴다.
+   - **`opportunity.target_*`에 직접 안 쓰는 이유**: 그 컬럼은 병합의 *출력*이라, 다음 일일 배치의
+     재병합이 멤버 값으로 다시 계산해 덮는다. 민간 멤버의 `target_*`는 항상 NULL이므로 **태깅한
+     단독 민간 공고가 하루 만에 페르소나 탭에서 사라진다.** `manual_*`는 병합의 *입력*이라
+     재병합이 몇 번 돌아도 결과가 같다 (AC-041).
+   - **'미상' 태깅과 미태깅의 구분**: 값은 NULL로 두되 `manual_tagged_at`을 남긴다. 검수 큐·리포트가
+     "아직 태깅 안 한 건"을 다시 잡을 때 값이 아니라 이 컬럼을 본다.
+
+   금액은 §6-E 파이프라인 공용 + 검수 시 확인.
 10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회
     → 건별 승인/반려/태깅(승인은 규칙 6의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
 11. **수동 등록도 정식 편입된 source만**: 뉴스레터 채널(PRD FR-011 8항) 등 사람이 직접 넣는
