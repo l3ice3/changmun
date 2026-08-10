@@ -1,8 +1,14 @@
 # data-model.md
 
-창업 지원·투자·공모전 정보 큐레이션 서비스의 데이터 모델. **[LOCKED — v1 확정]**
+창업 지원·투자·공모전 정보 큐레이션 서비스의 데이터 모델. **[LOCKED]**
 **K-Startup 공식 설계서(v2.0) + 코드표 + 라이브 응답(XML/JSON 10건) 교차검증 완료본.**
-Flyway 첫 마이그레이션(`V1`)의 청사진이자, Java(서빙)·Python(수집)이 공유하는 유일한 계약.
+Java(서빙)·Python(수집)이 공유하는 유일한 계약.
+
+> **v2 개정 진행 중 (2026-08-10 — 3인 합의 대상).** §2가 단일 `opportunity` 테이블에서
+> **저장 계층 3종**(`source_registry` / `source_record` / `opportunity`)으로 바뀐다.
+> 계기는 FR-011 민간 소스 편입 — 한 테이블이 관측·파생·병합·검수 워크플로를 동시에 담아
+> 규칙이 감당 못 할 만큼 불어났다(경위와 없어지는 규칙 목록은 §2 도입부와 §2-E).
+> **v1 실효 스키마는 `/db/migrations/`가 단일 진실**이며, 합의 전까지 운영은 v1이다.
 
 ---
 
@@ -10,9 +16,12 @@ Flyway 첫 마이그레이션(`V1`)의 청사진이자, Java(서빙)·Python(수
 
 1. 스키마 단일 진실 = Flyway SQL. Spring은 `ddl-auto=validate` 고정.
 2. 정규화·중복제거·검증은 전부 크롤러 책임. 서빙은 깨끗한 DB 가정.
-3. 멱등성은 DB가 강제: `(source, external_id)` UNIQUE + UPSERT.
+3. 멱등성은 DB가 강제: `(source_code, external_id)` UNIQUE + UPSERT.
 4. status는 저장하지 않고 조회 시 계산(§4).
 5. snake_case. `user`→`app_user`.
+6. **계층을 섞지 않는다(v2).** 소스가 준 관측·그것만으로 만든 파생 = `source_record` /
+   여러 출처를 합친 실체 = `opportunity`. 상속·수동 태깅은 실체층에만 쓴다. 한 값이 두 계층에
+   동시에 살면 "무엇과 비교해야 하는가"가 모호해지고, 그 모호함을 메우는 규칙이 계속 늘어난다.
 
 ---
 
@@ -57,116 +66,273 @@ JSON에서 확인된 두 가지: **`pbanc_sn`·`id`는 숫자(number)로 옴** �
 
 ---
 
-## 2. 핵심 테이블: `opportunity`
+## 2. 저장 계층 3종 【v2 개정안 — 2026-08-10, 3인 합의 대상】
 
-| 컬럼 | 타입 | NULL | 설명 / 원본 필드 |
-|---|---|---|---|
-| `id` | BIGINT (identity) | NO | 내부 PK |
-| `source` | VARCHAR(40) | NO | `'k-startup'` |
-| `external_id` | VARCHAR(64) | NO | **`pbanc_sn`** (응답의 `<id>`는 행번호이니 사용 금지) |
-| `title` | TEXT | NO | `biz_pbanc_nm` |
-| `summary` | TEXT | YES | `pbanc_ctnt` |
-| `category` | VARCHAR(40) | YES | 표준화 ← `supt_biz_clsfc` |
-| `region` | TEXT[] | YES | 표준화 ← `supt_regin` ("서울","전국"…). **복수 시도 배열**(콤마 분리 → 각 시도 매핑) |
-| `organization` | TEXT | YES | `pbanc_ntrp_nm` (기관명) |
-| `organization_type` | TEXT | YES | `sprv_inst` **원문 그대로**(표시용 — 코드 표준화 안 함). 예: 공공기관·지자체·중앙부처. `organization`처럼 자유 텍스트라 길이 제약 없음 |
-| `support_amount` | TEXT | YES | 지원금 **원문 표기** 보존("최대 1.5억원" 등 — §6-E 추출 시 함께 채움). K-Startup 공고 API엔 필드 없음(§6) |
-| `max_support_amount` | BIGINT | YES | **기업당/1인당 최대 지원액(원)** — 본문 보수 추출(§6-E). 사용자 훅·마케팅 지표. 신호 없으면 NULL |
-| `total_program_budget` | BIGINT | YES | **사업 전체 예산(원)** — 본문 보수 추출(§6-E). 규모 비교·집계용. 신호 없으면 NULL |
-| `target_startup_stage` | TEXT[] | YES | 표준화 ← `biz_enyy` — **차별점 필터** |
-| `target_audience_type` | TEXT[] | YES | 표준화 ← `aply_trgt` ("대학생" 포함) — **차별점 필터** |
-| `eligibility_detail` | TEXT | YES | `aply_trgt_ctnt` (자격 자유텍스트, 표시용) |
-| `application_start_date` | DATE | YES | 파싱 ← `pbanc_rcpt_bgng_dt` (**YYYYMMDD**) |
-| `application_deadline` | DATE | YES | 파싱 ← `pbanc_rcpt_end_dt` (**YYYYMMDD**) |
-| `is_always_open` | BOOLEAN | NO | 상시모집 (기본 FALSE) |
-| `detail_url` | TEXT | NO | `detl_pg_url` |
-| `apply_url` | TEXT | YES | `biz_aply_url` → 비면 `aply_mthd_onli_rcpt_istc`(URL일 때) |
-| `source_status` | VARCHAR(10) | YES | `rcrt_prgs_yn` (Y/N) |
-| `dedup_group_id` | BIGINT | YES | 출처 간 동일 공고 클러스터 (null=단독). dedup 배치가 채움 |
-| `is_canonical` | BOOLEAN | NO | 그룹 대표(표시용). 기본 true — **민간은 `false`로 적재**(승인 시 확정, §6-F 규칙 3·8). 선정 순위는 **노출 가능성 → 출처(K-Startup 우선) → 정보량 → id**(§6-D 규칙 5) |
-| `review_status` | VARCHAR(10) | YES | **민간 소스 검수 상태**(FR-011, §6-F): `NULL`=공공 소스(검수 불요 — 기존 행 백필 불요) / `pending`·`approved`·`rejected`=민간. 서빙은 NULL·approved만. **NULL 허용은 공공 3소스로 CHECK 제약이 한정**(민간·신규 source는 상태 필수 — §6-F 규칙 2). **마이그레이션 예정**(§6-F ALTER — bookmark 선례처럼 문서 선행) |
-| `raw` | JSONB | YES | 원본 전체(biz_trgt_age·신청방법 6종·연락처·intg_* 등). **민간 소스는 예외 — 본문 전문 미수집**(§6-F) |
-| `first_seen_at` | TIMESTAMPTZ | NO | 최초 수집 (UPSERT 때 갱신 안 함) |
-| `updated_at` | TIMESTAMPTZ | NO | 매 UPSERT 갱신 |
+> **왜 나눴나.** v1은 `opportunity` 한 테이블이 네 가지를 동시에 담았다 — ① 소스가 준 관측
+> ② 그 관측만 보고 만든 파생(정규화·페르소나·금액) ③ 여러 출처를 합친 실체(dedup 그룹)
+> ④ 사람 검수 워크플로(FR-011). **②와 ③이 같은 컬럼을 공유한 것**이 문제의 뿌리였다:
+> 그룹 상속이 멤버의 자체 파싱값을 덮어써 소실시키고, 그 소실을 메우려고 `raw` 안에
+> 별도 스냅샷을 넣어 비교하는 규칙이 생겼다(구 §6-F 규칙 4). 민간 소스를 붙이며 ③·④가
+> 처음으로 필수가 되자 규칙이 급격히 불어났다. **분리축은 "소스"가 아니라 "계층"이다** —
+> 소스별로 테이블을 나누면 공통 축(마감일 정렬·페르소나 필터·검색·dedup)이 전부
+> 크로스 테이블이 되고 소스마다 테이블이 늘어난다. 소스별로 다른 건 원본 필드뿐이고
+> 그건 이미 `raw JSONB`가 흡수한다.
 
-> `biz_trgt_age`는 라이브에서 거의 모든 공고가 "전 연령"이라 **저신호 → core에서 제외, raw에만** 보존.
+| 계층 | 한 행이 뜻하는 것 | 쓰는 주체 |
+|---|---|---|
+| `source_registry` | 수집 대상 소스 1종 | 사람 (마이그레이션 seed) |
+| `source_record` | "이 소스가 이 URL에서 이렇게 말했다" | 수집 배치 |
+| `opportunity` | 세상의 공고 1건 (= dedup 그룹) | 병합 배치 · **서빙이 읽는 유일한 표** |
 
-### 현재 스키마 (= `V1__create_opportunity.sql` + 후속 ALTER 마이그레이션 반영)
+**계층 경계 (이 한 줄이 규칙 대부분을 대체한다):** `source_record`에는 **그 레코드 하나만 보고
+결정론적으로 재계산할 수 있는 값만** 들어간다. 그룹 상속값·검수 CLI의 수동 태깅은 절대
+들어오지 않는다. 그래서 ⑴ 매 배치 전 컬럼을 덮어써도 안전하고, ⑵ 직전 값과의 비교가 곧
+"원문이 바뀌었나 또는 파서가 바뀌었나"의 답이 된다.
 
-> 아래는 **현재 효력 스키마**다. V1 원본과 ALTER 이력의 단일 진실은 `/db/migrations/` — 일부 컬럼은 V1 이후 ALTER로 타입이 바뀌었다(예: `organization_type` VARCHAR(20)→TEXT). 위 컬럼 표와 이 블록은 항상 *현재* 타입을 보여준다.
+---
+
+### 2-A. `source_registry` — 소스 추가는 INSERT (ALTER 아님)
+
+v1은 `source` 값 화이트리스트를 CHECK 제약으로 강제해, 소스 하나 편입에 마이그레이션
+ALTER가 두 번 필요했다(구 §6-F 규칙 2·11). 소스는 스키마가 아니라 **데이터**다.
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE TABLE source_registry (
+    code            VARCHAR(40) PRIMARY KEY,     -- 'k-startup' … 'asan-nanum'
+    display_name    TEXT        NOT NULL,        -- 사용자 노출 한글 라벨의 단일 진실
+    kind            VARCHAR(10) NOT NULL CHECK (kind IN ('public', 'private')),
+    requires_review BOOLEAN     NOT NULL,        -- 민간 = true (FR-011 검수 게이트)
+    canonical_rank  SMALLINT    NOT NULL,        -- 대표 선정 ② 순위. 작을수록 우선
+    enabled         BOOLEAN     NOT NULL DEFAULT TRUE,   -- 차단 관측 시 수집만 중단
+    UNIQUE (code, requires_review)               -- source_record의 복합 FK 대상
+);
+```
 
-CREATE TABLE opportunity (
+seed(7종) — `canonical_rank`는 §6-D 규칙 5 ②(K-Startup > 기타 공공 > 민간)를 그대로 옮긴 값이다.
+
+| code | display_name | kind | requires_review | canonical_rank |
+|---|---|---|---|---|
+| `k-startup` | K-Startup | public | false | 0 |
+| `bizinfo` | 기업마당 | public | false | 1 |
+| `ontong-youth` | 온통청년 | public | false | 1 |
+| `asan-nanum` | 아산나눔재단 | private | true | 2 |
+| `kakao-impact` | 카카오임팩트 | private | true | 2 |
+| `sopoong` | 소풍벤처스 | private | true | 2 |
+| `kb-innovation-hub` | KB이노베이션허브 | private | true | 2 |
+
+> `display_name`은 프론트 `SOURCE_LABELS`(`.claude/rules/web.md` 규칙 11)와 같은 집합이어야
+> 한다. api-spec `source` enum과의 동기화는 여전히 **문서 의무**다 — DB는 값의 유효성만
+> 강제하고, 클라이언트 계약이 같이 늘었는지는 못 본다.
+
+---
+
+### 2-B. `source_record` — 관측 + 자체 파생
+
+v1의 `opportunity`가 사실 이것이다. 컬럼 의미는 §6·6-B·6-C의 소스별 매핑이 그대로 유효하다.
+
+```sql
+CREATE TABLE source_record (
     id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    source                  VARCHAR(40)  NOT NULL,
+    source_code             VARCHAR(40)  NOT NULL,
     external_id             VARCHAR(64)  NOT NULL,
+    requires_review         BOOLEAN      NOT NULL,   -- registry에서 복제(복합 FK가 일치 강제)
+    review_status           VARCHAR(10)  NOT NULL,   -- DEFAULT 없음 = 누락 시 INSERT 실패
 
+    -- 원문 사실 필드 (소스가 준 것을 정규화만 한 값)
     title                   TEXT         NOT NULL,
     summary                 TEXT,
     category                VARCHAR(40),
     region                  TEXT[],
     organization            TEXT,
     organization_type       TEXT,
-    support_amount          TEXT,
-    max_support_amount      BIGINT,   -- 기업당 최대 지원액(원) — §6-E 보수 추출, V20260718 추가
-    total_program_budget    BIGINT,   -- 사업 전체 예산(원) — §6-E 보수 추출, V20260718 추가
-
-    -- 타깃팅 (예비창업자·대학생 친화 필터 = 차별점)
-    target_startup_stage    TEXT[],   -- {PRE_STARTUP, LT_1Y, LT_2Y, LT_3Y, LT_4Y, LT_5Y, LT_6Y, LT_7Y, LT_10Y}
-    target_audience_type    TEXT[],   -- {YOUTH, UNIV_STUDENT, GENERAL, UNIVERSITY, RESEARCH_INST, COMPANY, SOLO_CREATOR}
     eligibility_detail      TEXT,
-
     application_start_date  DATE,
     application_deadline    DATE,
     is_always_open          BOOLEAN      NOT NULL DEFAULT FALSE,
-
     detail_url              TEXT         NOT NULL,
     apply_url               TEXT,
-
     source_status           VARCHAR(10),
-    dedup_group_id          BIGINT,
-    is_canonical            BOOLEAN      NOT NULL DEFAULT TRUE,
-    raw                     JSONB,
 
-    first_seen_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    -- 자체 파생 (이 레코드의 본문만 보고 뽑은 값 — 상속·수동태깅 절대 금지)
+    support_amount          TEXT,
+    max_support_amount      BIGINT,
+    total_program_budget    BIGINT,
+    target_startup_stage    TEXT[],
+    target_audience_type    TEXT[],
+
+    opportunity_id          BIGINT REFERENCES opportunity (id) ON DELETE SET NULL,
+    is_publishable          BOOLEAN GENERATED ALWAYS AS
+                            (review_status IN ('not_required', 'approved')) STORED,
+
+    raw                     JSONB,
+    first_seen_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),   -- UPSERT 때 불변
     updated_at              TIMESTAMPTZ  NOT NULL DEFAULT now(),
 
-    CONSTRAINT uq_opportunity_source UNIQUE (source, external_id)
+    CONSTRAINT uq_source_record UNIQUE (source_code, external_id),
+    CONSTRAINT fk_source_record_registry FOREIGN KEY (source_code, requires_review)
+        REFERENCES source_registry (code, requires_review) ON UPDATE CASCADE,
+    CONSTRAINT ck_source_record_review CHECK (
+        review_status IN ('not_required', 'pending', 'approved', 'rejected')
+        AND requires_review = (review_status <> 'not_required')
+    )
 );
 
-CREATE INDEX idx_opportunity_deadline ON opportunity (application_deadline);
-CREATE INDEX idx_opportunity_category ON opportunity (category);
-CREATE INDEX idx_opportunity_region   ON opportunity USING gin (region);  -- TEXT[] 멤버십(@> 배열 포함)
-CREATE INDEX idx_opportunity_stage    ON opportunity USING gin (target_startup_stage);
-CREATE INDEX idx_opportunity_audience ON opportunity USING gin (target_audience_type);
-CREATE INDEX idx_opportunity_title_trgm ON opportunity USING gin (title gin_trgm_ops);
-CREATE INDEX idx_opportunity_canonical ON opportunity (is_canonical) WHERE is_canonical;  -- 서빙은 대표만 조회
-CREATE INDEX idx_opportunity_dedup_grp ON opportunity (dedup_group_id);
+CREATE INDEX idx_source_record_opportunity ON source_record (opportunity_id);
+CREATE INDEX idx_source_record_pending     ON source_record (source_code)
+       WHERE review_status = 'pending';      -- 검수 큐 조회
 ```
 
-> JPA 매핑: Hibernate 6는 `String[]` + `@JdbcTypeCode(SqlTypes.ARRAY)`로 별도 라이브러리 없이 배열 매핑 가능. 만약 까다로우면 `opportunity_audience` 조인 테이블로 대체 가능(트레이드오프 §9).
+**`review_status`가 `NOT NULL` 4값인 이유.** v1 안(`NULL`=공공)은 `NULL IN (...)`이 false가
+아니라 NULL이라 CHECK가 통과시키는 함정이 있었고, 이를 막느라 `CASE … IS NOT NULL AND …`
+분기와 그 이유를 설명하는 주석이 필요했다. **공공을 `'not_required'`라는 명시값으로 두면 그
+함정이 문법적으로 발생할 수 없다.** `DEFAULT`를 두지 않아 상태를 빠뜨린 INSERT는 실패하고
+(fail-closed — AC-039), 복합 FK가 "민간인데 `not_required`" / "공공인데 `pending`"을 함께 막는다.
+CHECK 두 개가 한 줄로 줄고, **신규 공공 소스 편입 시 제약을 ALTER할 필요도 없어진다**
+(registry INSERT로 끝).
+
+**`is_publishable`은 생성 컬럼(GENERATED)이다.** "노출 자격이 있는 레코드"라는 판정을 쿼리마다
+손으로 반복하면 반드시 어딘가 빠뜨린다(구 §6-F 규칙 1이 경고하던 `otherSources` 누락이 그 예).
+생성 컬럼이라 정의가 한 곳에 있고 드리프트가 불가능하다.
+
+> `source_record.opportunity_id` ↔ `opportunity.representative_record_id`는 서로를 참조한다.
+> 마이그레이션에서는 두 테이블을 먼저 만들고 **FK를 `ALTER TABLE ... ADD CONSTRAINT`로 뒤에
+> 붙인다**(§2-D). 순환 자체는 문제가 아니다 — 한 쪽은 "이 레코드가 속한 실체", 다른 쪽은
+> "이 실체를 대표하는 레코드"로 뜻이 다르고, 둘 다 병합 배치가 같은 트랜잭션에서 쓴다.
 
 ---
+
+### 2-C. `opportunity` — 실체(= dedup 그룹), 서빙이 읽는 유일한 표
+
+```sql
+CREATE TABLE opportunity (
+    id                       BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    representative_record_id BIGINT       NOT NULL REFERENCES source_record (id),
+    source_code              VARCHAR(40)  NOT NULL REFERENCES source_registry (code),
+
+    -- 병합 결과 = 대표 레코드 값 + 그룹 상속(§6-D 페르소나 3단계, §6-E 규칙 6 금액)
+    title                    TEXT         NOT NULL,
+    summary                  TEXT,
+    category                 VARCHAR(40),
+    region                   TEXT[],
+    organization             TEXT,
+    organization_type        TEXT,
+    eligibility_detail       TEXT,
+    application_start_date   DATE,
+    application_deadline     DATE,
+    is_always_open           BOOLEAN      NOT NULL DEFAULT FALSE,
+    detail_url               TEXT         NOT NULL,
+    apply_url                TEXT,
+    support_amount           TEXT,
+    max_support_amount       BIGINT,
+    total_program_budget     BIGINT,
+    target_startup_stage     TEXT[],
+    target_audience_type     TEXT[],
+
+    is_visible               BOOLEAN      NOT NULL DEFAULT FALSE,  -- fail-closed 기본값
+    first_seen_at            TIMESTAMPTZ  NOT NULL,   -- 멤버 중 최소(= sort=latest 계약 유지)
+    updated_at               TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_opportunity_deadline   ON opportunity (application_deadline);
+CREATE INDEX idx_opportunity_category   ON opportunity (category);
+CREATE INDEX idx_opportunity_region     ON opportunity USING gin (region);
+CREATE INDEX idx_opportunity_stage      ON opportunity USING gin (target_startup_stage);
+CREATE INDEX idx_opportunity_audience   ON opportunity USING gin (target_audience_type);
+CREATE INDEX idx_opportunity_title_trgm ON opportunity USING gin (title gin_trgm_ops);
+CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_visible;
+```
+
+**불변식** (병합 배치·검수 CLI가 함께 지킨다):
+1. `is_visible = true` ⇔ 그룹에 `is_publishable` 멤버가 1개 이상 있다.
+2. `representative_record_id`는 **`is_publishable` 멤버 중에서** 뽑는다(§6-D 규칙 5의 순위 그대로).
+   노출 가능 멤버가 없으면 `is_visible = false`이고 대표는 아무 멤버나 둔다(어차피 미노출).
+3. `id`는 **대표가 바뀌어도 불변**이다. v1은 canonical이 교체되면 `/opportunities/{id}`의 id가
+   바뀌어 **SSG/ISR로 색인된 SEO URL과 `bookmark.opportunity_id`가 대표 교체에 흔들렸다.**
+   실체층이 생기면서 이 결함이 구조적으로 사라진다.
+
+> 물리 테이블인 이유: 뷰로 두면 대표 선정·상속 로직이 통째로 SQL에 들어가고 인덱스를 못 쓴다.
+> 갱신이 일 1회 배치 + 검수 판정 시점뿐이라 물리화가 정직하다.
+> `dedup_group_id`·`is_canonical` 컬럼은 **없어진다** — 그룹은 이 테이블의 행 자체이고,
+> 대표는 `representative_record_id` 한 컬럼이다.
+
+---
+
+### 2-D. v1 → v2 마이그레이션 (id 승계)
+
+현행 운영 데이터(2026-07-26 실측 29,874행: `k-startup` 29,452 · `ontong-youth` 325 ·
+`bizinfo` 97)를 재수집 없이 옮긴다. **`first_seen_at`을 보존해야** `sort=latest` 계약이 깨지지
+않으므로 전량 재수집이 아니라 이관이다.
+
+1. `source_registry` 생성 + 7종 seed.
+2. **`opportunity` → `source_record` RENAME** (id 그대로 승계) + 신규 컬럼 추가.
+   공공 3소스 기존 행은 `review_status = 'not_required'` · `requires_review = false` 백필.
+   `source` → `source_code` 컬럼명 변경.
+3. 신 `opportunity` 생성 후 그룹별 1행 INSERT — **id는 현재 `is_canonical=true` 행의 id를 승계**
+   (`OVERRIDING SYSTEM VALUE` + `setval`). 단독 공고는 자기 id. → **기존 상세 URL 전량 보존.**
+4. `source_record.opportunity_id` 역참조 채우기 → `bookmark.opportunity_id` FK를 신 테이블로
+   재지정. **비-canonical 행을 찜한 북마크는 그 행이 속한 그룹의 opportunity id로 리매핑**한다
+   (v1 AC-024가 허용하던 상태 — 이관 시 자연히 해소된다).
+5. 구 인덱스·CHECK 정리.
+
+> 마이그레이션 파일은 `docs/rules/git.md`의 타임스탬프 버전명 규칙을 따른다. 3·4번이 한
+> 트랜잭션이어야 북마크가 잠시라도 끊기지 않는다.
+
+---
+
+### 2-E. 이 구조가 없애는 규칙들
+
+문서·코드에서 **삭제되는** 것들이다. 개정의 실익이 여기에 있다.
+
+| v1에서 필요했던 것 | v2 |
+|---|---|
+| 구 §6-F 규칙 4 — 강등 판정용 `raw` 스냅샷(원문 필드 + 상속 전 자체 파싱 결과)을 저장·비교 (문서 ~15줄 + 전용 코드) | **삭제.** `source_record`엔 상속값이 없으므로 UPSERT의 `ON CONFLICT` 한 문장이 직전 값과 직접 비교한다(§6-F 규칙 3) |
+| 구 §6-F 규칙 2 — `CASE` CHECK 2개 + `NULL IN (...)`은 NULL이라는 함정 주석 | `review_status NOT NULL` 4값 + CHECK 한 줄 (§2-B) |
+| 구 §6-F 규칙 8·4 — 승인/강등 시 canonical 원자적 재선정 2곳 | 그룹 1행 재병합 1곳 |
+| 서빙 전 경로에 `is_canonical = true AND (review_status IS NULL OR = 'approved')` 복붙 (+ `ids=`는 예외의 예외) | `WHERE is_visible` 하나. **예외 조항 없음** (§3) |
+| `ck_opportunity_source`·`ck_opportunity_review_status`를 신규 소스마다 ALTER | `source_registry` INSERT |
+| `apps/ingest/db.py`의 `_COLLECTED_COLUMNS`/`_ENRICHED_COLUMNS` 분리 — "UPDATE가 분류 칸을 건드리면 상속이 유실된다"는 제약과 그 우회를 위한 후처리 DB 왕복 4개 | 단일 UPSERT가 전 컬럼 갱신. 정규화·페르소나 직접·금액 추출은 수집 시점에 Python에서 끝낸다 |
+| v1 AC-024 — 찜한 공고가 canonical에서 강등돼도 유지 | **불필요.** id가 그룹 단위라 "강등"이라는 사건 자체가 없다 |
+
+**남는 복잡성 (정직하게):** 검수 낙관적 동시성(§6-F 규칙 5)은 그대로 남는다 — 계층 문제가
+아니라 실제 동시성 문제다. 승인 CLI가 "판정 + 그 그룹 재병합"을 한 트랜잭션으로 묶는 요구도
+남되, 대상이 "그룹 1행 재계산"으로 좁아진다. api-spec `source` enum ↔ registry 동기화도
+문서 의무로 남는다.
+
+---
+
 
 ## 3. 서빙(Spring) 조회 예시
 
 ```sql
 SELECT *
 FROM opportunity
-WHERE (:category IS NULL OR category = :category)
+WHERE is_visible                                                   -- 유일한 노출 게이트(§2-C 불변식 1)
+  AND (:category IS NULL OR category = :category)
   AND (:region   IS NULL OR region @> ARRAY[:region]::text[])   -- 배열 포함(GIN 인덱스 활용)
   AND (:stage    IS NULL OR :stage    = ANY(target_startup_stage))   -- 'PRE_STARTUP'
   AND (:audience IS NULL OR :audience = ANY(target_audience_type))   -- 'UNIV_STUDENT'
   AND (:only_open = FALSE OR is_always_open OR application_deadline >= CURRENT_DATE OR application_deadline IS NULL)  -- 진행중·상시·기간미상(UNDATED) 포함, CLOSED만 제외 (api-spec §0)
-  AND (review_status IS NULL OR review_status = 'approved')   -- 민간은 검수 승인분만 — 모든 서빙 경로(ids=·stats 집계 포함) 공통 불변식 (FR-011, §6-F)
 ORDER BY application_deadline ASC NULLS LAST
 LIMIT :size OFFSET :offset;
 ```
 
 `stage='PRE_STARTUP'` 또는 `audience='UNIV_STUDENT'` = "예비창업자/대학생이 지원 가능한 공고만". 정부 사이트가 안 해주는 핵심 큐레이션.
+
+**`is_visible` 하나가 v1의 두 조건(`is_canonical` + 검수 게이트)을 대신하며, 예외 경로가 없다** —
+리스트·검색·상세·`ids=`(찜)·`stats` 집계 전부 같은 조건을 쓴다. v1은 `ids=`가 canonical 예외이면서
+검수 게이트는 적용해야 하는 "예외의 예외"였고, 조건을 손으로 복붙하다 보니 상세 응답에
+중첩되는 `otherSources`에서 빠뜨리기 쉬웠다.
+
+`otherSources`(api-spec §2)만은 실체가 아니라 멤버를 조회하므로 계층이 하나 내려간다:
+
+```sql
+SELECT r.source_code, r.detail_url
+FROM source_record r
+WHERE r.opportunity_id = :id
+  AND r.is_publishable                     -- 생성 컬럼 — 조건이 한 단어이고 정의는 §2-B 한 곳
+  AND r.id <> :representative_record_id;
+```
 
 ---
 
@@ -288,6 +454,9 @@ END AS d_day
 
 ## 소스 레지스트리 & 비(非)API 소스 정책
 
+> **v2에서 이 절의 "어떤 소스를 넣는가"는 `source_registry` 테이블(§2-A)이 집행한다.** 아래는 그
+> 테이블에 행을 넣어도 되는지 판단하는 **편입 정책**이며, 판정 근거·실사 이력의 기록처다.
+
 - **`source` enum (확정):** 공공 `k-startup`(메인) · `bizinfo`(창업분야만) · `ontong-youth`(창업 슬라이스만) + **민간 화이트리스트(FR-011 파일럿)** `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. external_id 체계가 소스마다 다름(`pbanc_sn` 숫자 / `pblancId` 문자열 / `plcyNo` 20자리 / 민간은 §6-F) → `external_id`는 VARCHAR(64).
 - **비API 공공 소스 = 크롤링 영역 = 제외 유지:** 공공기관이어도 **API가 없고 로그인·JS로 막힌 곳**(CCEI, 전국 테크노파크, 지역기관 다수)은 민간과 동일 취급. CCEI 공식 창업 공고는 K-Startup/기업마당이 대부분 커버하므로 직접 수집 가치 낮음. 커버리지 갭이 실증되면 편입 체크리스트로 재검토.
 - **R&D(SMTECH·과기부)·중소벤처24:** API는 있으나 기업마당과 중복 큼 → Phase 2(중복률 실측 후).
@@ -333,15 +502,16 @@ END AS d_day
 1. **정규화:** `norm_title` = 제목 − `[지역]` 접두 − 연도 − 차수(N차) − 상투어("모집 공고","참여기업","시행계획") + 공백·구분자 통일. `norm_org` = 기관명 약어사전 정규화(중기부=중소벤처기업부 등) + 법인격 접두 제거((재)·(주)·재단법인 등 — 2026-07-16 튜닝, 소스 간 표기차 흡수).
 2. **블로킹:** `application_deadline` 동일 그룹 내에서만 쌍 비교(N² 방지).
 3. **스코어링:** `0.6·similarity(norm_title) [pg_trgm] + 0.25·기관일치 + 0.15·기간일치` → **≥ 0.85**만 동일 판정. (판정 정밀화 — 2026-07-16 튜닝, §11-8 절차·전수 검수 오합치 0: **기관일치** = 후보 집합 교집합 — 같은 공고를 소스마다 소관부처/수행기관으로 다르게 표기(해양수산부 vs 해양수산과학기술진흥원)하므로 organization + raw의 소관·수행 필드를 모두 후보로 / **기간일치** = 시작일 ±1일 — 출처 간 등록 시차 라이브 관찰, 마감일은 블로킹이 동일 강제)
-4. **그룹핑:** 동일 판정 쌍 Union-Find → `dedup_group_id` 부여(단독 공고는 NULL).
-5. **canonical 선정:** **① 노출 가능성 → ② 출처(K-Startup 우선 — 페르소나 필드 풍부) → ③ 정보량(채워진 컬럼 수) → ④ id 안정 정렬** 순으로 뽑아 `is_canonical=true`. **민간 소스(§6-F)는 `approved`만 dedup 대상이며 출처 순위 최하위**(K-Startup > 기타 공공 > 민간 — 어디까지나 ②의 기준이다).
-   - **①이 최우선인 이유(AC-010)**: 마감된 레코드가 노출 가능한 공고를 canonical 자리에서 가리면 기본 `status=open` 목록에서 **그룹 전체가 사라진다**. 노출 순위는 `진행중·상시(2) > 기간미상 UNDATED(1) > 마감 CLOSED(0)` — UNDATED가 CLOSED보다 위인 것은 api-spec §0이 UNDATED를 기본 노출에 포함하기 때문.
+4. **그룹핑:** 동일 판정 쌍 Union-Find → `opportunity` 1행에 대응(v1의 `dedup_group_id`. 단독 공고도 실체 1행을 가진다 — v2는 "그룹 없음"이라는 특수 케이스가 없다).
+5. **대표 선정:** **① 노출 가능성 → ② 출처(`source_registry.canonical_rank` — K-Startup 우선, 페르소나 필드 풍부) → ③ 정보량(채워진 컬럼 수) → ④ id 안정 정렬** 순으로 뽑아 `opportunity.representative_record_id`에 넣는다. 후보는 **`is_publishable` 멤버로 한정** — 민간 `pending`·`rejected`가 대표가 되거나 병합 결과를 오염시키지 않는다(§6-F). 민간이 낮은 건 ②뿐이므로, **마감된 공공 건과 진행 중인 승인 민간 건이 같은 그룹이면 민간이 대표가 된다**(①이 먼저다).
+   - **①이 최우선인 이유(AC-010)**: 마감된 레코드가 노출 가능한 공고를 대표 자리에서 가리면 기본 `status=open` 목록에서 **그룹 전체가 사라진다**. 노출 순위는 `진행중·상시(2) > 기간미상 UNDATED(1) > 마감 CLOSED(0)` — UNDATED가 CLOSED보다 위인 것은 api-spec §0이 UNDATED를 기본 노출에 포함하기 때문.
    - 구현: `apps/ingest`의 `_pick_canonical`(`dedup/engine.py`)이 이 순서 그대로다.
-- **서빙:** 리스트/검색은 `WHERE is_canonical = true`. 상세에서 "다른 출처에서도 게재" 링크로 그룹 내 나머지 노출 가능(선택).
+6. **병합(materialize):** 대표 값 + 아래 상속 규칙을 적용해 `opportunity` 행을 UPSERT하고 `is_visible`을 확정한다. **멤버(`source_record`)를 UPDATE하지 않는다** — v1은 상속을 멤버 컬럼에 써넣어 자체 파싱값을 덮었고(§2 도입부), 그래서 이 단계가 멱등하지 않았다. v2의 병합은 입력이 같으면 결과가 같다.
+- **서빙:** `opportunity`만 조회한다(`WHERE is_visible` — §3). 상세의 "다른 출처에서도 게재"는 멤버를 조회한다(§3 `otherSources` 쿼리).
 
 ### 페르소나 부여 3단계 폭포 (신호 강한 순)
-1. **구조화(직접):** K-Startup `biz_enyy`/`aply_trgt` → 표준 코드(§7). *최고 신뢰.*
-2. **상속(dedup 보너스):** dedup 그룹에 K-Startup 레코드가 있으면 → **그룹 전체가 canonical(K-Startup)의 `target_*`를 공유.** 기업마당 창업분야 상당수가 추가 작업 없이 해결.
+1. **구조화(직접):** K-Startup `biz_enyy`/`aply_trgt` → 표준 코드(§7). *최고 신뢰.* → `source_record`에 저장.
+2. **상속(dedup 보너스):** 그룹에 K-Startup 멤버가 있으면 → **병합 시 `opportunity.target_*`가 멤버들의 합집합**이 된다. 기업마당 창업분야 상당수가 추가 작업 없이 해결. (부분 신호를 가진 멤버가 있어도 union이라 더 풍부한 값이 버려지지 않는다.)
 3. **텍스트 추출(잔여분):** 기업마당 only 레코드는 `trgetNm`·제목·`bsnsSumryCn`에 **보수적 키워드 규칙**("예비창업"→PRE_STARTUP, "대학생"→UNIV_STUDENT, "N년 미만"→LT_NY). 확실한 패턴만 채움. (LLM 추출은 규칙 정밀도 부족 판명 시 후순위)
 - **신호 없음 → NULL 유지 = "조건 미상" 표기**(screens.md). 억지로 채우지 않음(가드레일 2).
 - 효과: 페르소나 탭은 `target_*` 쿼리이므로, 데이터가 채워지는 만큼 출처 무관하게 자동 작동(업력별 노출 차등도 별도 로직 불필요).
@@ -361,7 +531,8 @@ END AS d_day
 3. **단위 변환**: 억=10⁸ · 천만=10⁷ · 백만=10⁶ · 만=10⁴ (원 단위 BIGINT). 소수점("1.5억")·조합("1억 5천만원")·콤마 허용. **"X백만원" 단위 표기(예: 50백만원)는 지원 문맥일 때만** 변환.
 4. **제외(오인 방지 — AC-029)**: 자격 조건 문맥("매출액 X 이하/이상/미만"·"X 이상 투자 유치") · **융자성 문서 통째 제외** — 본문에 상환·융자·대출·보증('보증금' 제외)이 등장하면 추출하지 않는다(창 기반 배제를 빠져나간 실사례를 전수 검수로 확인, 2026-07-18. 혼합 문서는 포기 — 오추출 금지가 우선) · **"N년간/N개년 최대 X원"** — 프로그램 다년 예산이지 기업당 지원금이 아님(캠퍼스타운 실사례).
 5. **범위 표현("5천만~1억원")**: 상한을 `max_support_amount`로. **한계값**: 10만원 미만·1조 초과 버림, 기업당은 20억 초과 버림(실존 최대급=팁스 15억 — 그 이상은 "4년간 최대 80억" 같은 사업단 예산의 오인). bare "총 X원"은 개인 수령 총액 오분류가 확인돼 **명시 표현(총 사업비·총 예산·총 지원 규모)만** 총액으로 인정.
-6. **dedup 그룹 상속**: 그룹 내 추출값을 페르소나 상속과 같은 단계에서 공유(NULL인 멤버만 채움 — 자체 추출값 우선). **예외 — `support_amount` 원문은 max의 출처를 따른다**: `max_support_amount`를 상속받는 멤버(자체 max NULL)는 자체 원문(총예산 문구일 수 있음)을 유지하지 않고 donor의 원문으로 덮는다 — 총예산 문구가 상속된 max와 함께 기업당 지원액처럼 서빙되는 것 방지(Codex #69, api-spec §1). K-Startup은 본문에 금액이 없어(첨부파일 구조) 교차 소스 상속이 주 채움 경로.
+6. **dedup 그룹 병합**: 그룹 멤버들의 추출값을 **`opportunity` 행을 만들 때 컬럼별로 합친다**(§6-D 단계 6 — 대표의 자체값 우선, 없으면 다른 멤버 값). 최대액과 총예산이 서로 다른 출처에서 나온 그룹도 각각 살아남도록 **컬럼별로** 고른다. **예외 — `support_amount` 원문은 max의 출처를 따른다**: `max_support_amount`를 다른 멤버에서 가져오면 원문 표기도 그 멤버 것을 쓴다 — 총예산 문구가 남의 max와 함께 기업당 지원액처럼 서빙되는 것 방지(Codex #69, api-spec §1). K-Startup은 본문에 금액이 없어(첨부파일 구조) 교차 소스 병합이 주 채움 경로.
+   > v1은 이 상속을 **멤버 행에 UPDATE**해서 넣었다. 그 결과 멤버의 자체 파싱값이 사라져 "재수집 시 무엇과 비교할 것인가"가 풀리지 않는 문제가 됐고(구 §6-F 규칙 4의 스냅샷 규칙), 매 배치 값이 흔들려 멱등하지도 않았다. v2는 멤버를 건드리지 않으므로 두 문제가 함께 사라진다.
 7. **원문 보존**: 추출에 사용한 원문 표현을 `support_amount`(TEXT)에 저장(표시·검수용). 추출 실패 시 세 컬럼 모두 건드리지 않음(NULL 유지).
 
 ### 커버리지 현실 (라이브 실측 2026-07-18)
@@ -369,76 +540,79 @@ END AS d_day
 
 ---
 
-## 6-F. 민간 소스 공통 규칙 (FR-011 — 하이브리드) 【2026-07-26 신설 — 3인 합의 대상】
+## 6-F. 민간 소스 공통 규칙 (FR-011 — 하이브리드) 【2026-07-26 신설 · 2026-08-10 v2로 축약 — 3인 합의 대상】
 
 > 파일럿 4소스: `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub` (편입 근거·실사는 소스 레지스트리). 소스별 상세 필드 매핑은 구현 시 각 소스 파일 + 본 절에 확정 기록(§6-B·6-C 선례).
+>
+> **v2 축약 경위**: 이 절은 v1의 단일 테이블 위에서 검수 게이트를 세우느라 규칙 11개까지 늘었다. §2 계층 분리 후 그중 다섯(스냅샷 비교·NULL 함정 CHECK·canonical 원자성 2곳·서빙 불변식 복붙)이 스키마로 흡수돼 사라졌다. 없어진 목록은 §2-E.
 
-### 스키마 변경 (Flyway — 이 문서 합의 후 마이그레이션 추가)
+### 스키마
 
-```sql
--- V{타임스탬프}__add_review_status.sql
-ALTER TABLE opportunity ADD COLUMN review_status VARCHAR(10);
--- NULL = 공공 소스(검수 불요 — 기존 행 백필 불요, 공공 경로 의미 무변경)
--- 'pending' | 'approved' | 'rejected' = 민간 소스(FR-011)
-
--- source는 레지스트리에 편입된 7종만. 오타·미편입 값(예: 'sparklabs')이 들어오면
--- 목록엔 뜨는데 그 값으로 source 필터를 걸면 api-spec enum 검증에서 400이 나는
--- 계약 불일치가 생긴다(규칙 11이 절차로 막는 것을 DB로도 막는다).
-ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_source CHECK (
-    source IN ('k-startup', 'bizinfo', 'ontong-youth',
-               'asan-nanum', 'kakao-impact', 'sopoong', 'kb-innovation-hub')
-);
-
--- NULL 허용은 공공 3소스 화이트리스트에만. 그 밖의 모든 source는 세 상태 중 하나가 필수다.
--- IS NOT NULL을 명시적으로 AND 하는 이유: CHECK는 식이 NULL이면 통과시키는데
--- `NULL IN (...)`는 false가 아니라 NULL이라, 이 가드가 없으면 정작 막으려던 "상태 누락" 행이 통과한다.
-ALTER TABLE opportunity ADD CONSTRAINT ck_opportunity_review_status CHECK (
-    CASE WHEN source IN ('k-startup', 'bizinfo', 'ontong-youth')
-         THEN review_status IS NULL
-         ELSE review_status IS NOT NULL
-              AND review_status IN ('pending', 'approved', 'rejected')
-    END
-);
-
-CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE review_status = 'pending';  -- 검수 큐 조회용
-```
-
-**마이그레이션 안전성 (로컬 실측 2026-07-26)**: 적재된 29,874행의 `source`는 `k-startup`(29,452)·`ontong-youth`(325)·`bizinfo`(97) 셋뿐 — 전부 편입 7종 안에 있고(`ck_opportunity_source` 통과) THEN 분기(`review_status IS NULL`)를 만족하므로 **두 CHECK 추가 시 기존 행 위반 0건, 백필 불요**. 제약 추가는 테이블 전체 스캔 + ACCESS EXCLUSIVE 락이지만 3만 행 규모라 순간이다.
+민간 전용 스키마는 **없다.** `source_registry.requires_review = true` + `source_record.review_status`
+(§2-A·2-B)가 전부이며, 소스 편입은 마이그레이션이 아니라 registry INSERT다.
 
 ### 규칙
 
-1. **서빙 불변식**: 리스트·검색·상세·`ids=`·**홈 지표(`/opportunities/stats` 집계 3종)**·**상세 응답의 `otherSources`(dedup 그룹 형제 조회)** — **전 경로**에 `(review_status IS NULL OR review_status = 'approved')` — §3 예시 반영. `pending`·`rejected`는 어떤 경로로도 노출 금지이며 **카운트에도 잡히지 않고, 승인된 공고의 형제 목록에도 실리지 않는다** (AC-040).
-   > `otherSources`는 최상위 조회가 아니라 **승인된 공고 안에 중첩돼 나가는 노출**이라 놓치기 쉽다 — 현행 `findGroupSiblings`는 `dedup_group_id`만 보고 그룹 전체를 가져오므로, 필터를 빠뜨리면 상세를 404로 막아도 민간 미검수 행의 `source`·`detailUrl`이 공공 공고 응답에 실려 나간다.
-2. **NULL은 공공 전용 — DB가 강제한다(fail-closed)**: 위 `ck_opportunity_review_status`가 NULL 허용을 공공 3소스로 한정한다. 민간 4소스든 뉴스레터 수동 등록(PRD FR-011)이든 신규 수집기든, **상태를 빠뜨린 행은 INSERT 자체가 실패**한다 — "상태 미지정 = NULL = 즉시 공개"로 검수 게이트가 통째로 우회되는 사고를 막기 위함(AC-044). 대가로 **신규 공공 소스 편입 시 이 제약도 함께 ALTER**해야 한다(의도된 마찰 — 새 소스는 검수 대상인지 명시적으로 판정하고 넘어가라).
-3. **적재**: 민간 크롤러는 항상 `review_status='pending'` + `is_canonical=false`로 INSERT(canonical은 승인 시점에 확정 — 규칙 7·8). 재수집 UPSERT는 **내용 필드만 갱신**하고 `first_seen_at`은 불변.
-4. **재수집 시 `review_status` 전이 — 승인은 "그 시점 내용"에 대한 승인이다**: 상태별로 다르게 처리한다.
+1. **서빙 불변식**: 리스트·검색·상세·`ids=`·홈 지표(`stats`)는 `opportunity.is_visible`만 본다.
+   상세의 `otherSources`는 멤버를 조회하므로 `source_record.is_publishable`을 본다(§3).
+   **두 컬럼 모두 정의가 스키마에 있고 조건이 한 단어라, 경로마다 조건을 복붙하다 빠뜨리는
+   v1의 실패 양식이 재발하지 않는다.** `pending`·`rejected`는 어떤 경로로도, 카운트에도,
+   승인된 공고의 형제 목록에도 나타나지 않는다 (AC-040).
+2. **상태 누락은 INSERT 실패 — DB가 강제한다(fail-closed)**: `review_status`는 `NOT NULL`이고
+   `DEFAULT`가 없다. 민간 4소스든 뉴스레터 수동 등록이든 신규 수집기든 **상태를 빠뜨린 행은
+   들어가지 못한다** — "상태 미지정 = 즉시 공개"로 검수 게이트가 우회되는 사고를 막는다(AC-039).
+   복합 FK가 "민간인데 `not_required`" / "공공인데 `pending`"도 함께 거부한다.
+   v1과 달리 **신규 공공 소스 편입 시 제약을 ALTER할 필요가 없다**(§2-A).
+3. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. 재수집 UPSERT는 내용 필드를
+   갱신하고 `first_seen_at`은 불변. `opportunity_id`는 병합 배치가 채운다(미승인 건은 NULL).
+4. **재수집 시 `review_status` 전이 — 승인은 "그 시점 내용"에 대한 승인이다**:
    - `rejected` → **불변**(반려 공고가 재수집으로 부활 금지 — AC-041).
    - `pending` → **불변**(검수 대기 유지 — 내용만 최신화).
-   - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-044). 핵심 필드 = `application_deadline`·`application_start_date`·`title`·`support_amount`(및 파생 금액 2종). 그 밖의 필드(요약·기관 표기 등) 변경은 승인을 유지한다.
+   - `approved` → **핵심 필드가 바뀌면 `pending`으로 되돌린다**(= 재검수 전까지 노출 중단, AC-044).
+     핵심 필드 = `title` · `application_start_date` · `application_deadline` · `support_amount` ·
+     `max_support_amount` · `total_program_budget`. 그 밖(요약·기관 표기 등)은 승인을 유지한다.
 
-   **왜**: 검수 게이트의 존재 이유가 "기계 파싱을 사람이 보증한다"인데, 최초 승인만 검수하면 **이후의 마감일 변경·오파싱이 무검증으로 그대로 노출**된다 — 가드레일 2(마감일 정확성)가 승인 이후 구간에서 통째로 비는 셈. 되돌림은 재검수까지 며칠 미노출을 감수하는 선택이며, 그 반대(틀린 마감일 노출)가 더 큰 해라는 판단이다. 민간 공고량이 소스당 연 1~5건이라 재검수 부담도 작다.
-   **비교 기준은 DB 컬럼이 아니라 수집 스냅샷이다 — 그리고 스냅샷은 원문 필드 + 자체 파싱 결과 둘 다 담는다**: 강등 판정은 **`raw`에 보존된 직전 스냅샷 vs 이번 수집의 같은 항목**을 비교하며, 스냅샷에는 ① 원문에서 뽑은 사실 필드(제목·기간·금액 표기 등 — 규칙 5)와 ② **그 원문으로 자체 파싱한 결과(상속·수동 태깅 이전 값 — 금액 2종 등)** 를 함께 넣는다. `raw`는 JSONB라 스키마 추가는 없다.
-   - **①만으로는 부족하다**: 원문이 그대로인데 **파서가 바뀌면**(오추출 버그 수정·규칙 승격 — §6-E는 실제로 그 이력이 있다) 같은 금액 표기에서 `max_support_amount`가 달라진다. ①만 비교하면 스냅샷이 동일해 `approved`가 유지되고, **바뀐 금액이 사람 검수 없이 카드·필터에 나간다.** ②를 함께 비교하면 잡힌다.
-   - **②를 상속 전 자체 파싱 값으로 두는 게 핵심**이다. 상속 후 값을 넣으면 아래의 오탐 문제가 그대로 돌아온다.
+   **왜**: 최초 승인만 검수하면 이후의 마감일 변경·오파싱이 무검증으로 노출된다 — 가드레일 2가
+   승인 이후 구간에서 통째로 빈다. 재검수까지 며칠 미노출을 감수하는 선택이며, 그 반대(틀린
+   마감일 노출)가 더 큰 해라는 판단이다. 민간 공고량이 소스당 연 1~5건이라 재검수 부담도 작다.
 
-   **DB 컬럼과 비교하면 안 된다** — 승인 후 컬럼은 수집값이 아닌 값을 담을 수 있기 때문이다:
-   - `support_amount`·금액 2종은 **dedup 그룹 상속(§6-E 규칙 6)으로 donor 값이 덮여 있을 수 있다.** 민간 페이지를 다시 파싱하면 자체값(또는 NULL)이 나오므로 donor 값과 항상 달라진다.
-   - `target_*`는 검수 CLI의 **수동 태깅** 결과다(규칙 9).
-
-   그대로 DB 비교를 하면 **원문이 한 글자도 안 바뀌었는데 매 배치마다 "핵심 필드 변경"으로 판정돼 강등된다** — 사람이 재승인해도 다음 배치가 또 강등시키는 무한 루프가 되어 해당 공고가 사실상 영구 미노출이 된다.
-
-   > 정리하면 이 비교는 **두 방향으로 틀릴 수 있고 둘 다 막아야 한다**: DB 컬럼과 비교하면 안 바뀐 걸 바뀌었다고 보고(오탐 → 무한 강등 루프), 원문 필드만 비교하면 바뀐 걸 안 바뀌었다고 본다(누락 → 파서 변경분 무검증 노출). **상속 전 자체 파싱 결과까지 담은 스냅샷**이 양쪽을 동시에 만족하는 유일한 기준이다.
-   **강등도 canonical 재선정과 원자적이다**: 강등되는 행이 그룹의 canonical이었다면, **같은 트랜잭션에서 그룹의 남은 멤버(`approved`·공공) 중 canonical을 다시 뽑는다**(우선순위는 규칙 7). 남은 멤버가 없으면 그룹 전체가 미노출로 남는다(전부 검수 대기이므로 정상). 왜: 강등된 행은 규칙 7에 따라 dedup 대상에서 빠지는데 남은 멤버는 `is_canonical=false`인 채라, 재선정하지 않으면 **승인돼 있던 공고가 그룹째 리스트·검색에서 사라진다**(AC-044).
-5. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은 공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지(수집한 필드의 가공·요약 금지는 동일).
-6. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt 확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-042).
-7. **dedup 참여**: `approved`와 공공(NULL)만 비교 대상 — 검수 전 데이터가 canonical 결정을 오염시키지 않게. canonical 선정은 **§6-D 규칙 5를 그대로 따른다 — ① 노출 가능성 → ② 출처(K-Startup > 기타 공공 > **민간**) → ③ 정보량 → ④ id**. 민간이 낮은 건 ②뿐이므로, **마감된 공공 건과 진행 중인 승인 민간 건이 같은 그룹이면 민간이 canonical이 된다**(①이 먼저다). 출처 순위를 앞에 두면 마감 공공 행이 대표가 되어 기본 `status=open` 목록에서 그룹째 사라진다(AC-010 위반).
-8. **승인은 canonical 확정과 원자적이다**: 민간 행은 `is_canonical=false`로 적재되므로(규칙 3), 승인 CLI는 **한 트랜잭션 안에서** ① 해당 건의 dedup 판정(§6-D) → ② `dedup_group_id`·`is_canonical` 확정 → ③ `review_status='approved'` 를 **함께 커밋**한다. 단독이면 `is_canonical=true`. 그룹에 속하면 **규칙 7의 순위로 그룹 canonical을 재선정**한다 — 출처만 보고 "공공과 중복이면 민간은 무조건 false"로 처리하면 안 된다. 마감된 공공 건과 진행 중인 승인 민간 건이 중복일 때 민간이 대표가 되어야 그룹이 기본 `status=open` 목록에 남는다(①이 ②보다 먼저 — AC-010·AC-041).
-   **왜**: 승인만 먼저 커밋하고 canonical을 다음 수집 배치의 dedup에 맡기면, 그 사이(최대 하루) **공공 원본과 민간 중복본이 리스트·검색에 나란히 노출**된다 — PRD Goal 3(dedup 오합치 0)의 사용자 체감이 깨지는 구간. 승인 = 공개인 이상 공개 시점에 canonical이 이미 정해져 있어야 한다 (AC-041).
-
-   **검수 판정 대상은 사람이 본 그 스냅샷이어야 한다(낙관적 동시성) — 승인·반려 둘 다**: 검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, **승인이든 반려든** 판정 UPDATE를 이렇게 건다:
+   **판정은 UPSERT 한 문장이다.** `source_record`에는 상속값도 수동 태깅도 없으므로(§2 계층 경계)
+   저장된 값이 곧 "직전에 이 원문을 이 파서로 읽은 결과"다. 별도 스냅샷을 둘 이유가 없다:
 
    ```sql
-   UPDATE opportunity
+   INSERT INTO source_record (...) VALUES (...)
+   ON CONFLICT (source_code, external_id) DO UPDATE SET
+       <내용 필드 전부> = EXCLUDED.<...>,
+       review_status = CASE
+           WHEN source_record.review_status = 'approved'
+            AND (source_record.title, source_record.application_start_date,
+                 source_record.application_deadline, source_record.support_amount,
+                 source_record.max_support_amount, source_record.total_program_budget)
+                IS DISTINCT FROM
+                (EXCLUDED.title, EXCLUDED.application_start_date,
+                 EXCLUDED.application_deadline, EXCLUDED.support_amount,
+                 EXCLUDED.max_support_amount, EXCLUDED.total_program_budget)
+           THEN 'pending'
+           ELSE source_record.review_status      -- rejected·pending·not_required 불변
+       END,
+       updated_at = now();
+   ```
+
+   비교 대상에 **파생 컬럼(금액 2종)이 들어 있는 게 핵심**이다. 원문 표기가 그대로여도 파서가
+   바뀌면(오추출 버그 수정·규칙 승격 — §6-E는 실제로 그 이력이 있다) 값이 달라지므로 함께
+   잡힌다. v1은 상속이 컬럼을 덮어써서 DB 비교가 **매 배치 강등되는 무한 루프**를 만들었고,
+   그래서 `raw`에 원문 필드 + 상속 전 자체 파싱 결과를 둘 다 담은 스냅샷을 따로 저장해야 했다.
+   계층이 갈리면서 오탐(무한 루프)과 누락(파서 변경 무검증)이 **동시에** 사라진다.
+
+   **강등 후 대표는 재병합이 다시 뽑는다.** 강등된 행은 `is_publishable`이 false가 되어 대표
+   후보에서 빠지므로, 같은 트랜잭션에서 그 그룹의 `opportunity`를 재병합한다(§6-D 단계 5·6).
+   남은 노출 가능 멤버가 있으면 그 멤버가 대표가 되고, 없으면 `is_visible = false`가 된다.
+   **v1처럼 "그룹째 목록에서 사라지는" 사고 경로가 없다** — 실체 행은 남고 대표만 바뀐다(AC-044).
+5. **검수 판정은 사람이 본 스냅샷에 대해서만 유효하다 (낙관적 동시성 — 승인·반려 둘 다)**:
+   검수 CLI는 pending 내용을 읽을 때 그 행의 `updated_at`을 함께 들고, 판정을 이렇게 건다.
+
+   ```sql
+   UPDATE source_record
       SET review_status = :verdict, updated_at = now()   -- ← 판정도 updated_at을 반드시 올린다
     WHERE id = :id
       AND updated_at = :seen_at        -- 내가 본 스냅샷 그대로인가
@@ -446,15 +620,44 @@ CREATE INDEX idx_opportunity_review_pending ON opportunity (review_status) WHERE
    ```
 
    0행이 갱신되면 판정을 취소하고 "내용이 바뀌었거나 이미 판정됐다 — 다시 검수하라"고 알린다.
-   **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의 경합을, `review_status = 'pending'` 비교는 *다른 검수자*와의 경합을 막는다. 그리고 `SET`에서 `updated_at`을 올리는 게 필수다 — `updated_at`은 `DEFAULT now()`일 뿐 **자동 갱신 트리거가 없어서**(§2 스키마), 판정이 이 값을 안 건드리면 같은 행을 함께 읽은 두 검수자의 **반대 판정이 둘 다 성공해 나중 것이 앞선 결정을 조용히 덮는다**(AC-041).
-   **왜**: 검수자가 화면을 읽은 뒤 판정을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은 `pending`이라 규칙 4의 강등도 안 걸린다) **사람이 본 값과 확정되는 값이 달라진다**. 승인 쪽은 미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — 규칙 4에서 `rejected`는 이후 재수집에도 불변이라, 보지도 않은 새 내용이 영구 반려로 굳고 **검수 큐에 다시 나타나지 않아 그대로 유실**된다 (AC-041).
-9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 — 절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
-10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회 → 건별 승인/반려/태깅(승인은 규칙 8의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
-11. **수동 등록도 정식 편입된 source만 — DB가 강제한다**: 뉴스레터 채널(PRD FR-011 8항) 등 사람이 직접 넣는 경로도 **`source`는 소스 레지스트리 + api-spec `source` enum에 이미 편입된 값**이어야 한다(편입 = 체크리스트 6항목 + 3인 합의). 미편입 소스는 등록하지 않고 백로그에 둔다 — enum 밖 임시값(`sparklabs` 등)을 넣으면 **api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400**이 되고, 기존 4종 중 하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를 건너뛸 사유가 아니다.
-    절차만으로는 오타 한 번에 뚫리므로 위 **`ck_opportunity_source`가 편입 7종만 통과**시킨다(AC-039). 규칙 2와 마찬가지로 **신규 소스 편입 시 두 제약을 함께 ALTER**해야 한다 — `ck_opportunity_source`(값 허용) + 공공이면 `ck_opportunity_review_status`(NULL 허용 분기).
-12. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호. 모두 VARCHAR(64) 이내.
+   **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의, `review_status =
+   'pending'` 비교는 *다른 검수자*와의 경합을 막는다. `SET`에서 `updated_at`을 올리는 게 필수다 —
+   자동 갱신 트리거가 없어서(§2-B), 판정이 이 값을 안 건드리면 같은 행을 함께 읽은 두 검수자의
+   **반대 판정이 둘 다 성공해 나중 것이 앞선 결정을 조용히 덮는다**(AC-041).
+   **왜**: 검수자가 화면을 읽은 뒤 판정을 입력하기 전에 일일 배치가 같은 행을 UPSERT하면(그 행은
+   `pending`이라 규칙 4의 강등도 안 걸린다) 사람이 본 값과 확정되는 값이 달라진다. 승인 쪽은
+   미검증 내용이 공개되는 문제이고, **반려 쪽은 더 나쁘다** — `rejected`는 이후 재수집에도
+   불변이라 보지도 않은 새 내용이 영구 반려로 굳고 검수 큐에 다시 나타나지 않아 유실된다.
+6. **승인은 병합과 원자적이다**: 승인 CLI는 **한 트랜잭션 안에서** ① `review_status='approved'` →
+   ② 해당 건의 dedup 판정(§6-D) → ③ 그룹 `opportunity` 재병합(대표·`is_visible` 확정)을 함께
+   커밋한다. **왜**: 승인만 먼저 커밋하고 병합을 다음 배치에 맡기면 그 사이(최대 하루) 공공
+   원본과 민간 중복본이 나란히 노출된다 — PRD Goal 3(dedup 오합치 0)의 체감이 깨지는 구간이다.
+   승인 = 공개인 이상 공개 시점에 대표가 이미 정해져 있어야 한다 (AC-041).
+7. **raw 정책 (절대규칙 3의 민간 적용)**: 공고 **본문 전문을 수집·저장하지 않는다** — 민간 공고문은
+   공공누리 없는 저작물(전재 리스크). raw에는 목록·상세에서 추출한 **사실 필드**(제목·기관·기간·
+   금액 표기·대상 문구)·원문 URL·수집 메타만. "원본 그대로" 원칙은 *수집한 것*에 한해 유지한다.
+8. **수집 기술 Tier 1 한정 + 예절 의무**: requests+BeautifulSoup4+feedparser만. 매 실행 robots.txt
+   확인 · UA `changmun-bot/1.0 (+https://changmun.com/bot)` · 요청 간 ≥1초 · 일 1회. robots 불허·
+   403/429 → 해당 소스 스킵+리포트, 우회 금지 (AC-042). 차단이 반복되면 `source_registry.enabled`를
+   false로 내려 수집만 멈춘다(적재된 승인 공고는 그대로 노출 — 편입 취소와 구분한다).
+9. **페르소나·금액**: 민간은 구조화 필드 없음 → 크롤러는 `target_*` NULL 적재(억지 채움 금지 —
+   절대규칙 8). **검수 CLI에서 수동 태깅**(태깅 단계는 필수, 값은 '미상'=NULL 허용). 수동 태깅은
+   계층 경계상 `source_record`가 아니라 **`opportunity`에 쓴다** — 그래야 재수집이 사람의 판단을
+   덮지 않고, 규칙 4의 비교에도 끼어들지 않는다. 금액은 §6-E 파이프라인 공용 + 검수 시 확인.
+10. **검수 CLI**: `apps/ingest`의 poetry 스크립트(예: `python -m ingest.review`) — pending 목록 조회
+    → 건별 승인/반려/태깅(승인은 규칙 6의 트랜잭션). **관리자 웹 UI 아님**(PRD Out-of-Scope 유지).
+11. **수동 등록도 정식 편입된 source만**: 뉴스레터 채널(PRD FR-011 8항) 등 사람이 직접 넣는
+    경로도 `source_code`가 `source_registry`에 있어야 한다(편입 = 체크리스트 6항목 + 3인 합의).
+    FK가 오타·미편입 값을 거부한다. 미편입 소스는 등록하지 않고 백로그에 둔다 — registry 밖
+    임시값을 쓰면 api-spec `source` 계약이 깨져 같은 값으로 필터 요청 시 400이 되고, 기존 4종 중
+    하나를 빌려 쓰면 출처 표기가 틀어진다. "게시판이 없다"는 수집 방식의 문제일 뿐 편입 절차를
+    건너뛸 사유가 아니다.
+12. **external_id 체계(파일럿 4소스 — 구현 시 안정성 검증 후 확정 기록)**: `asan-nanum`=공지 URL
+    slug / `kakao-impact`=`atclId` / `sopoong`=게시글 식별자 / `kb-innovation-hub`=공고 번호.
+    모두 VARCHAR(64) 이내.
 
 ---
+
 
 ## 7. 표준 분류 → `taxonomy.md`
 
@@ -523,6 +726,10 @@ CREATE TABLE bookmark (
 CREATE INDEX idx_bookmark_user ON bookmark (user_id);
 ```
 
+> **v2**: `bookmark.opportunity_id`는 계속 실체층(`opportunity`)을 참조한다 — 사용자가 찜한 건
+> "공고 1건"이지 "출처별 기록"이 아니다. 실체 id가 대표 교체와 무관하게 고정되므로(§2-C 불변식 3)
+> v1에서 필요했던 "강등돼도 찜 유지" 예외가 사라진다. 이관 절차는 §2-D 4번.
+
 ---
 
 ## 8-B. 쇼케이스 (스코프 확장 — 2026-08-01 사장님 단독 승인, `기획안-쇼케이스.md`)
@@ -579,7 +786,12 @@ UPDATE showcase_product SET status='REJECTED', reject_reason='사유', updated_a
 
 | 결정 | 이유 | 트레이드오프 |
 |---|---|---|
-| `(source, external_id)` UNIQUE + UPSERT | 멱등성 DB 강제 | — |
+| **저장 계층 3종 분리(v2)** | 관측·파생/실체/워크플로가 한 행에 섞여 상속이 자체 파싱값을 덮었고, 그 소실을 메우는 규칙이 계속 늘었다(§2 도입부) | 계층이 하나 늘어 ingest가 "레코드 쓰기 / 그룹 만들기" 2단. 이관 마이그레이션 1회 + api·ingest 조회·쓰기 계층 재작성 (응답 계약·`apps/web`은 무변경) |
+| 실체층을 물리 테이블로 (뷰 아님) | 대표 선정·상속을 SQL 뷰에 넣으면 인덱스를 못 쓰고 로직이 쿼리에 갇힌다. 갱신은 일 1회 배치 + 검수 판정뿐 | 병합 결과가 멤버와 중복 저장 — 배치가 유일한 쓰기 주체라는 규율로 감당 |
+| 실체 `id`를 승계·고정 | `/opportunities/{id}`가 SSG/ISR로 색인되고 `bookmark`가 이 id를 참조 — v1은 대표 교체로 id가 바뀌었다 | 이관 시 id 승계 + 북마크 리매핑 마이그레이션이 필요 |
+| 소스를 CHECK가 아니라 `source_registry` 테이블로 | 소스 편입이 마이그레이션 ALTER 2회였다 | api-spec `source` enum 동기화는 여전히 문서 의무(DB가 못 잡는다) |
+| `review_status` NOT NULL 4값(`not_required` 포함) | `NULL IN (...)`이 NULL이라 CHECK가 통과시키는 함정 제거 | 공공 행에도 의미 없는 값이 한 칸 들어간다 |
+| `(source_code, external_id)` UNIQUE + UPSERT | 멱등성 DB 강제 | — |
 | status 미저장, 조회 시 계산 | 일 1회 갱신이라 저장값 stale | 조회마다 계산(무시 가능) |
 | stage·audience TEXT[] + GIN | 예비창업자/대학생 필터 = 핵심 차별점 | 배열 JPA 매핑 한 꺼풀 (싫으면 조인테이블) |
 | category 열린 enum(+기타) | 공고 API가 코드표보다 값 많음(판로·해외진출) | 미지값 모니터링 필요 |
@@ -600,7 +812,11 @@ UPDATE showcase_product SET status='REJECTED', reject_reason='사유', updated_a
 - 차별점 검증: 10건 중 `예비창업자` 포함 6건(서울AI허브·서울바이오허브·KAIST 외) → PRE_STARTUP 필터 유효. ✔
 - 마감 상태: `rcrt_prgs_yn=N` 1건(OpenAI, 마감 20260605)이 deadline·URL(`bizpbanc-deadline.do`)과 일치. ✔
 
-**소스 명세 확정:** K-Startup(라이브 10건) ✔ / 기업마당 Bizinfo(공식 명세) ✔ / 온통청년(실데이터 10건) ✔ — **셋 다 `opportunity` 스키마로 변경 없이 수용**(설계 3회 검증). 비API 소스(CCEI·테크노파크 등)는 크롤링 영역으로 MVP 제외.
+**소스 명세 확정:** K-Startup(라이브 10건) ✔ / 기업마당 Bizinfo(공식 명세) ✔ / 온통청년(실데이터 10건) ✔ — **셋 다 스키마 변경 없이 수용**(설계 3회 검증). 비API 소스(CCEI·테크노파크 등)는 크롤링 영역으로 MVP 제외.
+
+> **필드 매핑 표(§6·6-B·6-C)의 좌측 열 `opportunity`는 v2에서 `source_record`를 가리킨다.** 수집이
+> 쓰는 대상이 관측 계층으로 바뀌었을 뿐 필드 매핑 자체는 그대로다(§2-B). `opportunity`(실체)는
+> 수집이 아니라 병합 배치가 채운다.
 
 **남은 확인(스키마 변경 아님):**
 1. 더 많은 페이지로 각 소스의 category·지역·대상 값 전체 집합 확정.
