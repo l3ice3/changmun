@@ -10,7 +10,7 @@
 | 무엇을 할 때 | 보는 문서 |
 |---|---|
 | 기능 요구사항·엣지 케이스 | `docs/PRD.md` (FR-001~011) |
-| 완료 판정 기준 | `docs/AC.md` (AC-001~044, CC-01~07, Phase 1·2 DoD) |
+| 완료 판정 기준 | `docs/AC.md` (AC-001~045, CC-01~07, Phase 1·2 DoD) |
 | DB 스키마·소스 매핑·dedup | `docs/data-model.md` (**LOCKED** — 변경은 3인 합의 필수. §2는 **v2 개정안 심의 중** — 합의 전까지 운영 진실은 `/db/migrations`의 v1) |
 | API 요청/응답 형식 | `docs/api-spec.md` (필드명·enum 임의 변경 금지) |
 | 화면·배지·페르소나 탭 | `docs/screens.md` |
