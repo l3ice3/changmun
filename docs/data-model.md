@@ -277,8 +277,8 @@ CREATE INDEX idx_opportunity_visible    ON opportunity (is_visible) WHERE is_vis
 --   ① 사라진 실체 id의 리다이렉트 대상   ② 분할이 이 병합을 되돌릴 때 복구할 대상 목록
 CREATE TABLE opportunity_merge_log (
     id           BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    absorbed_id  BIGINT      NOT NULL UNIQUE,   -- 사라진 opportunity.id (FK 아님 — 대상 행이 없다)
-    survivor_id  BIGINT      NOT NULL REFERENCES opportunity (id) ON DELETE CASCADE,
+    absorbed_id  BIGINT      NOT NULL UNIQUE,   -- 사라진 opportunity.id
+    survivor_id  BIGINT      NOT NULL,          -- 흡수한 실체. 이 행도 나중에 흡수될 수 있다
     record_ids   BIGINT[]    NOT NULL,          -- 흡수 시점 absorbed_id의 멤버 (부활 판정 기준)
     bookmark_ids BIGINT[]    NOT NULL,          -- 이 병합으로 옮겨진 찜
     merged_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -294,9 +294,17 @@ CREATE INDEX idx_merge_log_survivor ON opportunity_merge_log (survivor_id);
 > **어느 컬럼 값과도 일치하지 않아 A를 부활시키지 못한다.** 병합은 **단계마다 다른 집합**을
 > 옮기므로 기록도 단계 단위여야 한다. 배열 두 개로 한 행에 담아 테이블 수를 늘리지 않았다.
 >
-> 리다이렉트는 `absorbed_id → survivor_id`를 **따라간다**(생존 실체가 또 흡수됐으면 한 홉 더).
-> 병합은 항상 더 나중 시각으로만 이동하므로 사이클이 없다. 컬럼을 갱신해 체인을 없애는 방식은
-> 이력을 덮어써 부활 판정을 망가뜨리므로 쓰지 않는다.
+> **두 컬럼 다 FK가 아니다.** `absorbed_id`는 이미 사라진 행을 가리키고, `survivor_id`도
+> **나중에 그 실체가 또 흡수되면 사라진다** — `B→A` 로그가 있는 상태에서 `A`가 `C`에 흡수되는
+> 경우다. 여기에 `REFERENCES opportunity ON DELETE CASCADE`를 걸면 **A를 지우는 순간
+> `B→A` 로그가 함께 지워져** 리다이렉트 체인이 끊기고 중첩 부활(`{A,B}` 복원 후 `B` 복원)이
+> 성립하지 않는다. 이 표는 **현재 존재하는 실체가 아니라 과거의 사건**을 기록하므로 참조
+> 무결성을 걸 대상이 아니다.
+>
+> 리다이렉트는 `absorbed_id → survivor_id`를 **따라간다**(생존 실체가 또 흡수됐으면 한 홉 더 —
+> 그 `survivor_id`가 다른 행의 `absorbed_id`로 나타난다). 병합은 항상 더 나중 시각으로만
+> 이동하므로 사이클이 없다. 컬럼을 갱신해 체인을 없애는 방식은 이력을 덮어써 부활 판정을
+> 망가뜨리므로 쓰지 않는다.
 >
 > 이 표는 **감사 로그가 아니라 "아직 되돌려지지 않은 병합"의 목록**이다. 분할이 어떤 병합을
 > 되돌리면 그 행을 지운다 — 남겨 두면 같은 부활이 두 번 발동한다.
