@@ -516,6 +516,12 @@ Then:  pending·rejected 단독 건은 다섯 경로 모두에서 나타나지 �
 And:   (B) 상세의 otherSources에는 is_publishable 형제(approved)만 실리고
        pending·rejected 형제의 source·detailUrl은 나타나지 않는다
        (멤버를 직접 조회하는 유일한 경로 — 그룹 전체가 노출 가능해도 멤버 단위로 걸러야 한다)
+And:   (B)의 pending 형제에만 식별 가능한 금액·페르소나(예: max_support_amount=777원,
+       target_audience_type=['UNIV_STUDENT'])를 넣어 두면,
+       그 값이 병합 결과(opportunity)에 **나타나지 않는다** —
+       상속 donor도 is_publishable 멤버로 한정되기 때문이다(§6-D 단계 6).
+       대표만 걸러서는 막지 못하는 경로다: 대표는 승인된 공공인데
+       금액이 없어 미검수 민간 멤버 값이 카드·금액 필터로 새어 나간다
 And:   (B)에서 대표만 남기고 나머지 멤버를 전부 pending으로 내리면,
        재병합이 is_visible을 유지/해제한 결과가 불변식 1과 일치한다
        (노출 가능 멤버 0개 → is_visible=false)
@@ -523,6 +529,7 @@ And:   (B)에서 대표만 남기고 나머지 멤버를 전부 pending으로 �
 **검증**
 - [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — (A)로 다섯 경로 각각(stats는 집계 3종 전부)
 - [ ] 자동: 동 — (B) 단일 opportunity fixture로 상세 응답의 `otherSources` 중첩 검증(`is_publishable` 조건 제거 시 실패해야)
+- [ ] 자동: 병합 배치 실DB 통합 — **상속 오염 검증**: pending 형제의 표식 금액(777원)·페르소나가 병합 결과에 없음. 상속 입력에서 `is_publishable` 필터를 빼면 실패해야 한다
 - [ ] 자동: 병합 배치 실DB 통합 — **불변식 1·2 검사**: `is_visible = true` ⇔ `is_publishable` 멤버 ≥ 1, 그리고 **`is_visible = true`인 행에 한해** `representative_record_id`가 `is_publishable` 멤버를 가리킨다. 멤버가 전부 pending·rejected인 그룹은 노출 가능 멤버가 아예 없으므로 대표는 아무 멤버나 두고 `is_visible=false`로 숨는다(§2-C 불변식 2 — 대표 컬럼이 `NOT NULL`이라 비워 둘 수 없다). v2는 서빙 조건이 한 단어라 **누락의 위험이 서빙 쿼리에서 병합 배치로 옮겨간다** — 게이트를 진짜로 지키는 곳이 여기다
 - [ ] **회귀 방지 확인**: 서빙 쿼리에서 `WHERE is_visible`을 빼면 (A) 테스트가, `AND r.is_publishable`을 빼면 (B) 테스트가 **각각 실패해야** 한다. 통과한다면 fixture가 다른 조건에 우연히 기대고 있는 것이므로 fixture를 고친다(이 AC의 v1판이 `is_canonical`에 기대다 그 함정에 빠졌다)
 
@@ -623,18 +630,28 @@ Then:  두 실체가 하나로 합쳐지고 survivor는 멤버 first_seen_at이 
        (동률이면 id가 작은 쪽 — §6-D 단계 4-B)
 And:   흡수된 id로 상세를 조회하면 opportunity_alias를 통해 survivor로 리다이렉트된다
        (색인된 SEO URL이 404가 되지 않는다 — 병합은 id 불변식의 유일한 예외다)
-And:   북마크 3건이 전부 survivor를 가리키고, 양쪽을 찜했던 사용자는
-       UNIQUE(user_id, opportunity_id) 충돌로 1건만 남되 **찜이 사라지지 않는다**
+And:   북마크는 **2건**이 남아 전부 survivor를 가리킨다 —
+       원래 3행이지만 양쪽을 찜했던 사용자는 UNIQUE(user_id, opportunity_id) 충돌로
+       1행이 지워진다. **그 사용자의 찜 자체는 사라지지 않는다**(survivor 쪽에 남음)
+And:   옮겨진 찜에는 merged_from_id에 병합 전 실체 id가 기록된다
+       (이미 값이 있으면 유지 — 최초 출처를 보존, 체인 금지)
 And:   수동 태그는 합집합으로 살아남는다(한쪽만 있으면 그 값,
        manual_tagged_at은 더 늦은 쪽)
 When:  이어서 제목·기관이 갈라져 stale 그룹이 해제되는 fixture로 다시 실행하면
-Then:  기존 representative_record_id를 포함한 쪽이 survivor의 id를 승계하고
-       나머지는 새 행이 되며, 새 행의 manual_* 는 NULL이다
+Then:  기존 representative_record_id를 포함한 쪽이 survivor의 id를 승계하고,
+       갈라져 나온 쪽의 manual_* 는 NULL이다
        (사람이 어느 쪽을 보고 판단했는지 알 수 없다 — 미태깅으로 검수 큐에 다시 잡힌다)
+And:   **갈라져 나온 멤버가 예전에 흡수된 실체 그대로면 새 id를 발급하지 않고
+       opportunity_alias의 old_id를 되살리며 그 alias 행을 지운다** —
+       오합치를 해제했는데도 옛 상세 URL이 계속 틀린 실체로 리다이렉트되면
+       dedup의 비파괴 원칙이 실체층에서 깨진다
+And:   merged_from_id = old_id 인 찜이 되살아난 id로 돌아가고 그 컬럼은 NULL이 된다.
+       단 병합 때 중복으로 지워졌던 찜은 복구되지 않는다(문서화된 한계 — §6-D 단계 4-B)
 And:   alias가 다시 병합되면 new_id가 최종 survivor로 갱신돼 리다이렉트 체인이 생기지 않는다
 ```
 **검증**
-- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑·중복 찜·태그 합집합·alias 기록) / 분할(id 승계·새 행 미태깅) 각각
+- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑 2건·`merged_from_id` 기록·태그 합집합·alias 기록) / 분할(id 승계·갈라진 쪽 미태깅) 각각
+- [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · alias 행 삭제 · `merged_from_id` 찜 복귀를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
 - [ ] 자동: 동 — 배정 트랜잭션이 중간에 실패하면 `opportunity_id`가 가리키는 실체 행이 없는 멤버가 **0건**(4-B~6이 한 트랜잭션)
 - [ ] 자동: API 슬라이스 — 흡수된 id의 상세 요청이 survivor로 리다이렉트(404 아님)
 - [ ] 자동: 실DB 통합 — 금액 상속받은 승인 건을 **원문 무변경으로 2회 재수집** → approved 유지(강등 0회). 상속·수동 태깅 컬럼이 오탐을 만들지 않는지
