@@ -27,7 +27,9 @@ src/test/java/   # 본 패키지를 미러링. 슬라이스 테스트 — AC-011
 ## 규칙
 1. **`ddl-auto=validate` 고정.** 엔티티가 스키마와 안 맞으면 기동 실패가 정답(엔티티를 고친다, 스키마를 바꾸지 않는다).
 2. **status·dDay·closingSoon·badges 산식은 도메인 값 객체에 캡슐화** — service는 기준일(today)을 주입해 호출만 한다(산식을 service에 if-getter로 펼치지 않음). api-spec §0이 유일한 정의. DB 저장 금지, 프론트 위임 금지.
-3. **리스트/검색 쿼리에 `is_canonical = true` 고정.** `ids=` 조회만 예외.
+3. **노출 게이트는 6경로 전부에 건다** — 리스트·검색·상세·`ids=`·**stats 집계 3종**·**`findGroupSiblings`(상세의 `otherSources`)**. 뒤 둘이 함정이다: stats는 대표 여부만 세던 곳이고, `otherSources`는 *승인된 공고 안에 중첩돼* 나가서 상세를 404로 막아도 새어 나간다.
+   - **[v1 — 현행 스키마]** 리스트/검색 쿼리에 `is_canonical = true` 고정(`ids=`만 예외) + `(review_status IS NULL OR review_status = 'approved')`는 예외 없이 전 경로(FR-011).
+   - **[v2 이관 후 — data-model §2-D]** 최상위 5경로는 `WHERE is_visible` **하나, 예외 없음**(`ids=`도 포함). `otherSources`만 계층이 내려가 `source_record.is_publishable`을 본다. 두 컬럼 다 스키마에 정의가 있으니 **조건을 손으로 조합하지 말 것** — v1의 실패 양식이 조건 복붙 누락이었다.
 4. 페르소나 매핑은 api-spec enum 그대로: `PRE_STARTUP` / `UNIV_STUDENT` / `EARLY_STAGE`(={LT_1Y,LT_2Y,LT_3Y}).
 5. **모든 사용자 입력은 파라미터 바인딩** — 문자열 조립 쿼리 절대 금지 (AC-021). `q`는 최소 2글자 검증(400).
 6. 잘못된 enum 파라미터 → 400 `INVALID_PARAM` / 범위 초과 page → 200 + 빈 items (AC-014).

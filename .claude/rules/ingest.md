@@ -5,15 +5,17 @@ paths:
 
 # rules/ingest.md — apps/ingest (Python, poetry)
 
-> 수집·정규화·dedup·페르소나 부여 배치. 근거: `docs/data-model.md` §6/6-B/6-C/6-D, PRD FR-001·002.
+> 수집·정규화·dedup·페르소나 부여 배치. 근거: `docs/data-model.md` §6/6-B/6-C/6-D/6-F, PRD FR-001·002·011.
 
 ## 구조
 ```
 src/ingest/
   sources/      # kstartup.py, bizinfo.py, ontong_youth.py — 소스별 fetch+매핑 (1소스 1파일)
+                # 민간(FR-011): asan_nanum.py, kakao_impact.py, sopoong.py, kb_innovation_hub.py
   normalize/    # enum 정규화(category 11종+기타), 날짜 split, region 매핑, HTML strip
   dedup/        # norm key → 블로킹 → 스코어링(0.85) → union-find → canonical
   persona/      # 3단계: 직접(K-Startup) → 상속(그룹) → 키워드 규칙 → NULL
+  review.py     # 민간 검수 CLI(FR-011): pending 목록 → 승인/반려 + 페르소나 태깅 (관리자 웹 UI 금지)
   db.py         # UPSERT (ON CONFLICT (source, external_id))
   main.py       # 오케스트레이션: 소스 수집(격리) → dedup → 리포트
 tests/          # pytest — fixture는 실제 API 응답 표본 사용
@@ -26,5 +28,13 @@ tests/          # pytest — fixture는 실제 API 응답 표본 사용
 4. **미지 enum → '기타' + 원본 로그** (AC-005). 열린 enum 원칙 — 새 값에 crash 금지.
 5. **dedup 임계 0.85는 상수로 분리**(튜닝 대상). 오합치 > 놓침 — 경계 케이스는 합치지 않는다 (AC-008).
 6. **페르소나 키워드 규칙은 보수적으로** — 확실한 패턴만. 못 잡으면 NULL (AC-009). LLM 호출 금지(MVP).
-7. 실행 결과 리포트 출력: 소스별 신규/갱신/스킵/미지값 건수 (DoD 항목).
+7. 실행 결과 리포트 출력: 소스별 신규/갱신/스킵/미지값 건수 (DoD 항목). **민간 소스는 추가로 파싱 0건 시 "파손 의심" 경고 + pending 잔량** (AC-043).
 8. 외부 호출은 timeout + 재시도 N회. API 키는 env로만.
+9. **민간 소스(FR-011)** — 계약은 data-model **§6-F(v2 스키마 전제)**이며, v2 이관(§2-D) 뒤에 구현한다. 화이트리스트만(소스 레지스트리 — 신규 편입은 체크리스트+3인 합의). 기술은 **Tier 1만**: requests+BeautifulSoup4+feedparser — 헤드리스 브라우저·차단 우회 절대 금지. **본문 전문 미수집**(사실 필드+원문 URL만).
+   - **적재**: `source_record`에 `review_status='pending'`. `DEFAULT`가 없어 **상태를 빠뜨리면 INSERT가 실패한다**(fail-closed). 미편입·오타 `source_code`는 `source_registry` FK가 거부한다.
+   - **재수집 UPSERT**: `rejected`·`pending`·`not_required` 불변, **`approved`는 `title`·`application_deadline` 변경 시에만 `pending`으로 강등**(그 밖의 필드는 갱신만 — 새로 읽은 값이 더 정확하다). `eligibility_detail` 변경은 강등이 아니라 **그 실체의 `manual_*` 초기화 → 태깅 큐** — `ON CONFLICT DO UPDATE`의 `IS DISTINCT FROM` 한 문장이다(§6-F 규칙 4). **`raw` 스냅샷을 따로 두지 말 것** — `source_record`엔 상속값이 없어 저장값이 곧 직전 파싱 결과다.
+   - **`opportunity`(실체)는 병합 배치만 쓴다.** 강등·승인 시 그 그룹 1행을 재병합하면 대표(`representative_record_id`)와 `is_visible`이 같이 확정된다 — 대표 재선정 순서는 §6-D 규칙 5(**노출 가능성이 출처보다 먼저**).
+   - **수동 태깅은 `opportunity.manual_target_*`에만.** 병합 UPSERT의 `DO UPDATE SET` 목록에서 이 컬럼들을 **빼라** — 넣으면 민간 멤버의 `target_*`가 항상 NULL이라 다음 배치가 태그를 지운다(§6-F 규칙 9, AC-041). `source_record`에 쓰는 것도 금지(계층 경계 + 강등 오탐).
+   - **판정 UPDATE(승인·반려 둘 다)**: `SET review_status = :verdict, updated_at = now()` + `WHERE updated_at = :seen_at AND review_status = 'pending'`. 0행이면 취소·재검수. 두 조건이 각각 *배치와의* / *다른 검수자와의* 경합을 막고, 자동 갱신 트리거가 없어 **판정이 `updated_at`을 직접 올리지 않으면 가드가 무력**하다. 반려는 불변이라 못 본 내용이 영구 반려로 굳는다.
+   - 수동 등록도 **registry에 편입된 source만**(§6-F 규칙 11).
+10. **크롤링 예절 의무**(AC-042): 매 실행 robots.txt 확인 → 불허면 요청 없이 스킵. UA `changmun-bot/1.0 (+https://changmun.com/bot)`. 요청 간 ≥1초. 403/429 → 즉시 해당 소스 중단+리포트(재시도·우회 금지).
