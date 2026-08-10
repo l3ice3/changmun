@@ -642,16 +642,29 @@ Then:  기존 representative_record_id를 포함한 쪽이 survivor의 id를 승
        갈라져 나온 쪽의 manual_* 는 NULL이다
        (사람이 어느 쪽을 보고 판단했는지 알 수 없다 — 미태깅으로 검수 큐에 다시 잡힌다)
 And:   **갈라져 나온 멤버가 예전에 흡수된 실체 그대로면 새 id를 발급하지 않고
-       opportunity_alias의 old_id를 되살리며 그 alias 행을 지운다** —
+       opportunity_alias의 old_id를 되살리며, 그 멤버들의
+       merged_from_opportunity_id를 비우고 alias 행을 지운다** —
        오합치를 해제했는데도 옛 상세 URL이 계속 틀린 실체로 리다이렉트되면
-       dedup의 비파괴 원칙이 실체층에서 깨진다
+       dedup의 비파괴 원칙이 실체층에서만 깨진다
 And:   merged_from_id = old_id 인 찜이 되살아난 id로 돌아가고 그 컬럼은 NULL이 된다.
        단 병합 때 중복으로 지워졌던 찜은 복구되지 않는다(문서화된 한계 — §6-D 단계 4-B)
 And:   alias가 다시 병합되면 new_id가 최종 survivor로 갱신돼 리다이렉트 체인이 생기지 않는다
+
+Given: 서로 다른 실체 B·C가 A에 함께 흡수된 상태 (alias 2행: B→A, C→A)
+When:  B의 멤버만 stale 판정으로 갈라진다
+Then:  merged_from_opportunity_id=B 인 멤버 집합과 정확히 일치하므로 B가 되살아나고,
+       C의 alias·provenance는 그대로 남는다
+       (alias 두 행만으로는 어느 멤버가 B 소속이었는지 고를 수 없다 —
+        이 케이스가 provenance 없이 구현 불가능함을 드러낸다)
+And:   B 멤버의 **일부만** 갈라지거나 병합 후 새로 붙은 멤버가 섞이면
+       B를 되살리지 않고 **새 id를 발급한다** —
+       되살린 id가 예전과 다른 공고를 가리키면 리다이렉트가 거짓말을 한다
+       (새 URL이 생기는 편이 낫다)
 ```
 **검증**
 - [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·북마크 리매핑 2건·`merged_from_id` 기록·태그 합집합·alias 기록) / 분할(id 승계·갈라진 쪽 미태깅) 각각
-- [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · alias 행 삭제 · `merged_from_id` 찜 복귀를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
+- [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · alias 행 삭제 · `merged_from_id` 찜 복귀 · `merged_from_opportunity_id` 초기화를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
+- [ ] 자동: **2중 흡수 후 부분 분할** — B·C를 A에 흡수한 뒤 B만 분할 → B 부활 + C alias 유지 / 이어서 B 멤버의 일부만 분할 → 새 id 발급(부활 안 함). 앞 항목은 provenance 없이도 우연히 통과할 수 있어 이 케이스가 실제 판정 근거다
 - [ ] 자동: 동 — 배정 트랜잭션이 중간에 실패하면 `opportunity_id`가 가리키는 실체 행이 없는 멤버가 **0건**(4-B~6이 한 트랜잭션)
 - [ ] 자동: API 슬라이스 — 흡수된 id의 상세 요청이 survivor로 리다이렉트(404 아님)
 - [ ] 자동: 실DB 통합 — 금액 상속받은 승인 건을 **원문 무변경으로 2회 재수집** → approved 유지(강등 0회). 상속·수동 태깅 컬럼이 오탐을 만들지 않는지
