@@ -322,13 +322,16 @@ ALTER TABLE opportunity   ADD CONSTRAINT fk_opportunity_representative
    **북마크는 값을 먼저 고치고 FK를 나중에 건다** — 순서가 이렇다:
 
    ① `bookmark`의 기존 FK **DROP**(RENAME 때문에 지금은 `source_record`를 가리키고 있다) →
-   ② **비-canonical 행을 찜한 북마크를 그 행이 속한 그룹의 opportunity id로 리매핑**
+   ② **중복이 될 행을 먼저 DELETE** — 같은 사용자가 한 그룹의 대표와 비-canonical을 둘 다 찜한
+   경우의 비-canonical 행. 그 사용자의 찜은 대표 쪽 행으로 남는다 →
+   ③ 남은 **비-canonical 찜을 그 행이 속한 그룹의 opportunity id로 리매핑**
    (v1 AC-024가 허용하던 상태 — 이관 시 자연히 해소된다) →
-   ③ 같은 사용자가 한 그룹의 두 행을 찜했으면 `UNIQUE(user_id, opportunity_id)` 충돌 → 한 행만 남긴다 →
    ④ 신 `opportunity` 대상 FK **ADD**.
 
-   ④를 ②보다 먼저 하면 **비-canonical id를 찜한 행이 하나라도 있는 순간 이관이 실패한다** —
-   신 `opportunity`에는 대표 id만 들어 있어서 Postgres의 기존 행 검증에 걸린다.
+   **순서가 양쪽으로 강제된다.** ④를 ③보다 먼저 하면 신 `opportunity`에 대표 id만 있어 Postgres의
+   기존 행 검증에 걸리고, ②를 ③보다 뒤로 미루면 리매핑 `UPDATE`가 그 자리에서
+   `uq_bookmark(user_id, opportunity_id)`를 위반해 **중복 제거까지 가보지도 못한다**
+   (FK를 떼도 UNIQUE는 그대로 살아 있다).
 6. 구 CHECK·기본값 정리.
 
 > 마이그레이션 파일은 `docs/rules/git.md`의 타임스탬프 버전명 규칙을 따른다. 4·5번이 한
@@ -648,8 +651,10 @@ END AS d_day
 3. **적재**: 민간 크롤러는 항상 `review_status='pending'`으로 INSERT. 재수집 UPSERT는 내용 필드를
    갱신하고 `first_seen_at`은 불변. `opportunity_id`는 병합 배치가 채운다(미승인 건은 NULL).
 4. **재수집은 내용만 갱신한다 — `review_status`는 바뀌지 않는다**:
-   `rejected`·`pending`·`approved`·`not_required` 전부 불변이고, 상태 전이는 **검수자의 판정
-   한 방향뿐**이다(`pending` → `approved`/`rejected`). UPSERT는 이렇게 끝난다.
+   `rejected`·`pending`·`approved`·`not_required` 전부 불변이다. **상태를 바꾸는 주체는 사람뿐**이며
+   전이는 두 가지다 — 검수 판정(`pending` → `approved`/`rejected`)과, 검수자가 명시적으로 되돌리는
+   **재검수 지정**(`approved` → `pending`, 아래 제목 경고 대응). **배치는 어느 쪽도 하지 않는다** —
+   없앤 것은 "자동 강등"이지 사람의 판단이 아니다. UPSERT는 이렇게 끝난다.
 
    ```sql
    INSERT INTO source_record (...) VALUES (...)
@@ -671,7 +676,7 @@ END AS d_day
    재활용해 같은 `external_id`에 전혀 다른 공고가 들어오면, 아무도 승인한 적 없는 공고가 승인
    상태로 노출된다 — 이게 유일하게 남는 위험이다. 다만 파일럿 4소스의 식별자(공지 URL slug ·
    `atclId` · 게시글 식별자 · 공고 번호 — 규칙 12)는 모두 재사용되지 않는 체계라 **실제로 일어날
-   가능성이 낮다.** 사람이 리포트를 보고 필요하면 검수 큐에 다시 넣으면 된다(AC-044).
+   가능성이 낮다.** 사람이 리포트를 보고 필요하면 검수 CLI로 **재검수 지정**(`approved` → `pending`)해 검수 큐로 되돌린다(AC-044).
 
    **자격 문구가 바뀌면 수동 태그를 비운다.** 민간은 구조화 필드가 없어 검수자가
    `eligibility_detail`을 읽고 페르소나를 매긴다(규칙 9). 그 문구가 바뀌면 태그의 근거가
