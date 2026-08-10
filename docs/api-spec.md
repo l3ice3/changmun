@@ -13,7 +13,7 @@
 | 네이밍 | **camelCase** (예: `applicationDeadline`, `dDay`) |
 | 날짜 | `YYYY-MM-DD` (date) / `ISO 8601` (datetime) |
 | 계산 필드 | `status`·`dDay`·`closingSoon`·`badges`는 **서버가 계산해 포함** — 프론트 재계산 금지 (AC-013) |
-| 노출 범위 | 리스트·검색은 `is_canonical=true`만. **단 `ids=` 조회는 canonical 여부 무관**(찜한 공고가 강등돼도 사라지면 안 됨 — AC-024) |
+| 노출 범위 | **[v1 — 현행 운영]** 리스트·검색은 `is_canonical=true`만. **단 `ids=` 조회는 canonical 여부 무관**(찜한 공고가 강등돼도 사라지면 안 됨 — AC-024). **[v2 이관 후]** 예외 없이 `opportunity.is_visible` 하나 — `ids=`도 예외가 아니다(강등이라는 사건이 없어져 AC-024가 불필요해진다). 이관 시점·대상은 data-model §2-D |
 | 에러 바디 | **RFC7807 `ProblemDetail`**(Spring Boot 내장): `{ type, title, status, detail, instance }` + 확장 필드 `code` 보존 — `INVALID_PARAM`(400) / `NOT_FOUND`(404) / `INTERNAL`(500). 프론트는 `code`로 분기 |
 | 캐싱 | 리스트·상세·glossary는 public cache 허용(데이터 갱신=일 1회). 상세 페이지는 ISR과 동기 |
 
@@ -101,7 +101,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `supportAmount`(원문 표기)·`maxSupportAmount`(기업당/1인당 최대 지원액, 원 단위 — data-model `max_support_amount`)는 미상이면 `null`(억지 채움 금지 — FR-008). 카드 표시는 **"최대 X원" 사실 서술까지만**, 수령 보장 표현 금지(FR-008 가드레일). `total_program_budget`(사업단 예산)은 사용자 필터·카드 대상 아님(집계용). **총예산 원문만 잡힌 공고(`max_support_amount` NULL)도 두 필드 `null`로 서빙** — DB의 `support_amount` 원문(검수용 보존)을 그대로 싣지 않는다.
 
 ### GET /api/v1/opportunities/stats — 홈 지표
-홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 조회 시 `is_canonical = true` **AND `(review_status IS NULL OR review_status = 'approved')`** 기준 count(민간 검수 전·반려 공고는 세 집계 어디에도 포함 안 됨 — FR-011, data-model §6-F). (literal 경로라 `/{id}`보다 우선 매칭)
+홈 히어로 카운트. **계산값 미저장**(절대 규칙 2) — 민간 검수 전·반려 공고는 세 집계 어디에도 포함되지 않는다(FR-011, data-model §6-F 규칙 1). 조건은 다른 서빙 경로와 **항상 같다**: **[v1 — 현행 운영]** `is_canonical = true AND (review_status IS NULL OR review_status = 'approved')` / **[v2 이관 후]** `WHERE is_visible`. FR-011 구현이 v2 이관 뒤이면 v1 조건은 쓰지 않는다(§2-D). (literal 경로라 `/{id}`보다 우선 매칭)
 | 필드 | 정의 |
 |---|---|
 | `open` | 진행 중(상시·기간미상 포함, `CLOSED` 제외) |
@@ -137,7 +137,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 ```
 - `matchedTerms`: summary·eligibilityDetail에서 glossary 매칭된 용어만(0개면 빈 배열 — AC-015, 프론트는 빈 배열 시 영역 미표시).
 - `applyUrl` null 가능 → 프론트는 "공고 원문 보기"만 (AC-017).
-- `otherSources`: dedup 그룹 내 비-canonical 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능. **검수 게이트 적용 대상** — 형제 조회에도 `(review_status IS NULL OR review_status = 'approved')`를 걸어 민간 pending·rejected의 `source`·`detailUrl`이 승인된 공고 응답에 실리지 않게 한다(FR-011, AC-040).
+- `otherSources`: dedup 그룹 내 대표 아닌 출처(선택 표시, 없으면 빈 배열). **Could** — MVP 생략 가능. **검수 게이트 적용 대상** — 그룹 전체가 노출 가능해도 **형제는 멤버 단위로** 걸러 민간 pending·rejected의 `source`·`detailUrl`이 승인된 공고 응답에 실리지 않게 한다(FR-011, AC-040). 조건: **[v1]** `(review_status IS NULL OR review_status = 'approved')` / **[v2 이관 후]** `source_record.is_publishable` — v2에서 **최상위 경로(`is_visible`)와 조건이 다른 유일한 경로**다(계층이 하나 내려간다 — data-model §3).
 - 마감 공고도 `200` + `status="CLOSED"` (AC-018). 없는 id → `404` (AC-016).
 
 ---

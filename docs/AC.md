@@ -31,7 +31,7 @@
 | FR-008 | 지원금 규모 추출 (데이터) | AC-028 ~ AC-030 | 구현(데이터) — AC-028~030 Pass(파서 단위 22케이스 + 실DB 상속·멱등 통합). **라이브 검수 반복(오추출 5유형→규칙 승격) 후 149건 채움**(K-Startup 88·온통청년 41·기업마당 20 — 후처리 재산출이 기존 행 본문도 커버, 원 생략형 포함 149건). 최신 공고 전수 + K-Startup 상위 표본 검수 오추출 0. 서빙·표시는 FR-009 |
 | FR-009 | 지원금 필터·서빙 노출 | AC-031 ~ AC-033 | 구현 — `hasAmount`·`minAmount` 필터 + `maxSupportAmount`·`supportAmount` 리스트 노출 + 카드 금액 표시·필터 드롭다운(web). AC-031(슬라이스 3케이스: 유무·하한·페르소나 조합)·AC-032(E2E 직렬화 non-null/null)·AC-033(파싱 단위 4케이스 + E2E 400) Pass. web 수동 절차는 AC-032 검증란. 확장 예약(maxAmount)은 api-spec §1 명시. 총예산 원문만 잡힌 공고(max NULL)는 두 필드 null 서빙 — 카드 총예산 오노출 방지(Codex #69 반영, E2E 케이스 추가) |
 | FR-010 | 쇼케이스 (창업자 제품 홍보) | AC-034 ~ AC-038 | 구현 — 선검수 후게시·리스트/상세·응원·댓글·주간 모아보기. AC-034~037 자동 테스트 Pass(슬라이스 6케이스 + E2E 8케이스, 실 PostgreSQL). AC-038(웹 화면)은 수동 절차 Pass(2026-08-01 로컬 검증: 리스트·상세·404·로그인 게이트·홈 주간 섹션). 검수는 DB 수동(data-model §8-B) |
-| FR-011 | 민간 공고 수집 (하이브리드) | AC-039 ~ AC-044 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-044). 소스 실사 이력은 data-model 소스 레지스트리. **번호 재배정(2026-08-10)**: 원안은 FR-010/AC-034~039였으나 쇼케이스가 먼저 머지돼 같은 번호를 점유 → FR-011/AC-039~044로 이관 |
+| FR-011 | 민간 공고 수집 (하이브리드) | AC-039 ~ AC-044 | **문서 확정(2026-07-26, 팀 3인 합의) — 구현 대기.** 파일럿 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub), Tier 1 기술 한정, `review_status` 검수 게이트(승인 후 핵심 필드 변경 시 재검수 — AC-044). 소스 실사 이력은 data-model 소스 레지스트리. **번호 재배정(2026-08-10)**: 원안은 FR-010/AC-034~039였으나 쇼케이스가 먼저 머지돼 같은 번호를 점유 → FR-011/AC-039~044로 이관. **AC-039~044는 data-model v2 저장 계층(§2, 3인 합의 대상)을 전제로 기술** — v2 미합의 시 v1 컬럼 기준으로 되돌려야 한다 |
 
 > **프론트(S1~S4) 구현 완료** — 위 표의 '…는 프론트' 항목(FR-003~007의 검색 UI·찜 localStorage(AC-022)·로깅 fire-and-forget(AC-026) 등)은 web 앱에 구현됨(프론트는 수동 AC 절차 기준 판정).
 > **FR-001~007 이후 추가 개선**(별도 AC 없음 — 스코프 확장 승인): 홈 지표 `GET /opportunities/stats` · 출처 `source` 필터 + 출처별 둘러보기 · 다크(나이트) 모드 · 검색 팝업 · 직행식 카드.
@@ -461,78 +461,100 @@ Then:  쇼케이스 리스트는 승인작만 카드로 노출(카테고리·정
 
 ### FR-011: 민간 공고 수집 (하이브리드)
 
+> **스키마 전제 — v2 저장 계층 3종**(data-model §2, 3인 합의 대상). 아래 AC는 `source_registry` /
+> `source_record`(관측 + 자체 파생 + `review_status`) / `opportunity`(실체 = dedup 그룹, `is_visible`)를
+> 전제로 쓰였다. v1의 `dedup_group_id`·`is_canonical`·`opportunity.review_status`는 v2에 없으므로
+> **fixture는 `source_record` 멤버 + 그 멤버가 매달린 `opportunity` 1행**으로 만든다.
+> v2가 합의되지 않으면 이 여섯 AC는 v1 컬럼 기준으로 되돌려야 한다.
+
 #### AC-039: 화이트리스트 4소스가 pending으로 적재된다 (Happy / Must)
 ```gherkin
 Given: 화이트리스트 4소스(asan-nanum·kakao-impact·sopoong·kb-innovation-hub)의 실제 응답 표본 fixture
+       + source_registry에 7종이 seed된 DB
 When:  민간 수집 배치를 실행한다
-Then:  소스별 레코드가 review_status='pending'으로 적재되고,
-       external_id·title·detail_url·source가 NOT NULL이며,
-       raw에 공고 본문 전문이 없다(사실 필드 + 원문 URL + 수집 메타만 — data-model §6-F)
-And:   민간 source 행을 review_status 없이(NULL) INSERT하면
-       DB 제약 ck_opportunity_review_status로 실패한다
-       (상태 누락이 NULL=공공으로 해석돼 검수 게이트를 우회하는 경로 차단 — fail-closed)
+Then:  소스별 source_record가 review_status='pending'·requires_review=true로 적재되고,
+       external_id·title·detail_url·source_code가 NOT NULL이며,
+       is_publishable(생성 컬럼)이 false로 계산되고,
+       raw에 공고 본문 전문이 없다(사실 필드 + 원문 URL + 수집 메타만 — data-model §6-F 규칙 7)
+And:   review_status를 빼고 INSERT하면 NOT NULL 위반으로 실패한다
+       (DEFAULT가 없다 — 상태 누락이 "즉시 공개"로 새는 경로 차단, fail-closed. §2-B)
 And:   미편입 source(오타 'asan-nanm' · 백로그 'sparklabs')는 review_status가
-       유효해도 ck_opportunity_source로 INSERT가 실패한다
+       유효해도 fk_source_record_registry로 INSERT가 실패한다
        (미편입 값은 목록엔 뜨지만 같은 값의 source 필터가 400이 되는 계약 불일치를 만든다)
+And:   ('asan-nanum', requires_review=false) / ('k-startup', review_status='pending')은
+       각각 복합 FK와 ck_source_record_review로 거부된다
+       (민간이 검수를 건너뛰는 행 · 공공이 검수 큐를 오염시키는 행)
 ```
 **검증**
-- [ ] **수동(웹)**: 민간 4소스 각각 1건을 승인한 뒤 카드·상세의 출처 표기가 **한글 라벨**(아산나눔재단·카카오임팩트·소풍벤처스·KB이노베이션허브)로 뜨고, 출처 필터에 네 항목이 선택 가능한지. `SOURCE_LABELS` 누락 시 `sourceLabel()`이 `asan-nanum` 같은 내부 값을 그대로 노출하고 필터에서도 사라진다(PRD FR-011 10항)
+- [ ] **수동(웹)**: 민간 4소스 각각 1건을 승인한 뒤 카드·상세의 출처 표기가 **한글 라벨**(아산나눔재단·카카오임팩트·소풍벤처스·KB이노베이션허브)로 뜨고, 출처 필터에 네 항목이 선택 가능한지. `SOURCE_LABELS` 누락 시 `sourceLabel()`이 `asan-nanum` 같은 내부 값을 그대로 노출하고 필터에서도 사라진다(PRD FR-011 10항). 라벨의 단일 진실은 `source_registry.display_name`(§2-A)
 - [ ] 자동: `apps/ingest/tests/` — 소스별 fixture 파싱 + 필수 필드 + raw 정책(전문 부재) 검증
-- [ ] 자동: 실DB 통합(pytest) 또는 리포지토리 슬라이스(Testcontainers) — 민간 source + review_status NULL INSERT가 제약 위반으로 거부됨
-- [ ] 자동: 동 — 미편입/오타 source INSERT가 `ck_opportunity_source` 위반으로 거부됨
+- [ ] 자동: 실DB 통합(pytest) 또는 리포지토리 슬라이스(Testcontainers) — `review_status` 누락 INSERT가 NOT NULL 위반으로 거부됨
+- [ ] 자동: 동 — 미편입/오타 `source_code` INSERT가 **FK 위반**으로 거부됨 (v1은 `ck_opportunity_source` CHECK였다 — v2는 registry 행이 없으면 자동으로 막힌다)
+- [ ] 자동: 동 — 민간/공공 ↔ `review_status` 불일치 2케이스가 복합 FK·CHECK로 거부됨
 
 #### AC-040: 검수 전 공고는 어떤 서빙 경로에도 노출되지 않는다 (Negative / Must)
 ```gherkin
 Given: fixture를 두 벌로 나눈다 —
-       (A) 최상위 경로용: **is_canonical=true인 단독 민간 공고** pending 1건·rejected 1건
-           (+ approved 1건 + 공공 1건). 서로 다른 그룹이거나 dedup_group_id=NULL.
-           ※ canonical인 pending은 규칙 4의 강등이 실제로 만든다 —
-             단독 승인 건(is_canonical=true)이 마감일 변경으로 pending이 된 상태.
-             is_canonical 필터가 우연히 가려 주지 않는 배치라야 게이트를 진짜로 검증한다.
-       (B) otherSources용: pending·rejected·approved 민간 + 공공 4건이
-           **같은 dedup 그룹**에 있고 canonical은 공공 건
+       (A) 최상위 경로용: 단독(멤버 1개) 민간 공고 3건 — pending·rejected·approved 각 1건 +
+           공공(not_required) 1건. 넷 다 opportunity 행을 하나씩 갖고,
+           병합 결과 is_visible은 approved·공공만 true다(§2-C 불변식 1).
+           ※ pending 건은 규칙 4의 강등이 실제로 만드는 상태다 —
+             한 번 승인돼 is_visible=true였던 단독 건이 마감일 변경으로 pending이 되고
+             재병합에서 is_visible이 false로 내려간 뒤의 배치라야 게이트를 진짜로 검증한다.
+       (B) otherSources용: pending·rejected·approved 민간 + 공공 4개 source_record가
+           **한 opportunity에 매달려** 있고 대표는 공공 멤버
 When:  (A)로 리스트·검색(q)·상세({id})·찜(ids=)·홈 지표(stats)를 각각 호출하고,
-       (B)로 공공 canonical 건의 상세 응답에 실린 otherSources를 확인한다
-Then:  'pending'·'rejected'는 다섯 경로 모두에서 나타나지 않고,
-       'approved'와 공공(NULL)만 서빙된다 (CC-05의 canonical 조건과 AND).
-       stats는 open·newToday·closingSoon 세 집계 모두에서 pending·rejected를 제외한다
-       (기존 stats 쿼리는 is_canonical만 세므로 — (A)의 canonical pending은
-        review_status 조건이 없으면 그대로 카운트에 샌다)
-And:   공공 건 상세의 otherSources에는 'approved' 형제만 실리고
-       'pending'·'rejected' 형제의 source·detailUrl은 나타나지 않는다
-       (findGroupSiblings는 dedup_group_id만 보므로 — 상세를 404로 막아도
-        승인된 공고 응답에 중첩돼 새어 나가는 경로다)
+       (B)로 그 opportunity 상세 응답에 실린 otherSources를 확인한다
+Then:  pending·rejected 단독 건은 다섯 경로 모두에서 나타나지 않고
+       (`WHERE is_visible` 하나가 유일한 게이트이며 ids=도 예외가 아니다 — §3),
+       stats는 open·newToday·closingSoon 세 집계 모두에서 이들을 제외한다
+And:   (B) 상세의 otherSources에는 is_publishable 형제(approved)만 실리고
+       pending·rejected 형제의 source·detailUrl은 나타나지 않는다
+       (멤버를 직접 조회하는 유일한 경로 — 그룹 전체가 노출 가능해도 멤버 단위로 걸러야 한다)
+And:   (B)에서 대표만 남기고 나머지 멤버를 전부 pending으로 내리면,
+       재병합이 is_visible을 유지/해제한 결과가 불변식 1과 일치한다
+       (노출 가능 멤버 0개 → is_visible=false)
 ```
 **검증**
 - [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — (A)로 다섯 경로 각각(stats는 집계 3종 전부)
-- [ ] 자동: 동 — (B) 단일 그룹 fixture로 공공 canonical 상세 응답의 `otherSources` 중첩 검증
-- [ ] **회귀 방지 확인**: 쿼리에서 `review_status` 조건만 제거하면 (A) 테스트가 **실패해야** 한다. 통과한다면 fixture가 `is_canonical`에 기대고 있는 것이므로 fixture를 고친다(이 AC의 이전 판이 그 함정에 빠졌다)
+- [ ] 자동: 동 — (B) 단일 opportunity fixture로 상세 응답의 `otherSources` 중첩 검증(`is_publishable` 조건 제거 시 실패해야)
+- [ ] 자동: 병합 배치 실DB 통합 — **불변식 1·2 검사**: `is_visible = true` ⇔ `is_publishable` 멤버 ≥ 1, 그리고 `representative_record_id`가 항상 `is_publishable` 멤버를 가리킨다. v2는 서빙 조건이 한 단어라 **누락의 위험이 서빙 쿼리에서 병합 배치로 옮겨간다** — 게이트를 진짜로 지키는 곳이 여기다
+- [ ] **회귀 방지 확인**: 서빙 쿼리에서 `WHERE is_visible`을 빼면 (A) 테스트가, `AND r.is_publishable`을 빼면 (B) 테스트가 **각각 실패해야** 한다. 통과한다면 fixture가 다른 조건에 우연히 기대고 있는 것이므로 fixture를 고친다(이 AC의 v1판이 `is_canonical`에 기대다 그 함정에 빠졌다)
 
 #### AC-041: CLI 검수 — 승인·반려·태깅이 반영되고 재수집에 안 밀린다 (Happy+Edge / Must)
 ```gherkin
-Given: pending 민간 공고 2건
+Given: pending 민간 source_record 2건
 When:  검수 CLI로 1건은 페르소나 태깅(표준 코드 또는 '미상'=NULL)과 함께 승인, 1건은 반려한 뒤,
-       민간 수집 배치를 1회 재실행한다
-Then:  승인 건은 approved + 태깅값이 반영돼 서빙에 나타나고,
+       민간 수집 배치 + 병합 배치를 **2회** 재실행한다
+Then:  승인 건은 approved가 되고 그 opportunity의 is_visible=true로 서빙에 나타나며,
        반려 건은 rejected 유지(재수집이 review_status를 pending으로 되돌리지 않음),
        두 건 모두 내용 필드(title 등)는 재수집으로 갱신된다(UPSERT — first_seen_at 불변)
-And:   마감된 공공 건과 같은 그룹인 진행 중 민간 건을 승인하면,
-       민간 건이 canonical이 된다 — canonical 선정은 출처보다
+And:   승인 건의 태깅값이 **2회 재실행 후에도 target_startup_stage·target_audience_type에 남아 있다** —
+       태깅은 opportunity.manual_* 에 기록되고 병합은 그 컬럼을 읽어 합집합할 뿐 쓰지 않는다
+       (§6-D 단계 6). manual_*을 UPSERT의 SET 목록에 넣거나 태깅을 target_* 에 직접 쓰면,
+       민간 멤버의 source_record.target_* 가 항상 NULL이라 다음 배치에서 태그가 지워지고
+       공고가 페르소나 탭에서 사라진다. 1회로는 드러나지 않아 2회로 잡는다
+And:   '미상'으로 태깅한 건은 target_* 가 NULL이면서 manual_tagged_at은 기록돼 있어,
+       검수 큐·리포트의 "미태깅" 집계에 다시 잡히지 않는다
+And:   마감된 공공 멤버와 같은 그룹인 진행 중 민간 건을 승인하면,
+       민간 멤버가 representative_record_id가 된다 — 대표 선정은 출처보다
        노출 가능성이 우선이므로(§6-D 규칙 5 ①). 출처를 앞세우면
        마감 공공 행이 대표가 되어 status=open 목록에서 그룹째 사라진다(AC-010)
 And:   공공 공고와 중복인 pending 건을 승인하면, 승인 트랜잭션 안에서
-       dedup_group_id·is_canonical이 함께 확정된다 —
+       dedup 판정·재병합·태깅(§6-F 규칙 6의 ①~④)이 함께 커밋된다 —
        승인 "직후"(다음 수집 배치 전) 리스트·검색을 조회해도
-       공공 원본과 민간 중복본이 동시에 노출되는 구간이 없다 (data-model §6-F 규칙 8)
+       공공 원본과 민간 중복본이 opportunity 2행으로 동시에 노출되는 구간이 없다
 And:   검수자가 pending 내용을 읽은 뒤 판정을 확정하기 전에 수집 배치가
-       같은 행을 갱신하면, **승인이든 반려든** updated_at 불일치로 0행 갱신되어
+       같은 source_record를 갱신하면, **승인이든 반려든** updated_at 불일치로 0행 갱신되어
        취소되고 "내용이 바뀌었다 — 재검수" 안내가 뜬다.
        특히 반려는 rejected가 이후 재수집에도 불변이라(규칙 4),
        못 본 내용이 영구 반려로 굳어 검수 큐에서 유실되는 것을 막는다
 ```
 **검증**
-- [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·review_status 불변)
-- [ ] 자동: 실DB 통합 — 중복 건 승인 **직후**(배치 재실행 전) 조회에 canonical 1건만 노출
+- [ ] 자동: pytest — 검수 함수 단위 + 실DB 통합(재수집 멱등·`review_status` 불변)
+- [ ] 자동: 실DB 통합 — **수집+병합 2회 재실행 후 태깅값 보존**. `manual_*`를 병합 UPSERT의 SET 목록에 넣으면 이 테스트가 실패해야 한다
+- [ ] 자동: 실DB 통합 — '미상' 태깅 건이 `target_*` NULL + `manual_tagged_at` NOT NULL이고 미태깅 집계에서 빠지는지
+- [ ] 자동: 실DB 통합 — 중복 건 승인 **직후**(배치 재실행 전) 조회에 `opportunity` 1행만 노출
 - [ ] 자동: 실DB 경합 통합 — 읽기 후 판정 전에 UPSERT를 끼워넣고 **승인·반려 각각** 거부되는지(낙관적 동시성 — 배치와의 경합)
 - [ ] 자동: 실DB 경합 통합 — **두 검수자가 같은 pending 행을 읽은 뒤 서로 반대 판정**(승인 vs 반려)을 하면 **먼저 커밋한 쪽만 성공**하고 나중 판정은 0행으로 거부되는지(검수자 간 경합 — `review_status='pending'` 조건 + 판정 시 `updated_at` 갱신이 없으면 나중 판정이 앞선 결정을 덮는다)
 
@@ -559,24 +581,31 @@ Then:  배치는 실패하지 않고, 리포트에 해당 소스 "0건 — 파�
 
 #### AC-044: 승인 후 핵심 필드가 바뀌면 재검수로 되돌아간다 (Edge / Must)
 ```gherkin
-Given: approved 상태로 서빙 중인 민간 공고 1건
+Given: approved 상태로 서빙 중인 민간 source_record 1건
 When:  원문에서 마감일(또는 제목·모집시작일·금액 표기)이 변경된 fixture로 재수집한다
-Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아가며,
-       해당 공고는 재검수 전까지 모든 서빙 경로에서 사라진다(AC-040 준용).
+Then:  내용 필드는 갱신되고 review_status는 'pending'으로 되돌아가며(§6-F 규칙 4의 UPSERT 한 문장),
+       is_publishable이 false가 되고 재병합으로 그 공고는
+       재검수 전까지 모든 서빙 경로에서 사라진다(AC-040 준용).
        요약·기관 표기 등 핵심 외 필드만 바뀐 경우에는 approved가 유지된다
        (승인은 "그 시점 내용"에 대한 승인 — 변경된 마감일이 무검증 노출되면 가드레일 2 위반)
-And:   강등된 건이 dedup 그룹의 canonical이었다면, 같은 트랜잭션에서
-       남은 approved·공공 멤버 중 canonical이 다시 뽑힌다 —
-       승인 상태로 남은 형제가 있는데도 그룹이 통째로 리스트·검색에서
-       사라지는 일이 없다 (data-model §6-F 규칙 4)
+And:   강등된 멤버가 그룹의 대표였다면, 같은 트랜잭션의 재병합이
+       남은 is_publishable 멤버 중에서 representative_record_id를 다시 뽑는다.
+       남은 멤버가 없으면 is_visible=false가 된다 —
+       어느 쪽이든 opportunity 행 자체는 남아 **id와 상세 URL이 흔들리지 않는다**(§2-C 불변식 2·3)
 And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
-       원문이 그대로면 재수집을 반복해도 강등되지 않는다 —
-       강등 판정이 DB 컬럼이 아니라 raw의 직전 수집 스냅샷을 기준으로 하므로
-       (DB 비교 시 donor 값 ≠ 자체 파싱값이라 매 배치 강등되는 무한 루프)
+       원문이 그대로면 재수집을 **2회 이상** 반복해도 강등되지 않는다 —
+       상속은 opportunity에만 쓰이고 source_record에는 자체 파싱값만 있어
+       비교 대상(저장값 vs EXCLUDED)이 매 배치 동일하기 때문이다.
+       v1은 상속이 멤버 컬럼을 덮어써 매 배치 강등되는 무한 루프였고,
+       이를 우회하려 raw에 별도 스냅샷을 저장해야 했다(§2-E — v2에서 삭제)
+And:   원문이 그대로여도 **파서가 바뀌어** max_support_amount가 달라지면 강등된다 —
+       비교 대상에 파생 컬럼이 들어 있기 때문이다(오추출 수정·규칙 승격은 §6-E의 실제 이력)
 ```
 **검증**
 - [ ] 자동: pytest — 핵심 필드 변경 → pending 강등 / 비핵심 변경 → approved 유지 (실DB 재수집 통합)
-- [ ] 자동: 실DB 통합 — 민간 approved 2건(A=canonical·B=멤버)이 한 그룹인 상태에서 A 강등 → B가 canonical로 승격돼 리스트에 계속 노출
+- [ ] 자동: 실DB 통합 — 민간 approved 2건(A=대표·B=멤버)이 한 opportunity에 있는 상태에서 A 강등 → B가 대표로 승격되고 `is_visible`·`id`가 유지돼 리스트에 계속 노출
+- [ ] 자동: 실DB 통합 — 상속 금액을 가진 승인 건에 **동일 fixture로 2회 재수집** → `review_status='approved'` 유지(오탐 = 무한 강등 루프 회귀 방지)
+- [ ] 자동: 실DB 통합 — 원문 동일 + 금액 파서만 바꾼 재수집 → `pending` 강등(누락 회귀 방지). 위 항목과 **짝으로** 둔다 — 한쪽만 두면 반대 방향으로 단순화된다
 - [ ] 자동: 실DB 통합 — 금액 상속받은 승인 건을 **원문 무변경으로 2회 재수집** → approved 유지(강등 0회). 상속·수동 태깅 컬럼이 오탐을 만들지 않는지
 - [ ] 자동: 실DB 통합 — **원문(raw 사실 필드)은 그대로인데 금액 파서 결과만 달라지는** 경우(오추출 수정·규칙 승격 시나리오) → `pending` 강등되는지. 원문 필드만 비교하면 스냅샷이 같아 통과해 버리고 **바뀐 금액이 무검증으로 카드·필터에 나간다**
 - [ ] **수동(웹)**: 승인돼 웹에 캐시된 민간 공고를 강등시킨 뒤, **ISR 주기(24h)를 기다리지 않고** **홈(`/`)·`/search`·상세** 셋을 모두 새로고침 → 세 곳 다 사라지는지 확인. 홈은 페르소나·출처·분야·지역 섹션이 각각 `fetchOpportunities()`로 캐시되므로 목록·상세만 무효화하면 홈에 옛 마감일이 하루 남는다(PRD FR-011 9항 — E2E 자동화는 Phase 2라 수동 절차)
@@ -618,7 +647,8 @@ And:   금액을 dedup 상속(§6-E 규칙 6)으로 받은 승인 민간 건은,
 > Phase 1 출시와 독립적으로 판정한다. 이 DoD는 FR-011 **구현 PR**의 완료 기준이며, 현재 문서(계약)만 확정된 상태다.
 
 - [ ] AC-039~044의 모든 **Must AC 통과** — 각 AC의 **검증 항목 전부**(자동 + 웹 수동). 여기에 개수를 적지 않는 건 의도다: 라운드마다 항목이 늘어 숫자가 먼저 낡고, 그러면 **나중에 추가된 항목(인증 거부·배치 보험 등)이 판정에서 조용히 빠진다**
-- [ ] `review_status` 마이그레이션 + CHECK 제약 2종(`ck_opportunity_review_status`·`ck_opportunity_source`) 적용, 기존 행 위반 0건
+- [ ] **v2 저장 계층 마이그레이션(data-model §2-D) 적용** — `source_registry` seed 7종 · `opportunity`→`source_record` RENAME(id 승계) · 신 `opportunity` 생성 시 **현재 `is_canonical=true` 행의 id 승계** · `bookmark` FK 재지정. 이관 후 **기존 상세 URL 전량 보존**을 실측 표본으로 확인하고, 라이브 29,874행에서 제약 위반 0건
+- [ ] 이관과 같은 PR에서 **v1 컬럼을 전제로 한 문서 문구 동반 갱신** — data-model §2-D 말미의 대상 목록 전부(AC-005·010·024, CC-05, api-spec §0 노출 범위, `.claude/rules/api.md`, README 등)
 - [ ] 파일럿 4소스 수집 리포트가 일 1회 정상 생성(파싱 0건 경고 + pending 잔량 포함 — AC-043)
 - [ ] 검수 CLI로 승인·반려·태깅 1회씩 실제 수행(`apps/ingest` 스크립트 — 웹 검수 화면 없음)
 - [ ] 웹 캐시 무효화 경로 동작 확인(홈·`/search`·상세 3곳 + 실패 복구 3경로 — PRD FR-011 9항)

@@ -9,9 +9,9 @@
 ## 문서 맵 (작업 전 반드시 해당 문서 확인)
 | 무엇을 할 때 | 보는 문서 |
 |---|---|
-| 기능 요구사항·엣지 케이스 | `docs/PRD.md` (FR-001~010) |
-| 완료 판정 기준 | `docs/AC.md` (AC-001~039, CC-01~07, Phase 1·2 DoD) |
-| DB 스키마·소스 매핑·dedup | `docs/data-model.md` (**LOCKED** — 변경은 3인 합의 필수) |
+| 기능 요구사항·엣지 케이스 | `docs/PRD.md` (FR-001~011) |
+| 완료 판정 기준 | `docs/AC.md` (AC-001~044, CC-01~07, Phase 1·2 DoD) |
+| DB 스키마·소스 매핑·dedup | `docs/data-model.md` (**LOCKED** — 변경은 3인 합의 필수. §2는 **v2 개정안 심의 중** — 합의 전까지 운영 진실은 `/db/migrations`의 v1) |
 | API 요청/응답 형식 | `docs/api-spec.md` (필드명·enum 임의 변경 금지) |
 | 화면·배지·페르소나 탭 | `docs/screens.md` |
 | 전략·가드레일·왜 | `docs/기획서-v2-통합본.md` |
@@ -30,7 +30,7 @@
 1. **스키마는 `/db/migrations` Flyway로만 변경.** Spring `ddl-auto=validate` 고정 — `update`/`create` 금지. ORM이 스키마를 만들지 않는다.
 2. **`status` 컬럼 저장 금지** — 마감일 기준 조회 시 계산 (`api-spec.md` §0 산식이 유일한 정의).
 3. **`raw` 컬럼은 원본 그대로** — 가공·요약해서 저장 금지. (민간 소스는 본문 전문을 애초 수집하지 않음 — 사실 필드만, data-model §6-F)
-4. **리스트/검색 서빙은 `is_canonical = true`만.** 예외는 `ids=` 조회뿐. **민간 소스는 추가로 `review_status='approved'`만** — pending·rejected는 `ids=`·`stats` 집계·상세의 `otherSources` 포함 전 경로 미노출(FR-010).
+4. **리스트/검색 서빙은 `is_canonical = true`만.** 예외는 `ids=` 조회뿐. **민간 소스는 추가로 `review_status='approved'`만** — pending·rejected는 `ids=`·`stats` 집계·상세의 `otherSources` 포함 전 경로 미노출(FR-011). ▸ **v2 이관 후에는 최상위 전 경로가 `opportunity.is_visible` 하나(예외 없음)**, 상세의 `otherSources`만 `source_record.is_publishable`이다 — data-model §2-D의 이관 목록이 이 문장도 대상으로 잡고 있다.
 5. **API 필드명·enum·에러 형식은 `api-spec.md` 그대로.** camelCase. 프론트는 status·dDay·badges 재계산 금지(서버 값 렌더만).
 6. **개인정보 최소 수집.** 비로그인·event_log 경로는 **익명 유지**(익명 UUID + 화이트리스트 payload 키만, PII 금지). 로그인(`app_user`)만 예외 — **이메일·provider 식별만** 저장(토큰·프로필 미저장) + 개인정보처리방침 필수.
 7. **수집은 공식 API 3종 + 민간 화이트리스트 Tier 1만**(FR-010, 2026-07-26 개정). 공공: K-Startup(전량) / 기업마당(`searchLclasId=06`만) / 온통청년(`mclsfNm=창업`만). 민간: data-model 소스 레지스트리의 화이트리스트를 **정적 기술(requests·BeautifulSoup4·feedparser)로만** + robots·UA·딜레이 예절 의무. **헤드리스 브라우저(Selenium·Playwright)·봇 차단 우회·로그인 영역 수집·전수 크롤링·집계 사이트 크롤링 금지.** 신규 소스 편입 = 체크리스트 + 3인 합의.

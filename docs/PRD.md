@@ -401,8 +401,8 @@
 | `kb-innovation-hub` | KB이노베이션허브 | 협업형(연 1~2회) | 공고 페이지 (정적, robots 전면 허용) |
 
 2. **기술은 Tier 1 한정**: requests + BeautifulSoup4 + feedparser(정적 HTML·RSS). **예절 의무**: 매 실행 robots.txt 확인 · 식별 UA(`changmun-bot/1.0; +https://changmun.com/bot`) · 요청 간 딜레이 ≥1초 · 일 1회 배치. 403/429·robots 불허 시 해당 소스 스킵+리포트 — **우회 금지, 차단 반복 시 소스 제외.**
-3. **수집분은 `review_status='pending'`으로 적재** — 리스트·검색·상세·`ids=`·홈 지표(stats)·상세의 `otherSources` 등 **모든 서빙 경로에서 미노출**(카운트에도, 승인 공고의 형제 목록에도 불포함). NULL(=공공) 허용은 **DB CHECK 제약이 공공 3소스로 한정** — 민간·신규 source가 상태를 빠뜨리면 INSERT 실패(검수 게이트 우회 차단, data-model §6-F 규칙 2).
-4. **CLI 검수**(`apps/ingest`, 관리자 웹 UI 아님): pending 목록 → 건별 승인/반려 + **페르소나 수동 태깅**(단계 자체는 필수, 값은 '미상'(NULL 유지) 선택 가능 — 절대규칙 8 양립) + 금액 확인. 승인 → `'approved'` → 기존 서빙·dedup·금액 추출(§6-E) 파이프라인에 합류.
+3. **수집분은 `source_record.review_status='pending'`으로 적재** — 리스트·검색·상세·`ids=`·홈 지표(stats)·상세의 `otherSources` 등 **모든 서빙 경로에서 미노출**(카운트에도, 승인 공고의 형제 목록에도 불포함). `review_status`는 `NOT NULL` 4값(`not_required`·`pending`·`approved`·`rejected`)이고 **`DEFAULT`가 없어 상태를 빠뜨린 INSERT가 실패**한다 — 검수 게이트 우회 차단(fail-closed, data-model §6-F 규칙 2). 공공은 `not_required`라는 명시값을 쓴다(v1의 `NULL`=공공은 `NULL IN (...)` 함정을 낳았다).
+4. **CLI 검수**(`apps/ingest`, 관리자 웹 UI 아님): pending 목록 → 건별 승인/반려 + **페르소나 수동 태깅**(단계 자체는 필수, 값은 '미상'(NULL 유지) 선택 가능 — 절대규칙 8 양립) + 금액 확인. 승인 → `'approved'` → 기존 서빙·dedup·금액 추출(§6-E) 파이프라인에 합류. **수동 태깅은 `opportunity.manual_target_*`에 남고 병합이 이를 입력으로 합집합**한다 — 병합 결과 컬럼에 직접 쓰면 다음 배치가 사람의 판단을 NULL로 덮어 공고가 페르소나 탭에서 사라진다(data-model §6-F 규칙 9, AC-041).
 5. **재수집 UPSERT는 내용 필드만 갱신** — `rejected`·`pending`은 `review_status` 불변(반려 공고가 재수집으로 부활 금지). 단 **`approved` 건의 핵심 필드(마감일·모집시작일·제목·금액 표기)가 바뀌면 `pending`으로 되돌려 재검수**한다(AC-044) — 승인은 "그 시점 내용"에 대한 승인이라, 변경된 마감일이 무검증으로 노출되면 가드레일 2가 깨진다.
 6. **본문 전문 미수집** — 제목·기관·기간·금액·대상·원문 URL 등 **사실 필드만** 수집·저장(민간 공고문은 공공누리 없는 저작물 — 전재 리스크). 상세 화면은 원문 링크 중심.
 7. **소스 발굴 루프**: 집계 사이트(THE VC·올콘·링커리어 등)는 **크롤링 금지**(DB권 리스크 — 잡코리아-사람인 판례 구조) — 사람이 열람해 주최기관을 발굴하고, 그 기관 사이트를 체크리스트(data-model)로 편입한다.
@@ -422,13 +422,14 @@
 | robots.txt 불허 / HTTP 403·429 | 해당 소스 요청 중단·스킵 + 리포트 사유 기록(다른 소스 격리 — FR-001 준용). 우회 시도 금지 |
 | 강등·반려 직후 웹에 캐시된 페이지가 남음 | 검수 판정 시 해당 공고의 웹 캐시 무효화(9항). 무효화 전까지는 API가 숨겨도 사용자에겐 옛 마감일이 보인다 |
 | 파싱 결과 0건(사이트 개편 의심) | 배치는 계속, 리포트에 "0건 — 파손 의심" 경고(조용한 파손 금지 — AC-043) |
-| 공공 3종과 중복 게재(금융권 공고 등) | dedup(§6-D)이 처리 — canonical은 **노출 가능성 → 출처(공공 우선) → 정보량** 순으로 선정(§6-D 규칙 5). 보통은 공공이 대표가 되고 민간은 그룹 멤버로 남지만, **공공이 마감이고 승인 민간이 진행 중이면 민간이 대표**가 된다(그룹째 목록에서 사라지는 것 방지 — AC-010) |
+| 공공 3종과 중복 게재(금융권 공고 등) | dedup(§6-D)이 처리 — 대표(`representative_record_id`)는 **노출 가능성 → 출처(공공 우선) → 정보량** 순으로 선정(§6-D 규칙 5). 보통은 공공이 대표가 되고 민간은 그룹 멤버로 남지만, **공공이 마감이고 승인 민간이 진행 중이면 민간이 대표**가 된다(그룹째 목록에서 사라지는 것 방지 — AC-010) |
 | 반려(rejected) 공고가 다음날 재수집됨 | rejected 유지 — 내용만 갱신, 검수 큐에 재등장 금지 |
-| 승인된 공고의 마감일이 원문에서 바뀜 | 내용 갱신 + `pending`으로 되돌려 **재검수까지 노출 중단**(AC-044). 며칠 미노출 < 틀린 마감일 노출. 그 건이 그룹 canonical이었으면 남은 승인 멤버로 재선정(그룹째 사라짐 방지) |
+| 승인된 공고의 마감일이 원문에서 바뀜 | 내용 갱신 + `pending`으로 되돌려 **재검수까지 노출 중단**(AC-044). 며칠 미노출 < 틀린 마감일 노출. 그 멤버가 대표였으면 재병합이 남은 승인 멤버로 재선정하고, 남은 멤버가 없으면 `is_visible=false` — 어느 쪽이든 공고 id와 상세 URL은 그대로다 |
 | 검수 중 배치가 같은 행을 갱신 | 승인·반려 모두 `updated_at` 불일치로 취소 → 재검수. 특히 반려는 불변이라 못 본 내용이 영구 반려로 굳는 것을 막는다 |
-| 공공과 중복인 민간 건을 승인 | 승인 트랜잭션 안에서 dedup·canonical 확정 — 배치를 기다리는 사이 중복 노출되는 구간 없음(data-model §6-F 규칙 8) |
+| 공공과 중복인 민간 건을 승인 | 승인 트랜잭션 안에서 dedup·재병합·태깅 확정 — 배치를 기다리는 사이 중복 노출되는 구간 없음(data-model §6-F 규칙 6) |
 | 사이트가 마감일을 명시하지 않음 | NULL(UNDATED) — 크롤러·검수자 모두 억지 추정 금지 |
 | 검수 적체(pending 누적) | 서비스에는 무노출이라 품질 영향 없음 — 리포트에 pending 잔량 표기로 가시화 |
+| 태깅한 민간 공고가 다음 배치 후 페르소나 탭에서 사라짐 | **발생하면 결함이다.** 수동 태깅은 `opportunity.manual_target_*`(병합의 입력)에만 쓰고 병합 UPSERT는 그 컬럼을 갱신 대상에서 제외한다(data-model §6-F 규칙 9 — AC-041이 배치 2회 재실행으로 판정) |
 
 **가드레일 (가드레일 5 정밀화 준수)**
 - 화이트리스트 밖 소스 수집 금지 — 신규 소스는 편입 체크리스트 전 항목 통과 + 3인 합의.
@@ -472,7 +473,7 @@
 ## 7. 데이터 모델 & API 개요
 
 ### 7.1 핵심 엔티티 (상세: `data-model.md` — LOCKED)
-- **opportunity**: 공고 원장. `(source, external_id)` UNIQUE. 페르소나 컬럼 `target_startup_stage[]`·`target_audience_type[]`, dedup 컬럼 `dedup_group_id`·`is_canonical`, 민간 검수 컬럼 `review_status`(FR-011 — NULL=공공), 원본 `raw JSONB`
+- **opportunity**: 공고 원장. **[v1 — 현행 운영]** `(source, external_id)` UNIQUE. 페르소나 컬럼 `target_startup_stage[]`·`target_audience_type[]`, dedup 컬럼 `dedup_group_id`·`is_canonical`, 원본 `raw JSONB`. **[v2 개정안 — data-model §2, 3인 합의 대상]** 저장 계층 3종으로 분리: `source_registry`(소스 1종) / `source_record`(소스가 준 관측 + 자체 파생 + `review_status`) / `opportunity`(실체 = dedup 그룹, `representative_record_id`·`is_visible`). **FR-011 검수 게이트는 v2를 전제로 설계돼 있다**(§6-F)
 - **glossary**: 용어 사전 (term, description)
 - **event_log**: 행동 로그 (append-only)
 - `app_user` — 로그인 In-Scope로 당김(data-model §8, 구현). (Phase 3) user_stage_history
