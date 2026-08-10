@@ -641,8 +641,8 @@ And:   수동 태그는 합집합으로 살아남는다(한쪽만 있으면 그 
        manual_tagged_at은 더 늦은 쪽)
 When:  이어서 제목·기관이 갈라져 stale 그룹이 해제되는 fixture로 다시 실행하면
 Then:  기존 representative_record_id를 포함한 쪽이 survivor의 id를 승계하고,
-       갈라져 나온 쪽의 manual_* 는 NULL이다
-       (사람이 어느 쪽을 보고 판단했는지 알 수 없다 — 미태깅으로 검수 큐에 다시 잡힌다)
+       **양쪽 모두 manual_* 와 manual_tagged_at 이 NULL이 된다**
+       (사람이 어느 쪽을 보고 판단했는지 알 수 없다 — 이 근거는 대칭이다)
 And:   **갈라져 나온 멤버 집합이 merge_log 어느 행의 record_ids와 정확히 일치하면
        새 id를 발급하지 않고 그 행의 absorbed_id를 되살리며,
        bookmark_ids의 찜을 그 id로 돌려놓고 로그 행을 지운다** —
@@ -651,10 +651,18 @@ And:   **갈라져 나온 멤버 집합이 merge_log 어느 행의 record_ids와
 And:   u3의 찜이 되살아난 B(200)로 돌아간다(bookmark_ids 1건)
 And:   병합 때 중복으로 지워졌던 u1의 B쪽 찜은 **복구되지 않는다** — u1은 A만 찜한 상태로 남는다
        (bookmark_ids에는 실제로 옮겨진 행만 담긴다 — 문서화된 한계, §6-D 단계 4-B)
-And:   갈라진 쪽 공고는 pending으로 강등되지 않고 계속 노출되며(내용 승인은 유효),
-       manual_tagged_at IS NULL 이라 **태깅 큐**에 잡힌다.
+And:   두 공고 모두 pending으로 강등되지 않고 계속 노출되며(내용 승인은 유효),
+       manual_tagged_at IS NULL 이라 **둘 다 태깅 큐**에 잡힌다.
        검수 큐(review_status='pending')만 보는 구현에서는
-       이 공고가 페르소나 탭에서 조용히 계속 누락된다(§6-F 규칙 10)
+       이 공고들이 페르소나 탭에서 조용히 누락된다(§6-F 규칙 10)
+
+Given: 수동 태그가 서로 다른 실체 A(PRE_STARTUP)와 B(UNIV_STUDENT)가 병합돼
+       survivor A의 manual_* 가 합집합(PRE_STARTUP·UNIV_STUDENT)이 된 상태
+When:  stale 판정으로 다시 갈라진다
+Then:  **A에도 UNIV_STUDENT가 남지 않는다** — 양쪽 다 비우고 둘 다 태깅 큐로 간다.
+       갈라진 쪽만 비우면 A는 B에서 유래한 태그를 단 채
+       manual_tagged_at 이 non-null이라 태깅 큐에도 안 잡혀,
+       **틀린 페르소나 탭에 계속 노출된다**(합집합이 만든 오염이 분할 후에도 남는 경로)
 
 Given: 서로 다른 실체 B·C가 A에 함께 흡수된 상태 (merge_log 2행)
 When:  B의 멤버만 stale 판정으로 갈라진다
@@ -680,7 +688,8 @@ And:   A→C 병합으로 A의 opportunity 행이 지워질 때 **B→A 로그�
        (이 표는 현재 실체가 아니라 과거 사건을 기록한다 — §2-C)
 ```
 **검증**
-- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·찜 3건 잔존·`bookmark_ids` 1건·`merge_log` 1행·태그 합집합) / 분할(id 승계·갈라진 쪽 미태깅) 각각
+- [ ] 자동: pytest 실DB 통합 — 병합(survivor 선정·찜 3건 잔존·`bookmark_ids` 1건·`merge_log` 1행·태그 합집합) / 분할(id 승계·**양쪽 태그 초기화**) 각각
+- [ ] 자동: **서로 다른 태그 병합 → 분할** — 분할 후 survivor에 상대편 태그가 남지 않고 `manual_tagged_at`이 NULL이라 태깅 큐에 잡히는지. 갈라진 쪽만 비우는 구현에서 실패해야 한다
 - [ ] 자동: **병합 → 분할 회귀** — 같은 fixture로 합쳤다 갈라 놓고, 옛 id 부활 · 로그 행 삭제 · 찜 복귀를 한 테스트에서 확인한다(분할 규칙만 단독으로 보면 이 경로가 안 잡힌다)
 - [ ] 자동: **2중 흡수 후 부분 분할** — B·C를 A에 흡수한 뒤 B만 분할 → B 부활 + C 로그 유지 / 이어서 B 멤버의 일부만 분할 → 새 id 발급(부활 안 함). 앞 항목은 멤버 이력 없이도 우연히 통과할 수 있어 이 케이스가 실제 판정 근거다
 - [ ] 자동: **중첩 병합 되돌리기** — `B→A`, `A→C` 뒤 `{a,b}` 분할 → **A** 부활(B 아님)이고 `B→A` 로그는 남는지. 컬럼형 provenance로 구현하면 실패해야 하는 케이스다
