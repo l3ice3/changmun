@@ -42,7 +42,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 - `sort`: `deadline`(기본) · `latest`(`first_seen_at DESC`)
 - `region`: **16개 시도** 라벨 또는 `전국` (URL 인코딩된 한글 그대로. 2026 행정구역 통합 반영 — 광주+전남은 `전남광주` 단일 라벨, data-model §7). **요청은 단일 지역**(필터 1개), **응답 `region`은 배열**(공고가 복수 지역일 수 있음 — 서버는 공고의 region 배열에 요청 지역이 포함되면 매칭)
 - `category`: 표준 11종+`기타` 라벨 그대로 (data-model §7)
-- `source`(응답): 공공 `k-startup` · `bizinfo` · `ontong-youth` + 민간(FR-011) `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub`. 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장). **프론트 `SOURCE_LABELS`에 4종 한글 라벨 추가 필수**(PRD FR-011 10항) — 누락 시 카드에 내부 값이 그대로 노출되고 출처 필터에서 빠진다
+- `source`(응답): **[현행]** 공공 `k-startup` · `bizinfo` · `ontong-youth` 3종. **[FR-011 구현 후]** 민간 `asan-nanum` · `kakao-impact` · `sopoong` · `kb-innovation-hub` 4종이 더해진다 — 지금 민간 값으로 필터를 요청하면 `OpportunityListRequest.VALID_SOURCES`가 400을 낸다(수집기·`SOURCE_LABELS`와 **같은 PR에서** 함께 늘린다). 민간은 **검수 승인분만 서빙**(data-model §6-F — 응답 형식 변화 없음, source 값만 확장). **프론트 `SOURCE_LABELS`에 4종 한글 라벨 추가 필수**(PRD FR-011 10항) — 누락 시 카드에 내부 값이 그대로 노출되고 출처 필터에서 빠진다
 
 ---
 
@@ -54,7 +54,7 @@ deadline = null AND is_always_open=false → status = "UNDATED"(기간 미상), 
 | `persona` | enum | (없음) | 페르소나 탭. 잘못된 값 → 400 (AC-014) |
 | `region` | string | (없음) | 시도 필터 |
 | `category` | string | (없음) | 카테고리 필터 |
-| `source` | enum | (없음) | 출처 필터: §0 공통 enum의 `source` 값(공공 3 + 민간 4 — FR-011). 잘못된 값 → 400 (AC-014) |
+| `source` | enum | (없음) | 출처 필터: §0 공통 enum의 `source` 값(현행 공공 3종, FR-011 구현 후 민간 4종 추가). 잘못된 값 → 400 (AC-014) |
 | `status` | enum | `open` | `open`=진행중(상시·기간미상 포함) / `all` |
 | `q` | string | (없음) | 부분일치 검색(title+summary, pg_trgm). **최소 2글자**, 1글자 → 400 (AC-020) |
 | `hasAmount` | boolean | (없음) | `true`=지원금 확인 공고만(`maxSupportAmount` non-null). `true`/`false` 외 값 → 400 (AC-033) |
