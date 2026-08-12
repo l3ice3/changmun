@@ -70,10 +70,7 @@ def extract_targets(text: str) -> tuple[list[str] | None, list[str] | None]:
 
 
 def _positive_match(pattern: re.Pattern, text: str) -> bool:
-    for match in pattern.finditer(text):
-        if not _is_excluded(text, match.end()):
-            return True
-    return False
+    return any(not _is_excluded(text, match.end()) for match in pattern.finditer(text))
 
 
 def _is_excluded(text: str, end: int) -> bool:

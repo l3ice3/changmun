@@ -11,7 +11,6 @@ import requests
 from ingest import db
 from ingest.config import Settings
 from ingest.errors import SourceError
-from ingest.sources.http_client import request_json
 from ingest.normalize import (
     clean_text,
     clean_url,
@@ -24,6 +23,7 @@ from ingest.normalize import (
 )
 from ingest.record import MappingResult, OpportunityRecord
 from ingest.report import SourceReport
+from ingest.sources.http_client import request_json
 
 logger = logging.getLogger(__name__)
 
