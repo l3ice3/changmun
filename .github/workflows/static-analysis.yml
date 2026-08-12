@@ -1,19 +1,24 @@
 name: Static Analysis (Hard Gate)
 
-# A그룹 자동 차단. 실패하면 PR 머지 불가.
-# 근거: AGENTS.md §2 리뷰 분담 A그룹
-# 모노레포: Gradle 프로젝트는 apps/api — 해당 경로 변경 시에만 실행
+# 셀 수 있는 규칙의 자동 차단. 실패하면 PR 머지 불가.
+# 근거: docs/rules/review.md A그룹 (LLM 리뷰는 B/C만 — 중복 지적 금지)
+#
+# ⚠️ paths 필터를 두지 않는다.
+#    required status check는 "돌지 않으면 존재하지 않는다" — 예전에 이 워크플로가
+#    paths: apps/api/** 로 필터돼 있어서, api를 안 건드리는 PR(docs·web·ingest)에는
+#    required check가 아예 리포트되지 않았고 그대로 머지됐다(#77이 실제 사례).
+#    앱별 스킵이 필요해지면 필터 대신 job 내부 조기 종료로 처리한다.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'apps/api/**'
-      - '.github/workflows/static-analysis.yml'
 
 jobs:
+  # job id를 바꾸지 마라 — ruleset(protect-main)의 required status check 컨텍스트명이다.
   static-analysis:
+    name: static-analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/api
@@ -25,39 +30,149 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: gradle
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # Checkstyle + PMD + ArchUnit(test 안의 ArchitectureTest) 한 번에 실행
-      # 위반/실패 시 0이 아닌 종료코드 → 이 job 실패 → PR 빨간불
-      - name: Run Checkstyle
-        run: ./gradlew checkstyleMain --no-daemon
+      # 태스크를 나열하지 말고 `check` 라이프사이클을 통째로 부른다.
+      # 나열식은 빠뜨린 태스크가 곧 게이트 구멍이 된다 — 실제로 spotlessCheck가
+      # 그렇게 빠져 CI에서 한 번도 안 돌았고(git.md 절대규칙 3은 "실패 시 머지 불가"라고
+      # 적어놨는데), checkstyleTest·pmdTest도 같은 이유로 빠져 있어 테스트 코드의
+      # A그룹 위반은 통과했다. Gradle이 소스 세트별 태스크를 전부 `check`에 붙여주므로
+      # 규칙이 늘어도 워크플로를 고칠 필요가 없다 — CLAUDE.md의 커밋 전 명령과도 같아진다.
+      - name: Run check (Spotless / Checkstyle / PMD / Tests)
+        run: ./gradlew check --no-daemon
 
-      - name: Run PMD
-        run: ./gradlew pmdMain --no-daemon
-
-      - name: Run Architecture & Unit Tests
-        run: ./gradlew test --no-daemon
-
-      # 리포트를 아티팩트로 업로드 (실패해도 결과 확인 가능)
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: analysis-reports
+          name: api-reports
           path: |
             apps/api/build/reports/checkstyle/
             apps/api/build/reports/pmd/
             apps/api/build/reports/tests/
           retention-days: 7
 
+  ingest-check:
+    name: ingest-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ingest
+    # DB 통합 테스트(UPSERT 멱등성·dedup·페르소나 저장)는 실제 PostgreSQL이 있어야 돈다.
+    # 서비스가 없으면 conftest가 전부 skip해 "SQL이 깨져도 초록인 required check"가 된다 —
+    # 이 워크플로가 없애려는 바로 그 가짜 센서다. 로컬 docker-compose.yml과 같은 계정·DB명.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: changmun
+          POSTGRES_USER: changmun
+          POSTGRES_PASSWORD: changmun
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U changmun -d changmun"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      # ruff = 스타일·버그 패턴 / mypy = 타입 / pytest = 행위
+      - name: Ruff
+        run: poetry run ruff check .
+
+      - name: Mypy
+        run: poetry run mypy
+
+      # 스키마의 단일 진실은 /db/migrations 뿐이다(절대규칙 1). Flyway가 적용하는 것과
+      # 같은 파일을, 같은 버전 순서로 psql에 먹인다 — 테스트용 별도 DDL을 두면 그 순간
+      # 스키마 진실이 둘로 갈라진다. `sort -V`가 V1 < V2 < V20260616_1600 순서를 준다.
+      - name: Apply migrations (/db/migrations)
+        working-directory: .
+        env:
+          PGPASSWORD: changmun
+        run: |
+          for f in $(ls db/migrations/*.sql | sort -V); do
+            echo "▶ $f"
+            psql -h localhost -U changmun -d changmun -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      # INGEST_REQUIRE_DB=1 → 연결 실패가 skip이 아니라 실패다.
+      # CI에서 DB가 없으면 그건 "환경이 없다"가 아니라 "게이트가 고장났다"이다.
+      - name: Pytest
+        env:
+          DATABASE_URL: postgresql://changmun:changmun@localhost:5432/changmun
+          INGEST_REQUIRE_DB: '1'
+        run: poetry run pytest -q
+
+  web-check:
+    name: web-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # eslint = 카피 가드레일(AC-015) 포함 / tsc = 타입
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+  notify:
+    name: notify
+    runs-on: ubuntu-latest
+    needs: [static-analysis, ingest-check, web-check]
+    if: always()
+    steps:
       - name: Discord 알림
-        if: always()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          API: ${{ needs.static-analysis.result }}
+          INGEST: ${{ needs.ingest-check.result }}
+          WEB: ${{ needs.web-check.result }}
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
+          # fork·Dependabot PR에는 Actions secret이 전달되지 않아 WEBHOOK이 빈 문자열이 된다.
+          # 그대로 두면 curl이 URL 없이 exit 3 → 세 검사가 전부 초록이어도 워크플로가 빨개진다.
+          # 알림 전송 실패는 검사 결과가 아니다 — 조용히 건너뛴다.
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_CICD 미설정 — 알림 생략 (검사 결과: api=$API ingest=$INGEST web=$WEB)"
+            exit 0
+          fi
+          if [ "$API" = "success" ] && [ "$INGEST" = "success" ] && [ "$WEB" = "success" ]; then
             STATUS="✅ 성공"; COLOR=3066993
           else
             STATUS="❌ 실패"; COLOR=15158332
@@ -69,8 +184,10 @@ jobs:
               "title": "정적분석 $STATUS",
               "color": $COLOR,
               "fields": [
-                { "name": "워크플로", "value": "${{ github.workflow }}", "inline": true },
-                { "name": "브랜치", "value": "${{ github.ref_name }}", "inline": true }
+                { "name": "api", "value": "$API", "inline": true },
+                { "name": "ingest", "value": "$INGEST", "inline": true },
+                { "name": "web", "value": "$WEB", "inline": true },
+                { "name": "브랜치", "value": "${{ github.ref_name }}", "inline": false }
               ],
               "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }]

@@ -1,13 +1,10 @@
 """UPSERT 멱등성 통합 테스트 — AC-002. 로컬 PostgreSQL(docker compose) 필요, 없으면 skip."""
-import os
-
 import pytest
+from conftest import connect_or_skip
 
 from ingest import db
-from ingest.config import DEFAULT_DSN
 from ingest.record import OpportunityRecord
 
-DSN = os.environ.get("DATABASE_URL", DEFAULT_DSN)
 TEST_SOURCE = "pytest-fr001"  # 실데이터와 섞이지 않도록 전용 source 값 사용 후 정리
 
 
@@ -24,10 +21,7 @@ def make_record(external_id: str, title: str) -> OpportunityRecord:
 
 @pytest.fixture
 def conn():
-    try:
-        connection = db.connect(DSN)
-    except Exception:
-        pytest.skip("로컬 PostgreSQL 미가동 — docker compose up -d 후 실행")
+    connection = connect_or_skip()
     try:
         yield connection
     finally:

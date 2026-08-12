@@ -6,7 +6,6 @@ import pytest
 from ingest.errors import SourceError
 from ingest.sources import bizinfo
 
-
 # 라이브 RSS 응답 표본 기반 — 키는 소문자 hashtags, 날짜는 대시 형식 (라이브 검증 2026-07)
 SAMPLE = {
     "pblancId": "PBLN_0001",

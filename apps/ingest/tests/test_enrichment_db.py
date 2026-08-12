@@ -1,13 +1,11 @@
 """dedup·persona DB 통합 테스트 — AC-006·007·008·009·010·030. 로컬 PostgreSQL 필요, 없으면 skip."""
-import os
 from datetime import date
 
 import pytest
+from conftest import connect_or_skip
 
-from ingest import amounts, db, dedup, persona
-from ingest.config import DEFAULT_DSN
+from ingest import amounts, dedup, persona
 
-DSN = os.environ.get("DATABASE_URL", DEFAULT_DSN)
 PREFIX = "pytest-fr002-"
 FAR_DEADLINE = date(2099, 6, 30)
 OTHER_DEADLINE = date(2099, 7, 15)
@@ -25,10 +23,7 @@ def conn():
     # 절대 commit하지 않는다 — dedup.run은 전체 테이블을 재평가/UPDATE하므로,
     # commit하면 개발 DB의 실데이터 dedup_group_id·is_canonical까지 덮어쓴다.
     # 모든 변경을 한 트랜잭션에 쌓고 끝에 rollback해 실데이터를 보존한다 (테스트 격리).
-    try:
-        connection = db.connect(DSN)
-    except Exception:
-        pytest.skip("로컬 PostgreSQL 미가동 — docker compose up -d 후 실행")
+    connection = connect_or_skip()
     try:
         yield connection
     finally:
