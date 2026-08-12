@@ -129,6 +129,13 @@ jobs:
           INGEST: ${{ needs.ingest-check.result }}
           WEB: ${{ needs.web-check.result }}
         run: |
+          # fork·Dependabot PR에는 Actions secret이 전달되지 않아 WEBHOOK이 빈 문자열이 된다.
+          # 그대로 두면 curl이 URL 없이 exit 3 → 세 검사가 전부 초록이어도 워크플로가 빨개진다.
+          # 알림 전송 실패는 검사 결과가 아니다 — 조용히 건너뛴다.
+          if [ -z "$WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_CICD 미설정 — 알림 생략 (검사 결과: api=$API ingest=$INGEST web=$WEB)"
+            exit 0
+          fi
           if [ "$API" = "success" ] && [ "$INGEST" = "success" ] && [ "$WEB" = "success" ]; then
             STATUS="✅ 성공"; COLOR=3066993
           else
