@@ -35,12 +35,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # Spotless(포맷) + Checkstyle + PMD + ArchUnit·단위 테스트.
-      # spotlessCheck는 지금까지 CI에서 한 번도 돌지 않았다 — git.md 절대규칙 3과
-      # build.gradle.kts 주석은 "실패 시 머지 불가"라고 적어놨지만 워크플로가
-      # checkstyleMain·pmdMain·test만 호출해 spotless가 빠져 있었다.
-      - name: Run Spotless / Checkstyle / PMD / Tests
-        run: ./gradlew spotlessCheck checkstyleMain pmdMain test --no-daemon
+      # 태스크를 나열하지 말고 `check` 라이프사이클을 통째로 부른다.
+      # 나열식은 빠뜨린 태스크가 곧 게이트 구멍이 된다 — 실제로 spotlessCheck가
+      # 그렇게 빠져 CI에서 한 번도 안 돌았고(git.md 절대규칙 3은 "실패 시 머지 불가"라고
+      # 적어놨는데), checkstyleTest·pmdTest도 같은 이유로 빠져 있어 테스트 코드의
+      # A그룹 위반은 통과했다. Gradle이 소스 세트별 태스크를 전부 `check`에 붙여주므로
+      # 규칙이 늘어도 워크플로를 고칠 필요가 없다 — CLAUDE.md의 커밋 전 명령과도 같아진다.
+      - name: Run check (Spotless / Checkstyle / PMD / Tests)
+        run: ./gradlew check --no-daemon
 
       - name: Upload reports
         if: always()
@@ -60,6 +62,23 @@ jobs:
     defaults:
       run:
         working-directory: apps/ingest
+    # DB 통합 테스트(UPSERT 멱등성·dedup·페르소나 저장)는 실제 PostgreSQL이 있어야 돈다.
+    # 서비스가 없으면 conftest가 전부 skip해 "SQL이 깨져도 초록인 required check"가 된다 —
+    # 이 워크플로가 없애려는 바로 그 가짜 센서다. 로컬 docker-compose.yml과 같은 계정·DB명.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: changmun
+          POSTGRES_USER: changmun
+          POSTGRES_PASSWORD: changmun
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U changmun -d changmun"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -81,8 +100,25 @@ jobs:
       - name: Mypy
         run: poetry run mypy
 
-      # DB 통합 테스트는 PostgreSQL이 없으면 skip된다(tests/conftest.py connect_timeout).
+      # 스키마의 단일 진실은 /db/migrations 뿐이다(절대규칙 1). Flyway가 적용하는 것과
+      # 같은 파일을, 같은 버전 순서로 psql에 먹인다 — 테스트용 별도 DDL을 두면 그 순간
+      # 스키마 진실이 둘로 갈라진다. `sort -V`가 V1 < V2 < V20260616_1600 순서를 준다.
+      - name: Apply migrations (/db/migrations)
+        working-directory: .
+        env:
+          PGPASSWORD: changmun
+        run: |
+          for f in $(ls db/migrations/*.sql | sort -V); do
+            echo "▶ $f"
+            psql -h localhost -U changmun -d changmun -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      # INGEST_REQUIRE_DB=1 → 연결 실패가 skip이 아니라 실패다.
+      # CI에서 DB가 없으면 그건 "환경이 없다"가 아니라 "게이트가 고장났다"이다.
       - name: Pytest
+        env:
+          DATABASE_URL: postgresql://changmun:changmun@localhost:5432/changmun
+          INGEST_REQUIRE_DB: '1'
         run: poetry run pytest -q
 
   web-check:

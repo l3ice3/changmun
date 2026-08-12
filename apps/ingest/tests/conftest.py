@@ -20,10 +20,17 @@ TEST_DSN = f"{_BASE_DSN}{'&' if '?' in _BASE_DSN else '?'}connect_timeout={CONNE
 
 SKIP_REASON = "로컬 PostgreSQL 미가동 — docker compose up -d 후 실행"
 
+# CI처럼 DB가 반드시 있어야 하는 환경에서는 skip이 곧 게이트 구멍이다.
+# 연결 실패를 전부 skip으로 삼키면 UPSERT·dedup·페르소나 저장 테스트가 통째로
+# 사라진 채 required check가 초록으로 뜬다. 그 환경에선 skip 대신 실패시킨다.
+REQUIRE_DB = os.environ.get("INGEST_REQUIRE_DB") == "1"
+
 
 def connect_or_skip():
-    """DB가 없으면 즉시 skip한다. 통합 테스트 fixture는 이 함수만 쓴다."""
+    """DB가 없으면 즉시 skip한다(INGEST_REQUIRE_DB=1이면 실패). fixture는 이 함수만 쓴다."""
     try:
         return db.connect(TEST_DSN)
-    except Exception:
+    except Exception as exc:
+        if REQUIRE_DB:
+            pytest.fail(f"INGEST_REQUIRE_DB=1인데 PostgreSQL 연결 실패({TEST_DSN}): {exc}")
         pytest.skip(SKIP_REASON)
