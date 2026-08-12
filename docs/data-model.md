@@ -663,7 +663,13 @@ END AS d_day
    `rejected`·`pending`·`approved`·`not_required` 전부 불변이다. **상태를 바꾸는 주체는 사람뿐**이며
    전이는 두 가지다 — 검수 판정(`pending` → `approved`/`rejected`)과, 검수자가 명시적으로 되돌리는
    **재검수 지정**(`approved` → `pending`, 아래 제목 경고 대응). **배치는 어느 쪽도 하지 않는다** —
-   없앤 것은 "자동 강등"이지 사람의 판단이 아니다. UPSERT는 이렇게 끝난다.
+   없앤 것은 "자동 강등"이지 사람의 판단이 아니다.
+
+   > **이 두 줄이 전이 집합의 단일 진실이다.** PRD·AC·rules는 전이를 다시 열거하지 말고 여기를
+   > 가리킨다 — 같은 집합을 네 문서가 산문으로 중복 기술하다 전이를 하나 추가할 때마다 어딘가
+   > 빠뜨리는 일이 실제로 반복됐다.
+
+   UPSERT는 이렇게 끝난다.
 
    ```sql
    INSERT INTO source_record (...) VALUES (...)
