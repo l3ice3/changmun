@@ -1,6 +1,6 @@
 # testing.md — 테스트 규칙 (무엇을·어디까지·어떻게)
 
-> **무엇을, 어디까지, 어떻게 테스트할지**에 대한 약속. 설계(`.claude/rules/rules-core.md`·`rules-full.md` §9)·저장 경계(`persistence.md`)·계약(`docs/api-spec.md`·`docs/data-model.md`)과 함께 읽는다.
+> **무엇을, 어디까지, 어떻게 테스트할지의 단일 진실.** 설계(`.claude/rules/rules-core.md`)·저장 경계(`persistence.md`)·계약(`docs/api-spec.md`·`docs/data-model.md`)과 함께 읽는다.
 > 검증 전략의 **단일 진실은 `docs/AC.md`**다(자동 vs 수동, 앱별 범위). 이 문서는 그 위에 "어떻게 좋은 테스트를 쓰는가"를 얹는다.
 > "지향"은 이 문서가, "강제"는 `.claude/hooks/`와 CI(`static-analysis.yml`)가 맡는다.
 
@@ -9,10 +9,10 @@
 | 앱 | 방식 | 도구 | 근거 |
 |---|---|---|---|
 | `apps/ingest` (수집·정규화·dedup·페르소나) | **자동 필수** | pytest. fixture는 **실제 API 응답 표본** 사용 | `.claude/rules/ingest.md`, AC-001~010 |
-| `apps/api` (읽기 전용 서빙) | **자동 필수 — 슬라이스 테스트** | Spring Boot Test 슬라이스 + JUnit 5 + AssertJ | AC-011~021·023 |
+| `apps/api` (읽기 전용 서빙) | **자동 필수** | JUnit 5 + AssertJ. 산식·도메인=단위, Repository·API 흐름=**Testcontainers 실 PostgreSQL** | AC-011~021·023 |
 | `apps/web` (Next.js) | **수동 절차** (AC에 명시된 절차) | E2E 자동화는 **Phase 2** — MVP에선 만들지 않음 | `.claude/rules/web.md`, AC.md |
 
-> ⚠️ 창문 api는 MVP에서 **슬라이스 테스트로 확정**이다(Testcontainers 통합을 의무화하지 않는다). 아래 단위/통합/실DB 판단틀은 "왜·어떻게 고르는가"의 사고 도구이며, 창문의 확정 전략을 덮어쓰지 않는다.
+> api는 실 PostgreSQL 통합이 기본이다(현재 13개 테스트 클래스). H2로 흉내내지 않는다 — `pg_trgm`·JSONB·배열 연산이 거짓 통과를 만든다(`.claude/rules/api.md §테스트`). CI에서도 Docker가 필요하다.
 
 ## 1. 테스트의 목적 — 회귀 보호
 
@@ -46,7 +46,7 @@
 |---|---|---|
 | 단위 | JVM/프로세스 안에서 닫히는 순수 로직(산식·상태 전이·점수 계산) | api: status/dDay/closingSoon/badges 산식, ingest: dedup 스코어·enum 정규화 |
 | 슬라이스·통합 | 외부 의존(Spring·DB·HTTP)이 동작의 일부 | api: 컨트롤러/리포지토리 슬라이스, ingest: UPSERT 멱등 |
-| E2E | 사용자 시나리오 전체 | **api MVP 제외**(슬라이스로 충분), web=수동, 전체 E2E 자동화=Phase 2 |
+| E2E | 사용자 시나리오 전체 | web=수동, 전체 E2E 자동화=Phase 2 |
 
 **수준을 정하는 순서:** ① 외부 의존 없이 표현 가능한가? → 단위 / ② 외부 의존과의 결합 자체가 동작인가? → 슬라이스·통합 / ③ 시나리오 전체 보호가 목적인가? → E2E.
 
@@ -79,28 +79,11 @@
 - 메서드가 2개 이상의 로직을 품어 테스트가 엉키면, 각 로직을 분리하고 각각 테스트한다.
 - given이 길어지면 헬퍼/픽스처로 정리한다.
 
-## 7. 창문에서 반드시 테스트할 정책 (있으면 좋은 게 아니라 필수)
+## 7. 반드시 테스트할 정책
 
-계약·AC에서 합의된 핵심 규칙. 대부분 단위/슬라이스로 가능.
+**→ `AC.md`가 목록의 단일 진실이다.** 여기에 AC 번호를 복사해두면 AC가 바뀔 때 조용히 갈라진다 — 작업 중인 FR의 AC를 직접 읽어라.
 
-**ingest (자동 필수)**
-- **멱등성** — 재실행해도 행 수 불변, `updated_at`만 갱신, `first_seen_at` 불변 (AC-002).
-- **소스 장애 격리** — 한 소스 실패가 다른 소스 수집을 막지 않는다 (AC-004). 레코드 단위 오류는 스킵+로그 (AC-003).
-- **미지 enum → '기타'** + 원본 로그. 새 값에 crash 금지 (AC-005).
-- **dedup 경계** — 임계 0.85. 경계 케이스는 **합치지 않는다(오합치 > 놓침)** (AC-008). 0.85 상수 분리 확인.
-- **페르소나 보수성** — 확실한 패턴만, 못 잡으면 `target_*` NULL(=조건 미상) (AC-009). 억지 채움 없음.
-
-**api (자동 필수 — 슬라이스/단위)**
-- **status/dDay 산식** — `ALWAYS_OPEN`/`OPEN`/`CLOSED`/`UNDATED` 4분기와 `dDay`, `closingSoon(dDay≤7)`. 산식의 단일 정의는 `api-spec.md §0` (AC-013).
-- **노출 범위** — 리스트·검색은 `is_canonical=true`만. `ids=` 조회만 예외(강등돼도 유지) (AC-024).
-- **입력 검증** — `q` 최소 2글자→400 (AC-020), 잘못된 enum→400 `INVALID_PARAM` (AC-014), 범위 초과 page→200+빈 items (AC-014).
-- **`ids=` 조회** — 요청 순서대로 반환, 없는 id는 누락(에러 아님) (AC-023).
-- **파라미터 바인딩** — 모든 사용자 입력은 바인딩, 문자열 조립 쿼리 금지 (AC-021).
-- **events** — payload 화이트리스트 외 키→400, 202 응답, PII 필드 부재 (AC-027).
-
-**web (수동 절차 — AC에 명시)**
-- 카피 가드레일 — 금지 문구 **"받을 수 있"** 부재 (AC-015, grep 검증).
-- 서버 계산값 렌더만 — 날짜 연산 코드가 프론트에 없음 (AC-013).
+판단 기준만: **계약(api-spec·data-model)이나 절대규칙이 걸린 동작은 예외 없이 자동 테스트를 붙인다.** 산식(status·dDay·closingSoon), 멱등성(UPSERT), 노출 범위(`is_canonical`), 입력 검증·바인딩, PII 부재가 여기 해당한다. "있으면 좋은 것"이 아니라 필수다.
 
 ## 8. 명세 준수 테스트
 

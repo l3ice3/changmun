@@ -9,7 +9,7 @@
 | 계층 | 무엇 | 어디 |
 |---|---|---|
 | **지향** (판단용) | 코딩·테스트·저장·git·용어 규칙 | `docs/rules/` · `CLAUDE.md` · `AGENTS.md` |
-| **셀 수 있는 강제** (하드 게이트) | Checkstyle·PMD·ArchUnit — PR 빨간불=머지 불가 | `.github/workflows/static-analysis.yml` |
+| **셀 수 있는 강제** (하드 게이트) | api: Spotless·Checkstyle·PMD·ArchUnit / ingest: ruff·mypy·pytest(실DB) / web: eslint·tsc — PR 빨간불=머지 불가 | `.github/workflows/static-analysis.yml` (3-job) |
 | **로컬 에이전트 강제** (보조선) | 아래 hook — 에이전트 작업 중 즉시 차단/피드백 | `.claude/settings.json` + 이 폴더 |
 
 세 계층을 **물리적으로 분리**해야 둘 다 무뎌지지 않는다. hook은 CI를 대체하지 않는다 — CI가 본 게이트다.
@@ -29,12 +29,7 @@
 - 기본 활성: `.claude/settings.json`이 커밋되어 팀 전원의 에이전트가 동일 hook을 공유한다.
 - 일시 비활성: 본인 `.claude/settings.local.json`에서 덮어쓰거나 `command`를 `true`로 둔다.
 
-## 같이 둘 것 (사람 작업 — `manual-required`)
-
-hook은 **로컬**만 막는다. 원격에서 실제로 머지를 막으려면:
-
-- GitHub **branch protection**에서 `static-analysis` job을 *required check*로 지정(`docs/rules/README.md` 도입 체크리스트).
-- `main` 직접 push 금지를 원격에서도 건다(로컬 hook + 원격 보호 = 이중).
+> hook은 **로컬**만 막는다. 원격 차단은 ruleset `protect-main`이 맡는다 — main 직접 push 금지 + required check 3개(`static-analysis`·`ingest-check`·`web-check`). 로컬 hook + 원격 보호 = 이중.
 
 ## 의도적으로 안 거는 것
 
