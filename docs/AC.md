@@ -526,6 +526,7 @@ And:   (B)의 pending 형제에만 식별 가능한 금액·페르소나(예: ma
 - [ ] 자동: 리포지토리 슬라이스(Testcontainers) + E2E(MockMvc) — (A)로 다섯 경로 각각(stats는 집계 3종 전부)
 - [ ] 자동: 동 — (B) 단일 opportunity fixture로 상세 응답의 `otherSources` 중첩 검증(`is_publishable` 조건 제거 시 실패해야)
 - [ ] 자동: 병합 배치 실DB 통합 — **상속 오염 검증**: pending 형제의 표식 금액(777원)·페르소나가 병합 결과에 없음. 상속 입력에서 `is_publishable` 필터를 빼면 실패해야 한다
+- [ ] 자동: 동 — **수동 태그 잔존 검증**: 공공 + 승인 민간이 한 그룹이고 민간 검수 때 `manual_*`를 매긴 상태에서 그 민간 멤버를 **재검수 지정**하면, 공공 멤버로 계속 노출되는 공고의 `targetStartupStage`·`targetAudienceType`에 그 태그가 **남지 않는지**(§2-C 불변식 6). `manual_*`는 노출 자격과 무관하게 합쳐지므로 **상속 donor 제한으로는 안 걸리는 별개 경로**다 — 위 항목의 `source_record.target_*` 표식으로는 잡히지 않는다
 - [ ] 자동: 병합 배치 실DB 통합 — **불변식 1·2 검사**: `is_visible = true` ⇔ `is_publishable` 멤버 ≥ 1, 그리고 **`is_visible = true`인 행에 한해** `representative_record_id`가 `is_publishable` 멤버를 가리킨다. 멤버가 전부 pending·rejected인 그룹은 노출 가능 멤버가 아예 없으므로 대표는 아무 멤버나 두고 `is_visible=false`로 숨는다(§2-C 불변식 2 — 대표 컬럼이 `NOT NULL`이라 비워 둘 수 없다). v2는 서빙 조건이 한 단어라 **누락의 위험이 서빙 쿼리에서 병합 배치로 옮겨간다** — 게이트를 진짜로 지키는 곳이 여기다
 - [ ] **회귀 방지 확인**: 서빙 쿼리에서 `WHERE is_visible`을 빼면 (A) 테스트가, `AND r.is_publishable`을 빼면 (B) 테스트가 **각각 실패해야** 한다. 통과한다면 fixture가 다른 조건에 우연히 기대고 있는 것이므로 fixture를 고친다(이 AC의 v1판이 `is_canonical`에 기대다 그 함정에 빠졌다)
 
@@ -613,7 +614,7 @@ And:   eligibility_detail(지원 대상·자격 문구)이 바뀌면
 **검증**
 - [ ] 자동: pytest 실DB 재수집 통합 — 마감일·제목·금액을 바꿔도 `review_status`가 전부 불변이고 내용만 갱신되는지. UPSERT의 `DO UPDATE SET` 목록에 `review_status`가 들어가면 실패해야 한다
 - [ ] 자동: 동 — 제목 전면 변경 시 리포트에 경고 항목이 남고 **배치는 상태를 바꾸지 않는지**
-- [ ] 자동: 검수 CLI 실DB 통합 — 재검수 지정이 `approved` → `pending`으로 되돌리고 **같은 트랜잭션의 재병합까지** 돌아 해당 공고가 서빙에서 빠지는지. 상태만 바꾸고 재병합을 빠뜨리면 `opportunity.is_visible`이 그대로라 공고가 계속 노출되므로 **이 테스트가 실패해야 한다**(§2-C 불변식 5)
+- [ ] 자동: 검수 CLI 실DB 통합 — 재검수 지정이 `approved` → `pending`으로 되돌리고 **같은 트랜잭션의 재병합·태그 무효화까지** 돌아 해당 공고가 서빙에서 빠지는지(그룹이면 AC-040의 수동 태그 잔존 검증과 짝). 상태만 바꾸고 재병합을 빠뜨리면 `opportunity.is_visible`이 그대로라 공고가 계속 노출되므로 **이 테스트가 실패해야 한다**(§2-C 불변식 5)
 - [ ] 자동: 동 — `eligibility_detail`만 변경 → 상태 불변 + `manual_*`·`manual_tagged_at` 초기화 + 공고 계속 노출
 
 ---
