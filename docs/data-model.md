@@ -325,9 +325,13 @@ ALTER TABLE opportunity   ADD CONSTRAINT fk_opportunity_representative
 않으므로 전량 재수집이 아니라 이관이다.
 
 1. `source_registry` 생성 + 7종 seed.
-2. **`opportunity` → `source_record` RENAME** (id 그대로 승계) + 신규 컬럼 추가.
-   공공 3소스 기존 행은 `review_status = 'not_required'` · `requires_review = false` 백필.
-   `source` → `source_code` 컬럼명 변경.
+2. **`opportunity` → `source_record` RENAME** (id 그대로 승계) + `source` → `source_code`
+   컬럼명 변경. **신규 컬럼은 nullable로 넣고 채운 뒤에 조인다** — 순서가 강제된다:
+   ⑴ `requires_review`·`review_status`를 **nullable로 ADD**(둘 다 DEFAULT가 없으므로
+   `NOT NULL`로 바로 추가하면 **기존 29,874행 때문에 그 문장에서 실패**해 백필까지 가지도 못한다)
+   → ⑵ 공공 3소스 기존 행을 `review_status = 'not_required'` · `requires_review = false`로 백필
+   → ⑶ `SET NOT NULL` → ⑷ CHECK·복합 FK 추가(§2-B).
+   운영 스키마의 최종 모양은 §2-B와 같고, **거기 도달하는 순서만 이렇다.**
 3. **구 이름 정리 — 3단계보다 반드시 먼저.** `ALTER TABLE ... RENAME`은 **인덱스와 제약 이름을
    따라 바꾸지 않는다.** 그래서 RENAME 직후 `source_record`에는 `opportunity_pkey` ·
    `uq_opportunity_source` · `idx_opportunity_deadline` · `_category` · `_region` · `_stage` ·
@@ -737,12 +741,29 @@ END AS d_day
    `:expected_status`는 승인·반려면 `'pending'`, 재검수 지정이면 `'approved'`다. **판정마다 다른
    가드를 두지 않는다** — "내가 본 상태에서만 옮긴다"는 한 문장이 셋 다 덮는다.
 
-   **태깅 제출도 같은 가드를 받는다.** 큐 술어는 *조회 시점*에만 적용되므로, 작업자가 목록을 본
-   뒤 마지막 `approved` 멤버가 재검수 지정되면 **불변식 6이 비운 태그를 늦게 도착한 제출이 다시
+   **태깅 제출도 같은 모양이다.** 큐 술어는 *조회 시점*에만 적용되므로, 작업자가 목록을 본 뒤
+   마지막 `approved` 멤버가 재검수 지정되면 **불변식 6이 비운 태그를 늦게 도착한 제출이 다시
    기록한다** — 작업자는 아무것도 잘못하지 않았는데 `pending` 본문 기반 페르소나가 되살아난다.
-   그래서 태깅 UPDATE도 한 트랜잭션에서 ⑴ 그 실체에 **불변식 6이 요구하는 태그 근거가 아직
-   있는지**와 ⑵ 조회 때 본 `opportunity.updated_at`이 그대로인지를 다시 확인하고, 어긋나면
-   **기록하지 않고 "다시 확인하라"**고 알린다(AC-041).
+
+   ```sql
+   UPDATE opportunity
+      SET manual_target_startup_stage = :stage,
+          manual_target_audience_type = :audience,
+          manual_tagged_at = now(),
+          updated_at = now()            -- ← 성공한 태깅도 버전을 반드시 올린다
+    WHERE id = :id
+      AND updated_at = :seen_at         -- 조회 때 본 버전 그대로인가
+      AND EXISTS (SELECT 1 FROM source_record r    -- 불변식 6의 태그 근거가 아직 있는가
+                   WHERE r.opportunity_id = opportunity.id
+                     AND r.requires_review AND r.review_status = 'approved');
+   ```
+
+   0행이면 기록하지 않고 "다시 확인하라"고 알린다(AC-041).
+
+   **읽은 버전을 조건으로 걸고 성공 시 그 버전을 올린다** — 이 CAS 한 쌍이 판정과 태깅에 똑같이
+   적용된다. 대상 컬럼만 다르다(판정은 `source_record.updated_at`, 태깅은 `opportunity.updated_at`).
+   **올리는 쪽을 빠뜨리면 거는 쪽도 무의미하다**: 자동 갱신 트리거가 없어서(§2-B) 첫 제출이
+   버전을 안 올리면 같은 `seen_at`을 든 두 번째 제출도 통과해 **앞사람의 태그를 조용히 덮는다.**
 
    0행이 갱신되면 판정을 취소하고 "내용이 바뀌었거나 이미 판정됐다 — 다시 검수하라"고 알린다.
    **두 조건이 각각 다른 경합을 막는다**: `updated_at` 비교는 *수집 배치*와의, `review_status =
