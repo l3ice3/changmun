@@ -8,15 +8,10 @@
 
 1. **프로젝트 가드레일은 `CLAUDE.md`를 따른다** — 파일명과 무관하게 모든 AI·사람 공통 규칙이다.
    제1원칙(스펙이 모호하면 멈추고 질문, 추측 구현 금지) · 절대 규칙 10개 · 문서 맵 · 작업 흐름(FR 단위, AC 자가 판정).
-2. **Java(apps/api) 코딩 규칙은 구현 전에 반드시 참조한다**:
-   - 상시 규칙(원본): `.claude/rules/rules-core.md` (apps/api 작업 시 자동 로드 — Codex는 직접 열어 읽어라)
-   - 상세·이유(원칙): `docs/rules/rules-full.md` — 작업 종류별 해당 섹션만 발췌 참조 · 구체 코드 예시: `.claude/rules/api.md §코드 예시`
-   - 테스트 작성: `docs/rules/testing.md` · 저장/트랜잭션/멱등: `docs/rules/persistence.md`
-   - 커밋 전 `cd apps/api && ./gradlew check` (checkstyle+pmd+test) 통과 필수 — 실패 시 PR 머지 불가
-3. **앱별 상세 규칙**: `.claude/rules/ingest.md` · `.claude/rules/api.md` · `.claude/rules/web.md` (해당 앱 작업 시 필독)
-   - 협업 흐름: `docs/rules/git.md` (브랜치·커밋·PR·머지·이슈·라벨·AI 표기·Flyway 타임스탬프) · 식별자 표준어: `docs/rules/glossary-dev.md`
-   - 로컬 강제 hook: `.claude/hooks/README.md` (보호 브랜치 commit/push 차단 · 절대규칙 위반 피드백)
-4. 계약 문서가 단일 진실이다: 스키마=`docs/data-model.md`(LOCKED), API=`docs/api-spec.md`, 요구사항=`docs/PRD.md`, 완료 판정=`docs/AC.md`.
+2. **규칙 파일 라우팅은 `CLAUDE.md §코딩 규칙`의 표를 따른다.** 거기가 단일 진실이다 — 여기에 다시 나열하지 않는다.
+   - 앱 규칙(`.claude/rules/*.md`)은 Claude Code에서만 자동 로드된다. **Codex는 해당 앱 작업 전에 직접 열어 읽어라.**
+   - 커밋 전: api `./gradlew check` · ingest `ruff check . && mypy && pytest` · web `pnpm run check`. 실패 시 머지 불가.
+3. 계약 문서가 단일 진실이다: 스키마=`docs/data-model.md`(LOCKED), API=`docs/api-spec.md`, 요구사항=`docs/PRD.md`, 완료 판정=`docs/AC.md`.
 
 ---
 
@@ -85,9 +80,4 @@
 4. 프로젝트 특화 체크: `CLAUDE.md` 절대 규칙 위반(status 저장, raw 가공, is_canonical 누락, 필드명 임의 변경,
    "받을 수 있어요"류 카피, Out-of-Scope 기능 추가)이 diff에 보이면 **이것은 우선 지적 대상**이다.
 5. **너는 제안만 한다 — 절대 머지를 막지 마라.** 리뷰 마지막에 "이 리뷰는 제안이며 머지를 막지 않는다"를 명시하라.
-
-### 운영 원칙 (팀 참고)
-1. **하드 게이트(A)와 소프트 제안(B/C)을 분리**한다. 섞으면 둘 다 무뎌진다.
-2. 봇 지적의 **오탐률을 측정**한다. 특정 규칙의 오탐이 높으면 사람 전용으로 내리거나 경고로 완화한다.
-3. **위반 로그를 쌓는다.** 자주 어기는 규칙 = `.claude/rules/rules-core.md` 자동 로드 후보, 한 번도 안 어기는 규칙 = 상시본에서 제외 후보.
-4. **재현성·비용**: 모델을 고정하고 temperature를 낮춰 리뷰 편차를 줄인다. **diff-only**로 보고, 트리비얼 PR(docs·포맷·생성물)은 스킵해 비용·노이즈를 아낀다.
+6. **저장소 설정(ruleset·required check·secrets)은 diff에 없다.** 코드만 보고 "이 검사는 required가 아니다" 같은 단정을 내리지 마라 — 확인할 수 없는 것은 지적하지 않는다(규칙 2).

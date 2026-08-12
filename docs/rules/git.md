@@ -6,11 +6,13 @@
 > 가드레일·절대규칙은 `CLAUDE.md`가 상위. 이 문서는 git 흐름만 다룬다.
 
 ## 🚫 절대 규칙
-1. **`main`에 직접 커밋/푸시 금지.** 모든 변경은 브랜치 → PR.
-2. **사람 리뷰 승인 없이 머지 금지.** (Codex 클라우드 리뷰는 제안만 — 머지 못 막음)
-3. **CI 빨간불로 머지 금지.** = `static-analysis`(Checkstyle+PMD+Spotless+ArchUnit) + 빌드·테스트 초록이어야 함.
+1. **`main`에 직접 커밋/푸시 금지.** 모든 변경은 브랜치 → PR. (ruleset `protect-main`이 원격에서 강제)
+2. **머지 전 리뷰를 거친다.** Codex 클라우드 리뷰는 제안만 하므로 머지를 막지 못한다 — 사람이 본다.
+   - ⚠️ 현재 **승인 요구는 0**이다. 1인 개발 상황에서 GitHub가 본인 PR 자가 승인을 막아 main이 잠겼기 때문. **팀원이 늘면 1로 되돌린다.**
+3. **CI 빨간불로 머지 금지.** required check 3개 — `static-analysis`(api: Spotless+Checkstyle+PMD+ArchUnit+테스트) · `ingest-check`(ruff+mypy+pytest, 실 PostgreSQL) · `web-check`(eslint+tsc).
    - 커밋 전 `./gradlew spotlessApply`로 자동 포맷(또는 pre-commit 훅). 포맷은 손으로 맞추지 않는다.
-   - "배포 가능"의 정의 = 빌드 + `apps/api: ./gradlew check` + `apps/ingest: pytest` 통과. (커버리지 % 게이트는 두지 않는다)
+   - "배포 가능"의 정의 = 위 3개 초록. (커버리지 % 게이트는 두지 않는다)
+   - job id = required check 컨텍스트명이다. **바꾸면 그 검사가 영구 pending이 되고 bypass actor가 없어 main이 잠긴다.**
 4. **며칠짜리 거대 브랜치 금지.** 잘게 못 쪼갰다는 신호.
 5. **한 PR에 여러 앱/남의 영역을 섞지 않는다.** PR은 본인 작업 단위(FR/AC)로 작게.
 6. **계약 문서(PRD·AC·data-model·api-spec) 변경을 코드 PR에 슬쩍 섞지 않는다.** 특히 `data-model.md`는 **LOCKED(3인 합의)**.
@@ -65,11 +67,11 @@ chore: .gitattributes 줄바꿈 정책 추가
 ```
 
 ### 머지 전 체크리스트
-1. CI(static-analysis + 빌드 + 테스트)가 전부 초록인가?
+1. required check 3개가 전부 초록인가?
 2. 본인 앱/영역 + 합의된 공통만 건드렸는가?
 3. 새 마이그레이션이 기존 파일을 수정하지 않고 새 버전으로 추가됐는가?
 4. 새 의존성을 임의로 넣지 않았는가?
-5. 사람 리뷰 승인을 받았는가?
+5. 리뷰 지적을 처리했는가(수정 또는 소명)?
 
 ## 머지 방식
 - **Squash merge** 기본 (하루살이 브랜치의 잡 커밋을 하나로). 머지된 브랜치는 삭제.
@@ -85,28 +87,7 @@ chore: .gitattributes 줄바꿈 정책 추가
 3. 공통/계약 변경은 짧게 끝내고 빨리 머지해 남이 오래 기다리지 않게 한다.
 
 ## 이슈 컨벤션
-이슈는 각 작업의 추적 단위다. 브랜치·PR과 같은 형식으로 맞춰 추적을 쉽게 한다.
-
-### 제목 — `{타입}: 내용`
-```
-feat: 페르소나 필터 리스트 API 추가
-fix: dDay 상시모집 null 처리
-docs: AC FR-001 라이브 검증 결과 반영
-```
-타입 집합은 커밋·브랜치와 동일(`feat`·`fix`·`refactor`·`test`·`chore`·`docs`).
-
-### 본문 템플릿
-```markdown
-## Summary
-작업 요약 한두 줄.
-
-## TODO
-- [ ] 해야 할 일 1
-- [ ] 해야 할 일 2
-
-## 참고
-관련 FR/AC(`docs/`), PR, 기존 이슈 링크.
-```
+제목은 커밋과 같은 형식(`{타입}: 내용`), 타입 집합도 동일. 본문은 요약 한두 줄 + 남은 TODO + 관련 FR/AC·PR 링크.
 
 ### 라벨
 | 라벨 | 의미 |
@@ -127,5 +108,6 @@ AI가 짠 코드를 사람이 거르는 관문을 흐리지 않기 위해, **AI 
 1. **AI가 생성한 PR**은 제목에 `[AI]`를 포함하고 `ai-generated` 라벨을 붙인다.
    - 예: `feat: [AI] 찜 조회 ids 파라미터 순서 보존`
 2. AI가 **끝내지 못하고 사람 손이 남은** 작업은 `ai-follow-up` 라벨 + PR 본문에 남은 항목을 적는다.
-3. **사람만 해야 하는 작업**(API 키 발급, GitHub branch protection 지정, 운영 설정)은 `manual-required`로 분리한다 — AI가 추측해 건드리지 않는다(`CLAUDE.md` 제1원칙).
-4. AI도 사람과 **같은 PR 관문**을 통과한다: CI 초록 + 사람 리뷰 승인. AI라고 더 느슨하게 머지하지 않는다.
+3. **사람만 해야 하는 작업**(API 키 발급, 운영 설정)은 `manual-required`로 분리한다 — AI가 추측해 건드리지 않는다(`CLAUDE.md` 제1원칙).
+   - **ruleset/branch protection**: AI는 **명시적 지시가 있을 때만** 변경하고, PR 본문에 변경 전후를 적어 `manual-required`로 사람 확인을 받는다. 지시 없이 건드리지 않는다.
+4. AI도 사람과 **같은 PR 관문**을 통과한다: required check 3개 초록 + 리뷰 지적 처리. AI라고 더 느슨하게 머지하지 않는다.

@@ -138,7 +138,48 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, Long> 
                              Pageable pageable);
 }
 ```
-> 예외 처리(`ProblemDetail` + `code` 확장)의 정답 형태는 `docs/rules/rules-full.md §8` 코드 블록을 따른다.
+### 5) 에러는 전역 advice 한 곳에서 `ProblemDetail`로
+직접 에러 JSON을 조립하지 않는다. `code` 확장 필드로 프론트가 분기한다(api-spec §0). 로그는 **예측 못한 500만 advice 안에서**, 예측 가능했던 예외는 발생 위치에서 찍는다.
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String SERVER_ERROR_MESSAGE = "서버 내부에서 문제가 발생했습니다.";
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException exception,
+                                                                  HttpHeaders headers,
+                                                                  HttpStatusCode status,
+                                                                  WebRequest request) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, "입력값이 올바르지 않습니다.");
+        problemDetail.setProperty("code", "INVALID_PARAM");
+        problemDetail.setProperty("errors", exception.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> new ValidationError(error.getField(), error.getDefaultMessage()))
+                .toList());
+        return handleExceptionInternal(exception, problemDetail, headers, status, request);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException exception) {
+        return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", exception.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleAllUncaughtException(Exception exception) {
+        log.error("Unexpected exception occurred", exception);   // 예측 못한 500만 여기서
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL", SERVER_ERROR_MESSAGE);
+    }
+
+    private ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String detail) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+        body.setProperty("code", code);
+        return ResponseEntity.status(status).body(body);
+    }
+}
+```
 
 ## Spring / JPA 세부
 - **생성자 주입 + `final`.** `@Autowired` 필드 주입 금지. Lombok은 **제한적 허용**: `@RequiredArgsConstructor`·`@Slf4j`·`@Getter`만. `@Data`·엔티티 전체 `@Setter` 금지(무분별 setter·getter 노출은 Tell-Don't-Ask 위배 — `rules-core.md`).

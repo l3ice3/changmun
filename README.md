@@ -16,7 +16,7 @@
 | `docs/api-spec.md` | API 5 엔드포인트 계약 |
 | `CLAUDE.md` | Claude Code용 가드레일 + Java 코딩 규칙 core |
 | `.claude/rules/` | 앱별 상세 규칙 (ingest/api/web) |
-| `docs/rules/` | 코딩 규칙 시스템 (core/full/review-bot — 체계는 `docs/rules/README.md`) |
+| `docs/rules/` | 참조 라이브러리 — 코딩 원칙(full)·테스트·저장·git·용어. 라우팅은 `CLAUDE.md §코딩 규칙` |
 | `apps/api/config/` | Checkstyle·PMD 설정 — `build.gradle.kts`의 check 태스크에 연결 (A그룹 자동 차단) |
 | `apps/api/src/test/.../ArchitectureTest.java` | ArchUnit 계층 의존 검사 (`com.changmun` 기준) |
 | `.github/workflows/` | static-analysis(하드 게이트). 소프트 리뷰는 Codex 클라우드(워크플로 아님) |
