@@ -1,19 +1,24 @@
 name: Static Analysis (Hard Gate)
 
-# A그룹 자동 차단. 실패하면 PR 머지 불가.
-# 근거: AGENTS.md §2 리뷰 분담 A그룹
-# 모노레포: Gradle 프로젝트는 apps/api — 해당 경로 변경 시에만 실행
+# 셀 수 있는 규칙의 자동 차단. 실패하면 PR 머지 불가.
+# 근거: docs/rules/review.md A그룹 (LLM 리뷰는 B/C만 — 중복 지적 금지)
+#
+# ⚠️ paths 필터를 두지 않는다.
+#    required status check는 "돌지 않으면 존재하지 않는다" — 예전에 이 워크플로가
+#    paths: apps/api/** 로 필터돼 있어서, api를 안 건드리는 PR(docs·web·ingest)에는
+#    required check가 아예 리포트되지 않았고 그대로 머지됐다(#77이 실제 사례).
+#    앱별 스킵이 필요해지면 필터 대신 job 내부 조기 종료로 처리한다.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'apps/api/**'
-      - '.github/workflows/static-analysis.yml'
 
 jobs:
+  # job id를 바꾸지 마라 — ruleset(protect-main)의 required status check 컨텍스트명이다.
   static-analysis:
+    name: static-analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/api
@@ -25,39 +30,106 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: gradle
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      # Checkstyle + PMD + ArchUnit(test 안의 ArchitectureTest) 한 번에 실행
-      # 위반/실패 시 0이 아닌 종료코드 → 이 job 실패 → PR 빨간불
-      - name: Run Checkstyle
-        run: ./gradlew checkstyleMain --no-daemon
+      # Spotless(포맷) + Checkstyle + PMD + ArchUnit·단위 테스트.
+      # spotlessCheck는 지금까지 CI에서 한 번도 돌지 않았다 — git.md 절대규칙 3과
+      # build.gradle.kts 주석은 "실패 시 머지 불가"라고 적어놨지만 워크플로가
+      # checkstyleMain·pmdMain·test만 호출해 spotless가 빠져 있었다.
+      - name: Run Spotless / Checkstyle / PMD / Tests
+        run: ./gradlew spotlessCheck checkstyleMain pmdMain test --no-daemon
 
-      - name: Run PMD
-        run: ./gradlew pmdMain --no-daemon
-
-      - name: Run Architecture & Unit Tests
-        run: ./gradlew test --no-daemon
-
-      # 리포트를 아티팩트로 업로드 (실패해도 결과 확인 가능)
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: analysis-reports
+          name: api-reports
           path: |
             apps/api/build/reports/checkstyle/
             apps/api/build/reports/pmd/
             apps/api/build/reports/tests/
           retention-days: 7
 
+  ingest-check:
+    name: ingest-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ingest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      # ruff = 스타일·버그 패턴 / mypy = 타입 / pytest = 행위
+      - name: Ruff
+        run: poetry run ruff check .
+
+      - name: Mypy
+        run: poetry run mypy
+
+      # DB 통합 테스트는 PostgreSQL이 없으면 skip된다(tests/conftest.py connect_timeout).
+      - name: Pytest
+        run: poetry run pytest -q
+
+  web-check:
+    name: web-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # eslint = 카피 가드레일(AC-015) 포함 / tsc = 타입
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+  notify:
+    name: notify
+    runs-on: ubuntu-latest
+    needs: [static-analysis, ingest-check, web-check]
+    if: always()
+    steps:
       - name: Discord 알림
-        if: always()
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          API: ${{ needs.static-analysis.result }}
+          INGEST: ${{ needs.ingest-check.result }}
+          WEB: ${{ needs.web-check.result }}
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "$API" = "success" ] && [ "$INGEST" = "success" ] && [ "$WEB" = "success" ]; then
             STATUS="✅ 성공"; COLOR=3066993
           else
             STATUS="❌ 실패"; COLOR=15158332
@@ -69,8 +141,10 @@ jobs:
               "title": "정적분석 $STATUS",
               "color": $COLOR,
               "fields": [
-                { "name": "워크플로", "value": "${{ github.workflow }}", "inline": true },
-                { "name": "브랜치", "value": "${{ github.ref_name }}", "inline": true }
+                { "name": "api", "value": "$API", "inline": true },
+                { "name": "ingest", "value": "$INGEST", "inline": true },
+                { "name": "web", "value": "$WEB", "inline": true },
+                { "name": "브랜치", "value": "${{ github.ref_name }}", "inline": false }
               ],
               "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }]
